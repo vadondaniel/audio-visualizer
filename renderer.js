@@ -99,33 +99,85 @@ function updateBeat(bass) {
 
 // ---------- particle system (used by 'particles' mode) ----------
 const particles = [];
+let previousFrameTime = 0;
+let trailAge = 0;
+let pendingErase = 0;
+// Only apply the destination-out erase once at least one 60Hz-frame's worth
+// of real time has accumulated. This guarantees remainingAlpha <= 0.49 per
+// erase, which keeps it on the correct side of 8-bit alpha rounding (canvas
+// pixels only have 256 alpha levels) so a pixel at the minimum nonzero alpha
+// always rounds down to 0 on the next erase instead of rounding back up to
+// itself forever. Without this, high-refresh displays (120/144/240Hz) apply
+// erases too small per frame and trails never fully disappear.
+const MIN_ERASE_INTERVAL_MS = 1000 / 60;
+// Now just a safety net for float drift, not the primary cleanup mechanism,
+// so it can be long enough to never be visible as a pop.
+const TRAIL_TIMEOUT_MS = 15000;
 function spawnParticles(n, energy) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
+  const energyRatio = Math.min(1, energy / 255);
   for (let i = 0; i < n; i++) {
     const angle = Math.random() * Math.PI * 2;
-    const speed = 2 + Math.random() * 6 * (energy / 255);
+    // Give every particle a noticeably different launch speed. Stronger bass
+    // raises the whole speed range while randomness keeps bursts organic.
+    const speed = (1.4 + Math.random() * 5.6) * (0.7 + energyRatio * 1.7);
     particles.push({
       x: cx,
       y: cy,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1,
-      decay: 0.006 + Math.random() * 0.012,
-      size: 1.5 + Math.random() * 3,
+      decay: 0.007 + Math.random() * 0.014,
+      drag: 0.975 + Math.random() * 0.02,
+      size: 1.5 + Math.random() * 3.5,
+      twinkle: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.08 + Math.random() * 0.16,
       hueOffset: Math.random(),
     });
   }
 }
 
 // ---------- draw modes ----------
-function clearFrame() {
-  // Use 'destination-out' to fade pixels to transparent instead of drawing black over them.
-  // This allows the CSS background to remain visible underneath the canvas.
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.fillStyle = "rgba(0,0,0,0.28)";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.globalCompositeOperation = "source-over"; // Reset for normal drawing
+function clearFrame(timestamp = performance.now()) {
+  if (previousFrameTime === 0) previousFrameTime = timestamp;
+  const elapsed = Math.min(100, Math.max(0, timestamp - previousFrameTime));
+  previousFrameTime = timestamp;
+  trailAge += elapsed;
+  pendingErase += elapsed;
+
+  // Only composite the erase once enough real time has built up (see
+  // MIN_ERASE_INTERVAL_MS comment above). New shapes still get drawn every
+  // rAF tick elsewhere in the loop; only the fade step is throttled.
+  if (pendingErase >= MIN_ERASE_INTERVAL_MS) {
+    // Calculate fade from elapsed time rather than frame count. This keeps
+    // the trail duration consistent on 60 Hz, 144 Hz, and variable-refresh
+    // displays.
+    const frameEquivalent = pendingErase / (1000 / 60);
+    const remainingAlpha = Math.pow(0.49, frameEquivalent);
+    pendingErase = 0;
+
+    // Fade to transparent so the visualizer keeps a short-lived trail over
+    // the CSS background. At a nominal 60 FPS this removes 51%; the time
+    // adjustment above prevents high refresh rates from making trails
+    // vanish too quickly (or, pre-batching, from getting stuck above the
+    // rounding threshold and never vanishing at all).
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = `rgba(0, 0, 0, ${1 - remainingAlpha})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
+  }
+
+  // Safety net only: with batching guaranteeing remainingAlpha <= 0.49,
+  // trails now reach true zero alpha on their own. This just catches any
+  // pathological float drift.
+  if (trailAge >= TRAIL_TIMEOUT_MS) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    trailAge = 0;
+  }
 }
 
 function drawBars() {
@@ -230,8 +282,9 @@ function drawParticles(bass, treble) {
     const p = particles[i];
     p.x += p.vx;
     p.y += p.vy;
-    p.vx *= 0.99;
-    p.vy *= 0.99;
+    p.vx *= p.drag;
+    p.vy *= p.drag;
+    p.twinkle += p.twinkleSpeed;
     p.life -= p.decay;
     if (p.life <= 0) {
       particles.splice(i, 1);
@@ -239,9 +292,10 @@ function drawParticles(bass, treble) {
     }
 
     const hue = currentHue(p.hueOffset);
+    const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
     ctx.beginPath();
     ctx.arc(p.x, p.y, p.size * p.life * 2, 0, Math.PI * 2);
-    ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${p.life})`;
+    ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${p.life * shimmer})`;
     ctx.shadowBlur = 8;
     ctx.shadowColor = ctx.fillStyle;
     ctx.fill();
@@ -290,7 +344,7 @@ function drawKaleidoscope() {
 }
 
 // ---------- main loop ----------
-function loop() {
+function loop(timestamp) {
   requestAnimationFrame(loop);
   if (!analyser) return;
 
@@ -306,7 +360,7 @@ function loop() {
     state.hueShift = (state.hueShift + 0.3 + mid * 0.01) % 360;
   }
 
-  clearFrame();
+  clearFrame(timestamp);
   switch (MODES[state.mode]) {
     case "bars":
       drawBars();
