@@ -477,87 +477,116 @@ function drawParticles(bass, bassLevel, trebleLevel) {
 }
 
 let kaleidoRotation = 0;
-const smoothedKaleido = new Array(14).fill(0);
+const KALEIDO_BARS = 28;
+const smoothedKaleido = new Array(KALEIDO_BARS).fill(0);
+let kaleidoFlash = 0;
+
+// Precompute log-spaced band edges once — avoids recalculating Math.pow
+// per frame. Each bar covers a proportionally wider slice of the higher,
+// naturally-quieter frequencies instead of linear index spacing.
+const KALEIDO_BAND_EDGES = (() => {
+  const edges = [];
+  const minFrac = 0.006; // skip the very first couple of bins (huge DC/sub-bass)
+  const maxFrac = 0.5;
+  for (let i = 0; i <= KALEIDO_BARS; i++) {
+    const t = i / KALEIDO_BARS;
+    edges.push(minFrac * Math.pow(maxFrac / minFrac, t));
+  }
+  return edges;
+})();
 
 function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
-  const maxR = Math.min(canvas.width, canvas.height) * 0.48;
-  const shapeCount = 14;
+  const maxR = Math.min(canvas.width, canvas.height) * 0.46;
 
-  // Continuous drift independent of the hue cycle — this is what makes it
-  // feel alive even during quiet passages, not just audio-reactive.
-  kaleidoRotation += 0.0015 + trebleLevel * 0.004 + beatPulse * 0.01;
+  kaleidoRotation += 0.0012 + trebleLevel * 0.003 + beatPulse * 0.006;
+  kaleidoFlash = Math.max(0, kaleidoFlash - 0.12);
+  if (beatPulse > 0.75) kaleidoFlash = 1;
 
   for (let s = 0; s < segments; s++) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(s * segAngle + kaleidoRotation);
-    if (s % 2 === 1) ctx.scale(1, -1); // true mirror, alternating facets
+    const mirrored = s % 2 === 1;
 
-    // Clip to this wedge so shapes crop cleanly at the mirror-box edge
-    // instead of freely overlapping into neighboring segments.
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, maxR, 0, segAngle);
     ctx.closePath();
     ctx.clip();
 
-    for (let i = 0; i < shapeCount; i++) {
-      const idx = Math.floor((i / shapeCount) * bufferLength * 0.5);
-      const targetV = Math.pow(freqData[idx] / 255, 0.8);
+    for (let i = 0; i < KALEIDO_BARS; i++) {
+      const raw = bandAverage(
+        freqData,
+        KALEIDO_BAND_EDGES[i],
+        KALEIDO_BAND_EDGES[i + 1],
+      );
+      const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
+      const targetV = Math.min(1, Math.pow((raw / 255) * tilt, 0.7));
 
       if (targetV >= smoothedKaleido[i]) {
         smoothedKaleido[i] = targetV;
       } else {
-        smoothedKaleido[i] += (targetV - smoothedKaleido[i]) * 0.15;
+        smoothedKaleido[i] += (targetV - smoothedKaleido[i]) * 0.22;
       }
       const v = smoothedKaleido[i];
-      if (v < 0.05) continue;
+      if (v < 0.03) continue;
 
-      // Slightly overshoot the wedge angle — the clip crops the excess,
-      // which is what gives the shard/mirror-facet look at the seams.
-      const a = (i / shapeCount) * segAngle * 1.4;
-      const r = 20 + (i / shapeCount) * maxR * (0.7 + bassLevel * 0.3);
-      const size = 4 + v * 34 * (0.7 + midLevel * 0.5);
-      const hue = currentHue(i / shapeCount + s / segments);
-      const x = Math.cos(a) * r;
-      const y = Math.sin(a) * r;
+      const t = i / KALEIDO_BARS;
+      let aStart = t * segAngle;
+      let aEnd = (t + 0.92 / KALEIDO_BARS) * segAngle;
+
+      if (mirrored) {
+        const newStart = segAngle - aEnd;
+        const newEnd = segAngle - aStart;
+        aStart = newStart;
+        aEnd = newEnd;
+      }
+
+      const r =
+        18 +
+        v *
+          maxR *
+          (0.55 + midLevel * 0.25 + bassLevel * 0.2 + kaleidoFlash * 0.15);
+
+      // Hue keyed to raw bar index only — NOT to the mirrored angle. The
+      // shape mirroring above already makes bar i land in the mirrored
+      // spot; tying color to the same bar index means the shared edge
+      // between two wedges is always the same bar, hence the same color.
+      const hue = currentHue(t);
 
       ctx.beginPath();
-      ctx.arc(x, y, size, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${hue}, 90%, 60%, ${0.25 + v * 0.55})`;
-      ctx.shadowBlur = 12;
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, r, aStart, aEnd);
+      ctx.closePath();
+      ctx.fillStyle = `hsla(${hue}, 90%, ${55 + v * 15}%, ${0.35 + v * 0.55})`;
+      ctx.shadowBlur = 10;
       ctx.shadowColor = ctx.fillStyle;
       ctx.fill();
     }
     ctx.restore();
   }
 
-  // Rotating core mandala — bass-driven, spinning opposite the outer pattern
-  // for a subtle counter-rotation effect.
-  const coreR = maxR * 0.05 * (1 + bassLevel * 0.6 + beatPulse * 0.5);
-  const corePoints = 6;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(-kaleidoRotation * 1.5);
-  ctx.beginPath();
-  for (let i = 0; i <= corePoints; i++) {
-    const a = (i / corePoints) * Math.PI * 2;
-    const rr = i % 2 === 0 ? coreR : coreR * 0.55;
-    const x = Math.cos(a) * rr;
-    const y = Math.sin(a) * rr;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  if (kaleidoFlash > 0.02) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, maxR * (0.15 + (1 - kaleidoFlash) * 0.55), 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${currentHue(0)}, 90%, 70%, ${kaleidoFlash * 0.6})`;
+    ctx.lineWidth = 3 + kaleidoFlash * 4;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.stroke();
   }
-  ctx.closePath();
-  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 65%, 0.5)`;
+
+  const coreR = maxR * 0.035 * (1 + bassLevel * 0.7 + kaleidoFlash * 0.6);
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 65%, 0.6)`;
   ctx.shadowBlur = 16;
   ctx.shadowColor = ctx.fillStyle;
   ctx.fill();
-  ctx.restore();
 
   ctx.shadowBlur = 0;
 }
