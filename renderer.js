@@ -99,6 +99,10 @@ function bandAverage(data, loFrac, hiFrac) {
   return sum / Math.max(1, hi - lo);
 }
 
+function normalizeEnergy(value, floor = 20, range = 210) {
+  return Math.min(1, Math.max(0, (value - floor) / range));
+}
+
 function updateBeat(bass) {
   bassHistory.push(bass);
   if (bassHistory.length > BASS_HISTORY_LEN) bassHistory.shift();
@@ -174,7 +178,7 @@ function clearFrame(timestamp = performance.now()) {
   }
 }
 
-function drawBars() {
+function drawBars(bassLevel, midLevel, trebleLevel) {
   const barCount = 96;
   const step = Math.floor(bufferLength / barCount);
   const w = canvas.width / barCount;
@@ -182,7 +186,11 @@ function drawBars() {
 
   for (let i = 0; i < barCount; i++) {
     const v = Math.pow(freqData[i * step] / 255, 0.82);
-    const h = v * canvas.height * 0.6 * (1 + beatPulse * 0.15);
+    const h =
+      v *
+      canvas.height *
+      0.6 *
+      (0.82 + bassLevel * 0.2 + midLevel * 0.12 + beatPulse * 0.15);
     const hue = currentHue(i / barCount);
     ctx.fillStyle = `hsl(${hue}, 90%, ${50 + v * 20}%)`;
     ctx.shadowBlur = 14;
@@ -196,17 +204,23 @@ function drawBars() {
   ctx.shadowBlur = 0;
 }
 
-function drawRadial() {
+function drawRadial(bassLevel, midLevel, trebleLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const baseR =
-    Math.min(canvas.width, canvas.height) * 0.16 * (1 + beatPulse * 0.25);
+    Math.min(canvas.width, canvas.height) *
+    0.16 *
+    (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
 
   for (let i = 0; i < barCount; i++) {
     const idx = Math.floor((i / barCount) * bufferLength * 0.5);
     const v = Math.pow(freqData[idx] / 255, 0.82);
-    const len = v * Math.min(canvas.width, canvas.height) * 0.32;
+    const len =
+      v *
+      Math.min(canvas.width, canvas.height) *
+      0.32 *
+      (0.8 + midLevel * 0.25 + trebleLevel * 0.2);
     const angle = (i / barCount) * Math.PI * 2;
     const x1 = cx + Math.cos(angle) * baseR;
     const y1 = cy + Math.sin(angle) * baseR;
@@ -232,9 +246,9 @@ function drawRadial() {
   ctx.shadowBlur = 0;
 }
 
-function drawWaveform() {
+function drawWaveform(midLevel, trebleLevel) {
   const midY = canvas.height / 2;
-  ctx.lineWidth = 2.5 + beatPulse * 3;
+  ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
   const hue = currentHue(0);
   ctx.strokeStyle = `hsl(${hue}, 90%, 60%)`;
   ctx.shadowBlur = 16;
@@ -243,7 +257,9 @@ function drawWaveform() {
   const slice = canvas.width / bufferLength;
   for (let i = 0; i < bufferLength; i++) {
     // Multiply by 1.8 to amplify the visual height of the waveform
-    const v = ((timeData[i] - 128) / 128) * 1.8;
+    const v =
+      ((timeData[i] - 128) / 128) *
+      (1.35 + midLevel * 0.35 + trebleLevel * 0.2);
     const y = midY + v * canvas.height * 0.32;
     const x = i * slice;
     if (i === 0) ctx.moveTo(x, y);
@@ -253,15 +269,9 @@ function drawWaveform() {
   ctx.shadowBlur = 0;
 }
 
-function drawParticles(bass, treble) {
+function drawParticles(bass, bassLevel, trebleLevel) {
   // 1. Organic Variance: Spawn a steady, scaling stream based on bass intensity
-  const intensity = Math.min(
-    1,
-    Math.max(
-      0,
-      (bass - AUDIO_TUNING.particleFloor) / AUDIO_TUNING.particleRange,
-    ),
-  );
+  const intensity = bassLevel;
   if (intensity > 0.1 && Math.random() < intensity) {
     // Spawns 1 to 4 particles organically based on the volume
     spawnParticles(Math.ceil(intensity * 4), bass);
@@ -294,7 +304,13 @@ function drawParticles(bass, treble) {
     const hue = currentHue(p.hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * p.life * 2, 0, Math.PI * 2);
+    ctx.arc(
+      p.x,
+      p.y,
+      p.size * p.life * (1.5 + trebleLevel * 1.2),
+      0,
+      Math.PI * 2,
+    );
     ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${p.life * shimmer})`;
     ctx.shadowBlur = 8;
     ctx.shadowColor = ctx.fillStyle;
@@ -303,7 +319,7 @@ function drawParticles(bass, treble) {
   ctx.shadowBlur = 0;
 }
 
-function drawKaleidoscope() {
+function drawKaleidoscope(midLevel, trebleLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 10;
@@ -325,7 +341,7 @@ function drawKaleidoscope() {
         v *
           Math.min(canvas.width, canvas.height) *
           0.38 *
-          (1 + beatPulse * 0.4);
+          (0.85 + midLevel * 0.35 + trebleLevel * 0.2 + beatPulse * 0.4);
       const a = (i / barCount) * segAngle;
       const hue = currentHue(i / barCount + s / segments);
 
@@ -354,6 +370,13 @@ function loop(timestamp) {
   const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
   const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
   const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
+  const bassLevel = normalizeEnergy(
+    bass,
+    AUDIO_TUNING.particleFloor,
+    AUDIO_TUNING.particleRange,
+  );
+  const midLevel = normalizeEnergy(mid, 18, 180);
+  const trebleLevel = normalizeEnergy(treble, 14, 170);
   updateBeat(bass);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
@@ -363,19 +386,19 @@ function loop(timestamp) {
   clearFrame(timestamp);
   switch (MODES[state.mode]) {
     case "bars":
-      drawBars();
+      drawBars(bassLevel, midLevel, trebleLevel);
       break;
     case "radial":
-      drawRadial();
+      drawRadial(bassLevel, midLevel, trebleLevel);
       break;
     case "waveform":
-      drawWaveform();
+      drawWaveform(midLevel, trebleLevel);
       break;
     case "particles":
-      drawParticles(bass, treble);
+      drawParticles(bass, bassLevel, trebleLevel);
       break;
     case "kaleidoscope":
-      drawKaleidoscope();
+      drawKaleidoscope(midLevel, trebleLevel);
       break;
   }
 }
