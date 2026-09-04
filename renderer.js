@@ -42,19 +42,8 @@ const state = {
 };
 
 // ---------- settings persistence ----------
-// Everything the person can change from outside the audio itself —
-// background, and which visual/theme/auto-cycle they left it on —
-// is remembered here, so the app reopens the way they left it instead
-// of resetting to defaults every launch. One shared key, one shared
-// save/load pair, so adding another persisted setting later is a
-// one-line change instead of a new storage key + new plumbing.
 const SETTINGS_KEY = "audioVisualizerSettings";
 
-// The canvas clears each frame with destination-out compositing (see
-// clearFrame below), which erases canvas alpha rather than painting over
-// it — so whatever is set as the <body> CSS background shows straight
-// through. That means changing the background is just: update <body>'s
-// background-color / background-image and remember the choice.
 function applyBackground() {
   if (state.bgImageDataUrl) {
     document.body.style.backgroundImage = `url("${state.bgImageDataUrl}")`;
@@ -77,15 +66,10 @@ function saveSettings() {
       }),
     );
   } catch (e) {
-    // Large background images can exceed localStorage's quota. Everything
-    // still works for this session, it just won't be remembered next launch.
     console.warn("Could not save settings", e);
   }
 }
 
-// Starts/stops the auto-cycle interval AND updates state.autoCycle, so it
-// can be called both from the keyboard shortcut and when restoring a saved
-// "autoCycle: true" setting on launch without duplicating this logic.
 function setAutoCycle(enabled) {
   state.autoCycle = enabled;
   clearInterval(state.autoCycleTimer);
@@ -151,6 +135,8 @@ loadSettings();
 // ---------- audio ----------
 let analyser, freqData, timeData, bufferLength;
 
+let audioClockMs = 0;
+
 const BASS_HISTORY_MS = 1000;
 let bassHistory = [];
 
@@ -158,7 +144,6 @@ let beatCooldownMsLeft = 0;
 let sustainedCooldownMsLeft = 0;
 let beatPulse = 0;
 let beatJustHit = false;
-let previousBeatTime = 0;
 
 const AUDIO_TUNING = {
   beatRatio: 1.25,
@@ -184,7 +169,6 @@ async function initAudio() {
     );
   }
 
-  // We don't need the video frames at all, drop that track to save resources.
   stream.getVideoTracks().forEach((t) => t.stop());
 
   const audioStream = new MediaStream(audioTracks);
@@ -225,13 +209,14 @@ function normalizeEnergy(value, floor = 20, range = 210) {
   return Math.min(1, Math.max(0, (value - floor) / range));
 }
 
-function updateBeat(bass, timestamp = performance.now()) {
-  if (previousBeatTime === 0) previousBeatTime = timestamp;
-  const elapsedMs = Math.min(100, Math.max(0, timestamp - previousBeatTime));
-  previousBeatTime = timestamp;
+function updateBeat(bass, elapsedMs, dtSec) {
+  audioClockMs += elapsedMs;
 
-  bassHistory.push({ bass, t: timestamp });
-  while (bassHistory.length && timestamp - bassHistory[0].t > BASS_HISTORY_MS) {
+  bassHistory.push({ bass, t: audioClockMs });
+  while (
+    bassHistory.length &&
+    audioClockMs - bassHistory[0].t > BASS_HISTORY_MS
+  ) {
     bassHistory.shift();
   }
   const avg = bassHistory.reduce((a, e) => a + e.bass, 0) / bassHistory.length;
@@ -257,51 +242,18 @@ function updateBeat(bass, timestamp = performance.now()) {
     }
   }
 
-  const dtSec = elapsedMs / 1000;
   beatPulse *= Math.exp(-AUDIO_TUNING.pulseDecayPerSec * dtSec);
 }
 
 // ---------- particle system (used by 'particles' mode) ----------
 const particles = [];
-let previousFrameTime = 0;
 let trailAge = 0;
-// Now just a safety net for float drift, not the primary cleanup mechanism,
-// so it can be long enough to never be visible as a pop.
 const TRAIL_TIMEOUT_MS = 15000;
-function spawnParticles(n, energy) {
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
-  const energyRatio = Math.min(1, energy / 255);
-  for (let i = 0; i < n; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    // Give every particle a noticeably different launch speed. Stronger bass
-    // raises the whole speed range while randomness keeps bursts organic.
-    const speed = (1.4 + Math.random() * 5.6) * (0.7 + energyRatio * 1.7);
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1,
-      decay: 0.007 + Math.random() * 0.014,
-      drag: 0.975 + Math.random() * 0.02,
-      size: 1.5 + Math.random() * 3.5,
-      twinkle: Math.random() * Math.PI * 2,
-      twinkleSpeed: 0.08 + Math.random() * 0.16,
-      hueOffset: Math.random(),
-    });
-  }
-}
 
 // ---------- draw modes ----------
-function clearFrame(timestamp = performance.now()) {
-  if (previousFrameTime === 0) previousFrameTime = timestamp;
-  const elapsed = Math.min(100, Math.max(0, timestamp - previousFrameTime));
-  previousFrameTime = timestamp;
-  trailAge += elapsed;
-  // Fade every animation frame using elapsed time rather than batching. This
-  // keeps the trail continuous on 60 Hz, 144 Hz, and variable-refresh displays.
-  const frameEquivalent = elapsed / (1000 / 60);
+function clearFrame(elapsedMs) {
+  trailAge += elapsedMs;
+  const frameEquivalent = elapsedMs / (1000 / 60);
   const remainingAlpha = Math.pow(0.49, frameEquivalent);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -311,8 +263,6 @@ function clearFrame(timestamp = performance.now()) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.restore();
 
-  // Safety net only: the time-scaled fade handles normal cleanup, while this
-  // catches any pathological alpha drift that survives canvas quantization.
   if (trailAge >= TRAIL_TIMEOUT_MS) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     trailAge = 0;
@@ -321,13 +271,12 @@ function clearFrame(timestamp = performance.now()) {
 
 const smoothedBars = new Array(96).fill(0);
 
-function drawBars(bassLevel, midLevel, trebleLevel) {
+function drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent) {
   const barCount = 96;
-  // Map the bars across 69% of the analyser range so the quiet upper-
-  // frequency tail does not dominate the layout.
   const step = Math.max(1, Math.floor((bufferLength * 0.69) / barCount));
   const w = canvas.width / barCount;
   const baseY = canvas.height * 0.75;
+  const releaseRemaining = Math.pow(0.9, frameEquivalent);
 
   for (let i = 0; i < barCount; i++) {
     const targetV = Math.pow(freqData[i * step] / 255, 0.82);
@@ -335,7 +284,7 @@ function drawBars(bassLevel, midLevel, trebleLevel) {
     if (targetV >= smoothedBars[i]) {
       smoothedBars[i] = targetV;
     } else {
-      smoothedBars[i] += (targetV - smoothedBars[i]) * 0.1;
+      smoothedBars[i] += (targetV - smoothedBars[i]) * (1 - releaseRemaining);
     }
 
     const v = smoothedBars[i];
@@ -350,7 +299,6 @@ function drawBars(bassLevel, midLevel, trebleLevel) {
     ctx.shadowBlur = 14;
     ctx.shadowColor = ctx.fillStyle;
     ctx.fillRect(i * w, baseY - h, w * 0.8, h);
-    // mirrored reflection below
     ctx.globalAlpha = 0.25;
     ctx.fillRect(i * w, baseY, w * 0.8, h * 0.35);
     ctx.globalAlpha = 1;
@@ -360,7 +308,7 @@ function drawBars(bassLevel, midLevel, trebleLevel) {
 
 const smoothedRadial = new Array(180).fill(0);
 
-function drawRadial(bassLevel, midLevel, trebleLevel) {
+function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const baseR =
@@ -369,6 +317,7 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
     (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
   const halfCount = barCount / 2;
+  const releaseRemaining = Math.pow(0.85, frameEquivalent);
 
   ctx.lineCap = "round";
 
@@ -381,7 +330,8 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
     if (targetV >= smoothedRadial[i]) {
       smoothedRadial[i] = targetV;
     } else {
-      smoothedRadial[i] += (targetV - smoothedRadial[i]) * 0.15;
+      smoothedRadial[i] +=
+        (targetV - smoothedRadial[i]) * (1 - releaseRemaining);
     }
 
     const v = smoothedRadial[i];
@@ -407,7 +357,6 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
     ctx.stroke();
   }
 
-  // pulsing center circle
   ctx.beginPath();
   ctx.arc(cx, cy, baseR * 0.8, 0, Math.PI * 2);
   ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, 0.15)`;
@@ -420,16 +369,12 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
   ctx.lineCap = "butt";
 }
 
-const smoothedWave = new Float32Array(0); // resized lazily below
-
 function drawWaveform(bassLevel, midLevel, trebleLevel) {
   const midY = canvas.height / 2;
   ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
   ctx.lineJoin = "round";
   ctx.shadowBlur = 16;
 
-  // Build a gradient across the theme's hue range instead of one flat color,
-  // so Rainbow/Ice/etc. actually show as gradients here too.
   const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
   const stops = 6;
   for (let s = 0; s <= stops; s++) {
@@ -460,15 +405,10 @@ const PARTICLE_BANDS = [
 
 const bandSpawnAccum = [0, 0, 0];
 
-// Auto-gain: tracks the recent range of raw energy so particles use the
-// FULL visual range regardless of a given track's absolute loudness or
-// how compressed normalizeEnergy's fixed floor/range leaves it. Without
-// this, tracks that don't hit the hardcoded floor/range extremes look
-// artificially flat no matter what multiplier ranges you pick downstream.
 const ENERGY_HISTORY_LEN = 180; // ~3s at 60fps
 const energyHistory = [];
-let energyNow = 0; // fast-reacting, drives speed/size/alpha — snappy
-let energyTrend = 0; // slow-reacting, drives buildup/decay only
+let energyNow = 0;
+let energyTrend = 0;
 
 function spawnBandParticle(band, energyRatio) {
   const cx = canvas.width / 2;
@@ -515,22 +455,8 @@ function spawnBeatRing(bass) {
   }
 }
 
-let previousParticleFrameTime = 0;
-
-function drawParticles(
-  bass,
-  bassLevel,
-  midLevel,
-  trebleLevel,
-  timestamp = performance.now(),
-) {
-  if (previousParticleFrameTime === 0) previousParticleFrameTime = timestamp;
-  const elapsed = Math.min(
-    100,
-    Math.max(0, timestamp - previousParticleFrameTime),
-  );
-  previousParticleFrameTime = timestamp;
-  const dt = elapsed / (1000 / 60);
+function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
+  const dt = elapsedMs / (1000 / 60);
 
   const rawEnergy = bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2;
 
@@ -542,21 +468,11 @@ function drawParticles(
     if (e < histMin) histMin = e;
     if (e > histMax) histMax = e;
   }
-  // Guard against a near-silent/flat window collapsing the range to ~0,
-  // which would otherwise amplify noise into huge swings.
   const span = Math.max(0.08, histMax - histMin);
   const normalized = Math.min(1, Math.max(0, (rawEnergy - histMin) / span));
 
-  // Fast attack AND fast-ish release — this is the key change. The old
-  // single energyPulse used the same slow factor both ways, which is why
-  // it read as "almost constant." Speed/size need to visibly track loud
-  // vs quiet moment-to-moment, not ease into them.
   const fastFactor = normalized > energyNow ? 0.5 : 0.25;
   energyNow += (normalized - energyNow) * Math.min(1, fastFactor * dt);
-
-  // Trend still eases slowly — this is what gives the "buildup over a
-  // sustained loud section" feel for decay/density, kept separate so it
-  // doesn't also mute the fast per-hit response above.
   energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
   const levels = [bassLevel, midLevel, trebleLevel];
@@ -577,13 +493,12 @@ function drawParticles(
   }
 
   const decayScale = 1.7 - energyTrend * 1.1;
-  // Much wider swing than before (was 0.5–1.3): quiet moments visibly
-  // crawl, loud moments visibly rush.
   const speedScale = 0.3 + energyNow * 2.4;
 
   const overCap = particles.length - 1400;
   if (overCap > 0) {
-    for (let i = 0; i < overCap; i++) particles[i].life -= 0.05;
+    const trim = 0.05 * dt;
+    for (let i = 0; i < overCap; i++) particles[i].life -= trim;
   }
 
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -601,7 +516,6 @@ function drawParticles(
 
     const hue = currentHue(p.hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
-    // Much wider swing than before (was 0.75–1.65): 0.4–2.1.
     const r = p.size * p.life * (0.4 + energyNow * 1.7);
     const alpha = p.life * shimmer * (0.45 + energyNow * 0.8);
 
@@ -623,12 +537,9 @@ const KALEIDO_BARS = 28;
 const smoothedKaleido = new Array(KALEIDO_BARS).fill(0);
 let kaleidoFlash = 0;
 
-// Precompute log-spaced band edges once — avoids recalculating Math.pow
-// per frame. Each bar covers a proportionally wider slice of the higher,
-// naturally-quieter frequencies instead of linear index spacing.
 const KALEIDO_BAND_EDGES = (() => {
   const edges = [];
-  const minFrac = 0.006; // skip the very first couple of bins (huge DC/sub-bass)
+  const minFrac = 0.006;
   const maxFrac = 0.5;
   for (let i = 0; i <= KALEIDO_BARS; i++) {
     const t = i / KALEIDO_BARS;
@@ -637,16 +548,19 @@ const KALEIDO_BAND_EDGES = (() => {
   return edges;
 })();
 
-function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
+function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
   const maxR = Math.min(canvas.width, canvas.height) * 0.46;
 
-  kaleidoRotation += 0.0012 + trebleLevel * 0.003 + beatPulse * 0.006;
-  kaleidoFlash = Math.max(0, kaleidoFlash - 0.12);
+  kaleidoRotation +=
+    (0.0012 + trebleLevel * 0.003 + beatPulse * 0.006) * frameEquivalent;
+  kaleidoFlash = Math.max(0, kaleidoFlash - 0.12 * frameEquivalent);
   if (beatPulse > 0.75) kaleidoFlash = 1;
+
+  const releaseRemaining = Math.pow(0.78, frameEquivalent);
 
   for (let s = 0; s < segments; s++) {
     ctx.save();
@@ -672,7 +586,8 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
       if (targetV >= smoothedKaleido[i]) {
         smoothedKaleido[i] = targetV;
       } else {
-        smoothedKaleido[i] += (targetV - smoothedKaleido[i]) * 0.22;
+        smoothedKaleido[i] +=
+          (targetV - smoothedKaleido[i]) * (1 - releaseRemaining);
       }
       const v = smoothedKaleido[i];
       if (v < 0.03) continue;
@@ -694,10 +609,6 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
           maxR *
           (0.55 + midLevel * 0.25 + bassLevel * 0.2 + kaleidoFlash * 0.15);
 
-      // Hue keyed to raw bar index only — NOT to the mirrored angle. The
-      // shape mirroring above already makes bar i land in the mirrored
-      // spot; tying color to the same bar index means the shared edge
-      // between two wedges is always the same bar, hence the same color.
       const hue = currentHue(t);
 
       ctx.beginPath();
@@ -734,9 +645,17 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
 }
 
 // ---------- main loop ----------
-function loop(timestamp) {
+let lastFrameTime = 0;
+
+function loop(timestamp = performance.now()) {
   requestAnimationFrame(loop);
   if (!analyser) return;
+
+  if (lastFrameTime === 0) lastFrameTime = timestamp;
+  const elapsedMs = Math.min(100, Math.max(0, timestamp - lastFrameTime));
+  lastFrameTime = timestamp;
+  const frameEquivalent = elapsedMs / (1000 / 60);
+  const dtSec = elapsedMs / 1000;
 
   analyser.getByteFrequencyData(freqData);
   analyser.getByteTimeDomainData(timeData);
@@ -751,28 +670,29 @@ function loop(timestamp) {
   );
   const midLevel = normalizeEnergy(mid, 18, 180);
   const trebleLevel = normalizeEnergy(treble, 14, 170);
-  updateBeat(bass, timestamp);
+  updateBeat(bass, elapsedMs, dtSec);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
-    state.hueShift = (state.hueShift + 0.3 + mid * 0.01) % 360;
+    state.hueShift =
+      (state.hueShift + (0.3 + mid * 0.01) * frameEquivalent) % 360;
   }
 
-  clearFrame(timestamp);
+  clearFrame(elapsedMs);
   switch (MODES[state.mode]) {
     case "bars":
-      drawBars(bassLevel, midLevel, trebleLevel);
+      drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent);
       break;
     case "radial":
-      drawRadial(bassLevel, midLevel, trebleLevel);
+      drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent);
       break;
     case "waveform":
       drawWaveform(bassLevel, midLevel, trebleLevel);
       break;
     case "particles":
-      drawParticles(bass, bassLevel, midLevel, trebleLevel, timestamp);
+      drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs);
       break;
     case "kaleidoscope":
-      drawKaleidoscope(bassLevel, midLevel, trebleLevel);
+      drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent);
       break;
   }
 }
