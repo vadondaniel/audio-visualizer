@@ -394,53 +394,36 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
   ctx.lineCap = "butt";
 }
 
-function drawWaveform(midLevel, trebleLevel) {
+const smoothedWave = new Float32Array(0); // resized lazily below
+
+function drawWaveform(bassLevel, midLevel, trebleLevel) {
   const midY = canvas.height / 2;
   ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
-
-  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
-  grad.addColorStop(0, `hsl(${currentHue(0)}, 90%, 60%)`);
-  grad.addColorStop(0.5, `hsl(${currentHue(0.5)}, 90%, 65%)`);
-  grad.addColorStop(1, `hsl(${currentHue(1)}, 90%, 60%)`);
-
-  ctx.strokeStyle = grad;
-  ctx.shadowBlur = 16;
-  ctx.shadowColor = `hsl(${currentHue(0)}, 90%, 60%)`;
-
   ctx.lineJoin = "round";
-  ctx.lineCap = "round";
+  ctx.shadowBlur = 16;
+
+  // Build a gradient across the theme's hue range instead of one flat color,
+  // so Rainbow/Ice/etc. actually show as gradients here too.
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  const stops = 6;
+  for (let s = 0; s <= stops; s++) {
+    grad.addColorStop(s / stops, `hsl(${currentHue(s / stops)}, 90%, 60%)`);
+  }
+  ctx.strokeStyle = grad;
+  ctx.shadowColor = `hsl(${currentHue(0.5)}, 90%, 60%)`;
 
   ctx.beginPath();
   const slice = canvas.width / bufferLength;
+  const amp = 1.35 + midLevel * 0.35 + trebleLevel * 0.2 + bassLevel * 0.25;
   for (let i = 0; i < bufferLength; i++) {
-    // Multiply by 1.8 to amplify the visual height of the waveform
-    const v =
-      ((timeData[i] - 128) / 128) *
-      (1.35 + midLevel * 0.35 + trebleLevel * 0.2);
-    const y = midY + v * canvas.height * 0.32;
+    const raw = (timeData[i] - 128) / 128;
+    const y = midY + raw * amp * canvas.height * 0.32;
     const x = i * slice;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
-  ctx.lineTo(canvas.width, canvas.height);
-  ctx.lineTo(0, canvas.height);
-  ctx.closePath();
-
-  const fillGrad = ctx.createLinearGradient(
-    0,
-    midY - canvas.height * 0.32,
-    0,
-    canvas.height,
-  );
-  fillGrad.addColorStop(0, `hsla(${currentHue(0)}, 90%, 60%, 0.15)`);
-  fillGrad.addColorStop(1, `hsla(${currentHue(0)}, 90%, 60%, 0.0)`);
-  ctx.fillStyle = fillGrad;
-  ctx.fill();
-
   ctx.shadowBlur = 0;
-  ctx.lineJoin = "butt";
-  ctx.lineCap = "butt";
 }
 
 function drawParticles(bass, bassLevel, trebleLevel) {
@@ -566,7 +549,7 @@ function loop(timestamp) {
       drawRadial(bassLevel, midLevel, trebleLevel);
       break;
     case "waveform":
-      drawWaveform(midLevel, trebleLevel);
+      drawWaveform(bassLevel, midLevel, trebleLevel);
       break;
     case "particles":
       drawParticles(bass, bassLevel, trebleLevel);
