@@ -208,13 +208,24 @@ function drawWaveform() {
 }
 
 function drawParticles(bass, treble) {
-  // Burst particles aggressively on detected beats
-  if (beatPulse > 0.5) spawnParticles(8, bass);
-  // Spawn a steady low amount on sustained bass
-  else if (bass > 60) spawnParticles(Math.floor(bass / 40), bass);
+  // 1. Organic Variance: Spawn a steady, scaling stream based on bass intensity
+  const intensity = Math.max(0, (bass - 30) / 225); // Creates a smooth 0.0 to 1.0 scale
+  if (intensity > 0.1 && Math.random() < intensity) {
+    // Spawns 1 to 4 particles organically based on the volume
+    spawnParticles(Math.ceil(intensity * 4), bass);
+  }
 
+  // 2. Explosive Burst: Huge explosion exactly on the kick drum
+  if (beatPulse > 0.8) {
+    // Burst amount scales with the power of the bass, and they fly out 50% faster
+    spawnParticles(Math.floor(bass / 12), bass * 1.5);
+    beatPulse = 0; // Consume the beat pulse immediately so it doesn't spew across multiple frames
+  }
+
+  // 3. Keep the list size manageable
   if (particles.length > 1200) particles.splice(0, particles.length - 1200);
 
+  // 4. Update and draw the particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
