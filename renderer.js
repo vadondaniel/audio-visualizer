@@ -293,6 +293,8 @@ function clearFrame(timestamp = performance.now()) {
   }
 }
 
+const smoothedBars = new Array(96).fill(0);
+
 function drawBars(bassLevel, midLevel, trebleLevel) {
   const barCount = 96;
   // Map the bars across 69% of the analyser range so the quiet upper-
@@ -302,7 +304,16 @@ function drawBars(bassLevel, midLevel, trebleLevel) {
   const baseY = canvas.height * 0.75;
 
   for (let i = 0; i < barCount; i++) {
-    const v = Math.pow(freqData[i * step] / 255, 0.82);
+    const targetV = Math.pow(freqData[i * step] / 255, 0.82);
+
+    if (targetV >= smoothedBars[i]) {
+      smoothedBars[i] = targetV;
+    } else {
+      smoothedBars[i] += (targetV - smoothedBars[i]) * 0.1;
+    }
+
+    const v = smoothedBars[i];
+
     const h =
       v *
       canvas.height *
