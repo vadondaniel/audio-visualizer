@@ -1,4 +1,4 @@
-# Music Visualizer
+# Audio Visualizer
 
 A standalone Windows app that visualizes whatever audio is currently playing
 on your PC — any app, not just a browser tab — in real time, NCS-video style.

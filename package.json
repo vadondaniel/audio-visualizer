@@ -1,5 +1,5 @@
 {
-  "name": "music-visualizer",
+  "name": "audio-visualizer",
   "version": "1.0.0",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
@@ -12,8 +12,8 @@
     "electron-builder": "^26.15.3"
   },
   "build": {
-    "appId": "com.ceavan.musicvisualizer",
-    "productName": "Music Visualizer",
+    "appId": "com.ceavan.audiovisualizer",
+    "productName": "Audio Visualizer",
     "win": {
       "target": "portable"
     },
