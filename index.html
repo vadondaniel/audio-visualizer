@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Music Visualizer</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: #000;
+        overflow: hidden;
+      }
+      #canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      #startOverlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, #12001f 0%, #000 75%);
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: #fff;
+        text-align: center;
+        z-index: 10;
+      }
+      #startOverlay h1 {
+        font-size: 28px;
+        letter-spacing: 4px;
+        font-weight: 300;
+        background: linear-gradient(90deg, #ff5fd8, #5fc9ff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 24px;
+      }
+      #startBtn {
+        padding: 14px 38px;
+        font-size: 16px;
+        letter-spacing: 2px;
+        background: transparent;
+        color: #fff;
+        border: 1px solid #ff5fd8;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      #startBtn:hover {
+        background: #ff5fd8;
+        box-shadow: 0 0 30px #ff5fd8;
+      }
+      #startHint {
+        margin-top: 18px;
+        font-size: 12px;
+        opacity: 0.5;
+        max-width: 420px;
+        line-height: 1.6;
+      }
+      #errorMsg {
+        margin-top: 16px;
+        font-size: 13px;
+        color: #ff6b6b;
+        max-width: 460px;
+        line-height: 1.6;
+        display: none;
+      }
+
+      #hud {
+        position: absolute;
+        bottom: 18px;
+        left: 18px;
+        z-index: 5;
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: #fff;
+        font-size: 12px;
+        background: rgba(0, 0, 0, 0.45);
+        padding: 12px 16px;
+        border-radius: 8px;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        pointer-events: none;
+        line-height: 1.8;
+      }
+      #hud.visible {
+        opacity: 1;
+      }
+      #hud b {
+        opacity: 0.6;
+        font-weight: 400;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+
+    <div id="startOverlay">
+      <h1>N C S &nbsp; V I S U A L I Z E R</h1>
+      <button id="startBtn">▶ START</button>
+      <div id="startHint">
+        Captures your Windows system audio (whatever is playing anywhere on your
+        PC) and reacts to it in real time. Click Start, then pick your screen in
+        the one-time system prompt if asked.
+      </div>
+      <div id="errorMsg"></div>
+    </div>
+
+    <div id="hud">
+      <div>
+        <b>1-5</b> switch visual &nbsp; <b>C</b> color theme &nbsp;
+        <b>Space</b> auto-cycle
+      </div>
+      <div>
+        <b>F</b> fullscreen &nbsp; <b>T</b> always on top &nbsp; <b>Esc</b> quit
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
