@@ -41,12 +41,22 @@ just confirm it. After that, whatever is playing anywhere on your PC
 | `Space`   | Toggle auto-cycle through visual styles  |
 | `F`       | Toggle fullscreen                        |
 | `T`       | Toggle always-on-top                     |
+| `B`       | Toggle background panel                  |
 | `Esc`     | Quit                                     |
 
 Move the mouse to bring back the control hint overlay; it fades out on its own.
 
 The 5 visual styles are: **bars**, **radial spectrum**, **waveform**,
 **particles** (bass-reactive bursts), and **kaleidoscope**.
+
+## Background
+
+Click the gear icon (top-right) or press `B` to set a background color or
+pick an image file (cover-fit automatically). No manual file editing needed.
+
+Your background, current visual style, color theme, and auto-cycle toggle
+are all saved locally and restored automatically next time you launch the
+app — it reopens the way you left it instead of resetting to defaults.
 
 ## 4. (Optional) Turn it into a real .exe
 

@@ -6,6 +6,12 @@ const startBtn = document.getElementById("startBtn");
 const errorMsg = document.getElementById("errorMsg");
 const hud = document.getElementById("hud");
 
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+const bgColorInput = document.getElementById("bgColorInput");
+const bgImageInput = document.getElementById("bgImageInput");
+const clearBgImageBtn = document.getElementById("clearBgImageBtn");
+
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -31,7 +37,116 @@ const state = {
   autoCycle: false,
   autoCycleTimer: null,
   hueShift: 0,
+  bgColor: "#0f0f1a",
+  bgImageDataUrl: null,
 };
+
+// ---------- settings persistence ----------
+// Everything the person can change from outside the audio itself —
+// background, and which visual/theme/auto-cycle they left it on —
+// is remembered here, so the app reopens the way they left it instead
+// of resetting to defaults every launch. One shared key, one shared
+// save/load pair, so adding another persisted setting later is a
+// one-line change instead of a new storage key + new plumbing.
+const SETTINGS_KEY = "audioVisualizerSettings";
+
+// The canvas clears each frame with destination-out compositing (see
+// clearFrame below), which erases canvas alpha rather than painting over
+// it — so whatever is set as the <body> CSS background shows straight
+// through. That means changing the background is just: update <body>'s
+// background-color / background-image and remember the choice.
+function applyBackground() {
+  if (state.bgImageDataUrl) {
+    document.body.style.backgroundImage = `url("${state.bgImageDataUrl}")`;
+  } else {
+    document.body.style.backgroundImage = "none";
+    document.body.style.backgroundColor = state.bgColor;
+  }
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        bgColor: state.bgColor,
+        bgImageDataUrl: state.bgImageDataUrl,
+        mode: state.mode,
+        theme: state.theme,
+        autoCycle: state.autoCycle,
+      }),
+    );
+  } catch (e) {
+    // Large background images can exceed localStorage's quota. Everything
+    // still works for this session, it just won't be remembered next launch.
+    console.warn("Could not save settings", e);
+  }
+}
+
+// Starts/stops the auto-cycle interval AND updates state.autoCycle, so it
+// can be called both from the keyboard shortcut and when restoring a saved
+// "autoCycle: true" setting on launch without duplicating this logic.
+function setAutoCycle(enabled) {
+  state.autoCycle = enabled;
+  clearInterval(state.autoCycleTimer);
+  if (enabled) {
+    state.autoCycleTimer = setInterval(() => {
+      state.mode = (state.mode + 1) % MODES.length;
+      saveSettings();
+    }, 12000);
+  }
+}
+
+function loadSettings() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
+  } catch (e) {
+    saved = null;
+  }
+  if (saved) {
+    if (saved.bgColor) state.bgColor = saved.bgColor;
+    if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
+    if (typeof saved.mode === "number" && MODES[saved.mode] !== undefined)
+      state.mode = saved.mode;
+    if (typeof saved.theme === "number" && THEMES[saved.theme] !== undefined)
+      state.theme = saved.theme;
+    if (saved.autoCycle) setAutoCycle(true);
+  }
+  bgColorInput.value = state.bgColor;
+  applyBackground();
+}
+
+settingsBtn.addEventListener("click", () => {
+  settingsPanel.classList.toggle("visible");
+});
+
+bgColorInput.addEventListener("input", (e) => {
+  state.bgColor = e.target.value;
+  applyBackground();
+  saveSettings();
+});
+
+bgImageInput.addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.bgImageDataUrl = reader.result;
+    applyBackground();
+    saveSettings();
+  };
+  reader.readAsDataURL(file);
+});
+
+clearBgImageBtn.addEventListener("click", () => {
+  state.bgImageDataUrl = null;
+  bgImageInput.value = "";
+  applyBackground();
+  saveSettings();
+});
+
+loadSettings();
 
 // ---------- audio ----------
 let analyser, freqData, timeData, bufferLength;
@@ -416,21 +531,19 @@ window.addEventListener("keydown", (e) => {
   flashHud();
   if (e.key >= "1" && e.key <= "5") {
     state.mode = parseInt(e.key, 10) - 1;
+    saveSettings();
   } else if (e.key.toLowerCase() === "c") {
     state.theme = (state.theme + 1) % THEMES.length;
+    saveSettings();
   } else if (e.key.toLowerCase() === "f") {
     window.electronAPI.toggleFullscreen();
   } else if (e.key.toLowerCase() === "t") {
     window.electronAPI.toggleAlwaysOnTop();
+  } else if (e.key.toLowerCase() === "b") {
+    settingsPanel.classList.toggle("visible");
   } else if (e.key === " ") {
-    state.autoCycle = !state.autoCycle;
-    if (state.autoCycle) {
-      state.autoCycleTimer = setInterval(() => {
-        state.mode = (state.mode + 1) % MODES.length;
-      }, 12000);
-    } else {
-      clearInterval(state.autoCycleTimer);
-    }
+    setAutoCycle(!state.autoCycle);
+    saveSettings();
   } else if (e.key === "Escape") {
     window.electronAPI.quit();
   }

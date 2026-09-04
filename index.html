@@ -13,15 +13,11 @@
       body {
         width: 100%;
         height: 100%;
-        /* You can set a solid color... */
+        /* Default background color/image — overridden live from the
+           settings panel (gear icon) and remembered between launches. */
         background-color: #0f0f1a;
-
-        /* ...OR uncomment below to use a background image! 
-           (Just put 'bg.jpg' in the same folder as your app) */
-        /* background-image: url('bg.jpg'); */
-        /* background-size: cover; */
-        /* background-position: center; */
-
+        background-size: cover;
+        background-position: center;
         overflow: hidden;
       }
       #canvas {
@@ -110,6 +106,78 @@
         opacity: 0.6;
         font-weight: 400;
       }
+
+      #settingsBtn {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        z-index: 6;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: none;
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+      #settingsBtn:hover {
+        background: rgba(255, 95, 216, 0.5);
+      }
+
+      #settingsPanel {
+        position: absolute;
+        top: 62px;
+        right: 18px;
+        z-index: 6;
+        width: 240px;
+        background: rgba(10, 10, 14, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 16px;
+        font-family: "Segoe UI", Arial, sans-serif;
+        color: #fff;
+        font-size: 12px;
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+      }
+      #settingsPanel.visible {
+        display: flex;
+      }
+      #settingsPanel label {
+        display: block;
+        opacity: 0.7;
+        margin-bottom: 6px;
+      }
+      #settingsPanel input[type="color"] {
+        width: 100%;
+        height: 30px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        cursor: pointer;
+      }
+      #settingsPanel input[type="file"] {
+        width: 100%;
+        font-size: 11px;
+        color: #ccc;
+      }
+      #clearBgImageBtn {
+        margin-top: 6px;
+        width: 100%;
+        padding: 6px 0;
+        font-size: 11px;
+        background: transparent;
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      #clearBgImageBtn:hover {
+        border-color: #ff5fd8;
+      }
     </style>
   </head>
   <body>
@@ -132,7 +200,21 @@
         <b>Space</b> auto-cycle
       </div>
       <div>
-        <b>F</b> fullscreen &nbsp; <b>T</b> always on top &nbsp; <b>Esc</b> quit
+        <b>F</b> fullscreen &nbsp; <b>T</b> always on top &nbsp;
+        <b>B</b> background &nbsp; <b>Esc</b> quit
+      </div>
+    </div>
+
+    <button id="settingsBtn" title="Background">⚙</button>
+    <div id="settingsPanel">
+      <div>
+        <label for="bgColorInput">Background color</label>
+        <input type="color" id="bgColorInput" value="#0f0f1a" />
+      </div>
+      <div>
+        <label for="bgImageInput">Background image</label>
+        <input type="file" id="bgImageInput" accept="image/*" />
+        <button id="clearBgImageBtn">Clear image</button>
       </div>
     </div>
 
