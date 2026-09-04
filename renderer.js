@@ -41,8 +41,38 @@ const state = {
   bgImageDataUrl: null,
 };
 
+const FRAME_MS = 1000 / 60;
+
+const VISUAL_TUNING = {
+  bars: {
+    baseYFrac: 0.75,
+    heightScale: 0.6,
+    releaseRemaining: 0.9,
+  },
+  radial: {
+    baseRFrac: 0.16,
+    lengthScale: 0.32,
+    releaseRemaining: 0.85,
+  },
+  kaleidoscope: {
+    maxRFrac: 0.46,
+    coreRFrac: 0.035,
+    releaseRemaining: 0.78,
+  },
+  particles: {
+    cap: 1400,
+  },
+};
+
 // ---------- settings persistence ----------
 const SETTINGS_KEY = "audioVisualizerSettings";
+const PERSISTED_KEYS = [
+  "bgColor",
+  "bgImageDataUrl",
+  "mode",
+  "theme",
+  "autoCycle",
+];
 
 function applyBackground() {
   if (state.bgImageDataUrl) {
@@ -55,16 +85,9 @@ function applyBackground() {
 
 function saveSettings() {
   try {
-    localStorage.setItem(
-      SETTINGS_KEY,
-      JSON.stringify({
-        bgColor: state.bgColor,
-        bgImageDataUrl: state.bgImageDataUrl,
-        mode: state.mode,
-        theme: state.theme,
-        autoCycle: state.autoCycle,
-      }),
-    );
+    const toSave = {};
+    for (const key of PERSISTED_KEYS) toSave[key] = state[key];
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(toSave));
   } catch (e) {
     console.warn("Could not save settings", e);
   }
@@ -209,6 +232,17 @@ function normalizeEnergy(value, floor = 20, range = 210) {
   return Math.min(1, Math.max(0, (value - floor) / range));
 }
 
+function smoothTowards(current, target, remainingFraction) {
+  return target >= current
+    ? target
+    : current + (target - current) * (1 - remainingFraction);
+}
+
+function applyGlow(color, blur) {
+  ctx.shadowBlur = blur;
+  ctx.shadowColor = color;
+}
+
 function updateBeat(bass, elapsedMs, dtSec) {
   audioClockMs += elapsedMs;
 
@@ -253,7 +287,7 @@ const TRAIL_TIMEOUT_MS = 15000;
 // ---------- draw modes ----------
 function clearFrame(elapsedMs) {
   trailAge += elapsedMs;
-  const frameEquivalent = elapsedMs / (1000 / 60);
+  const frameEquivalent = elapsedMs / FRAME_MS;
   const remainingAlpha = Math.pow(0.49, frameEquivalent);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -272,33 +306,28 @@ function clearFrame(elapsedMs) {
 const smoothedBars = new Array(96).fill(0);
 
 function drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent) {
+  const { baseYFrac, heightScale, releaseRemaining } = VISUAL_TUNING.bars;
   const barCount = 96;
   const step = Math.max(1, Math.floor((bufferLength * 0.69) / barCount));
   const w = canvas.width / barCount;
-  const baseY = canvas.height * 0.75;
-  const releaseRemaining = Math.pow(0.9, frameEquivalent);
+  const baseY = canvas.height * baseYFrac;
+  const remaining = Math.pow(releaseRemaining, frameEquivalent);
 
   for (let i = 0; i < barCount; i++) {
     const targetV = Math.pow(freqData[i * step] / 255, 0.82);
-
-    if (targetV >= smoothedBars[i]) {
-      smoothedBars[i] = targetV;
-    } else {
-      smoothedBars[i] += (targetV - smoothedBars[i]) * (1 - releaseRemaining);
-    }
-
+    smoothedBars[i] = smoothTowards(smoothedBars[i], targetV, remaining);
     const v = smoothedBars[i];
 
     const h =
       v *
       canvas.height *
-      0.6 *
+      heightScale *
       (0.82 + bassLevel * 0.2 + midLevel * 0.12 + beatPulse * 0.15);
     const hue = currentHue(i / barCount);
     ctx.fillStyle = `hsl(${hue}, 90%, ${50 + v * 20}%)`;
-    ctx.shadowBlur = 14;
-    ctx.shadowColor = ctx.fillStyle;
+    applyGlow(ctx.fillStyle, 14);
     ctx.fillRect(i * w, baseY - h, w * 0.8, h);
+    // mirrored reflection below
     ctx.globalAlpha = 0.25;
     ctx.fillRect(i * w, baseY, w * 0.8, h * 0.35);
     ctx.globalAlpha = 1;
@@ -309,15 +338,16 @@ function drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent) {
 const smoothedRadial = new Array(180).fill(0);
 
 function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
+  const { baseRFrac, lengthScale, releaseRemaining } = VISUAL_TUNING.radial;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const baseR =
     Math.min(canvas.width, canvas.height) *
-    0.16 *
+    baseRFrac *
     (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
   const halfCount = barCount / 2;
-  const releaseRemaining = Math.pow(0.85, frameEquivalent);
+  const remaining = Math.pow(releaseRemaining, frameEquivalent);
 
   ctx.lineCap = "round";
 
@@ -326,19 +356,13 @@ function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
       i < halfCount ? i / halfCount : (barCount - i - 1) / halfCount;
     const idx = Math.floor(normalized * bufferLength * 0.5);
     const targetV = Math.pow(freqData[idx] / 255, 0.82);
-
-    if (targetV >= smoothedRadial[i]) {
-      smoothedRadial[i] = targetV;
-    } else {
-      smoothedRadial[i] +=
-        (targetV - smoothedRadial[i]) * (1 - releaseRemaining);
-    }
-
+    smoothedRadial[i] = smoothTowards(smoothedRadial[i], targetV, remaining);
     const v = smoothedRadial[i];
+
     const len =
       v *
       Math.min(canvas.width, canvas.height) *
-      0.32 *
+      lengthScale *
       (0.8 + midLevel * 0.25 + trebleLevel * 0.2);
     const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
     const x1 = cx + Math.cos(angle) * baseR;
@@ -349,14 +373,14 @@ function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
     const hue = currentHue(normalized);
     ctx.strokeStyle = `hsl(${hue}, 90%, 60%)`;
     ctx.lineWidth = 2.4;
-    ctx.shadowBlur = 10;
-    ctx.shadowColor = ctx.strokeStyle;
+    applyGlow(ctx.strokeStyle, 10);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.stroke();
   }
 
+  // pulsing center circle
   ctx.beginPath();
   ctx.arc(cx, cy, baseR * 0.8, 0, Math.PI * 2);
   ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, 0.15)`;
@@ -373,7 +397,6 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
   const midY = canvas.height / 2;
   ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
   ctx.lineJoin = "round";
-  ctx.shadowBlur = 16;
 
   const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
   const stops = 6;
@@ -381,7 +404,7 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
     grad.addColorStop(s / stops, `hsl(${currentHue(s / stops)}, 90%, 60%)`);
   }
   ctx.strokeStyle = grad;
-  ctx.shadowColor = `hsl(${currentHue(0.5)}, 90%, 60%)`;
+  applyGlow(`hsl(${currentHue(0.5)}, 90%, 60%)`, 16);
 
   ctx.beginPath();
   const slice = canvas.width / bufferLength;
@@ -405,10 +428,37 @@ const PARTICLE_BANDS = [
 
 const bandSpawnAccum = [0, 0, 0];
 
-const ENERGY_HISTORY_LEN = 180; // ~3s at 60fps
+const ENERGY_HISTORY_MS = 3000;
 const energyHistory = [];
 let energyNow = 0;
 let energyTrend = 0;
+
+function makeParticle({
+  x,
+  y,
+  angle,
+  speed,
+  decay,
+  drag,
+  size,
+  hueOffset,
+  twinkleSpeed,
+}) {
+  return {
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    life: 1,
+    decay,
+    drag,
+    size,
+    twinkle: Math.random() * Math.PI * 2,
+    twinkleSpeed:
+      twinkleSpeed !== undefined ? twinkleSpeed : 0.08 + Math.random() * 0.16,
+    hueOffset,
+  };
+}
 
 function spawnBandParticle(band, energyRatio) {
   const cx = canvas.width / 2;
@@ -416,20 +466,19 @@ function spawnBandParticle(band, energyRatio) {
   const angle = Math.random() * Math.PI * 2;
   const speed =
     (1.4 + Math.random() * 5.6) * band.speedMul * (0.6 + energyRatio * 1.6);
-  particles.push({
-    x: cx,
-    y: cy,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    life: 1,
-    decay: (0.007 + Math.random() * 0.014) * band.decayMul,
-    drag: 0.975 + Math.random() * 0.02,
-    size:
-      (1.5 + Math.random() * 3.5) * band.sizeMul * (0.8 + energyRatio * 0.6),
-    twinkle: Math.random() * Math.PI * 2,
-    twinkleSpeed: 0.08 + Math.random() * 0.16,
-    hueOffset: band.hueT + (Math.random() - 0.5) * 0.06,
-  });
+  particles.push(
+    makeParticle({
+      x: cx,
+      y: cy,
+      angle,
+      speed,
+      decay: (0.007 + Math.random() * 0.014) * band.decayMul,
+      drag: 0.975 + Math.random() * 0.02,
+      size:
+        (1.5 + Math.random() * 3.5) * band.sizeMul * (0.8 + energyRatio * 0.6),
+      hueOffset: band.hueT + (Math.random() - 0.5) * 0.06,
+    }),
+  );
 }
 
 function spawnBeatRing(bass) {
@@ -439,34 +488,39 @@ function spawnBeatRing(bass) {
   const speed = 4 + Math.min(1, bass / 255) * 6;
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1,
-      decay: 0.018,
-      drag: 0.965,
-      size: 3.5,
-      twinkle: Math.random() * Math.PI * 2,
-      twinkleSpeed: 0.12,
-      hueOffset: 0.0,
-    });
+    particles.push(
+      makeParticle({
+        x: cx,
+        y: cy,
+        angle,
+        speed,
+        decay: 0.018,
+        drag: 0.965,
+        size: 3.5,
+        hueOffset: 0.0,
+        twinkleSpeed: 0.12,
+      }),
+    );
   }
 }
 
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
-  const dt = elapsedMs / (1000 / 60);
+  const dt = elapsedMs / FRAME_MS;
 
   const rawEnergy = bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2;
 
-  energyHistory.push(rawEnergy);
-  if (energyHistory.length > ENERGY_HISTORY_LEN) energyHistory.shift();
+  energyHistory.push({ value: rawEnergy, t: audioClockMs });
+  while (
+    energyHistory.length &&
+    audioClockMs - energyHistory[0].t > ENERGY_HISTORY_MS
+  ) {
+    energyHistory.shift();
+  }
   let histMin = 1,
     histMax = 0;
   for (const e of energyHistory) {
-    if (e < histMin) histMin = e;
-    if (e > histMax) histMax = e;
+    if (e.value < histMin) histMin = e.value;
+    if (e.value > histMax) histMax = e.value;
   }
   const span = Math.max(0.08, histMax - histMin);
   const normalized = Math.min(1, Math.max(0, (rawEnergy - histMin) / span));
@@ -495,7 +549,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const decayScale = 1.7 - energyTrend * 1.1;
   const speedScale = 0.3 + energyNow * 2.4;
 
-  const overCap = particles.length - 1400;
+  const overCap = particles.length - VISUAL_TUNING.particles.cap;
   if (overCap > 0) {
     const trim = 0.05 * dt;
     for (let i = 0; i < overCap; i++) particles[i].life -= trim;
@@ -521,10 +575,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
 
     ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${Math.min(1, alpha)})`;
     const glow = r > 2.2 && alpha > 0.25;
-    if (glow) {
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = ctx.fillStyle;
-    }
+    if (glow) applyGlow(ctx.fillStyle, 8);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -549,18 +600,19 @@ const KALEIDO_BAND_EDGES = (() => {
 })();
 
 function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
+  const { maxRFrac, coreRFrac, releaseRemaining } = VISUAL_TUNING.kaleidoscope;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
-  const maxR = Math.min(canvas.width, canvas.height) * 0.46;
+  const maxR = Math.min(canvas.width, canvas.height) * maxRFrac;
 
   kaleidoRotation +=
     (0.0012 + trebleLevel * 0.003 + beatPulse * 0.006) * frameEquivalent;
   kaleidoFlash = Math.max(0, kaleidoFlash - 0.12 * frameEquivalent);
   if (beatPulse > 0.75) kaleidoFlash = 1;
 
-  const releaseRemaining = Math.pow(0.78, frameEquivalent);
+  const remaining = Math.pow(releaseRemaining, frameEquivalent);
 
   for (let s = 0; s < segments; s++) {
     ctx.save();
@@ -582,13 +634,11 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
       );
       const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
       const targetV = Math.min(1, Math.pow((raw / 255) * tilt, 0.7));
-
-      if (targetV >= smoothedKaleido[i]) {
-        smoothedKaleido[i] = targetV;
-      } else {
-        smoothedKaleido[i] +=
-          (targetV - smoothedKaleido[i]) * (1 - releaseRemaining);
-      }
+      smoothedKaleido[i] = smoothTowards(
+        smoothedKaleido[i],
+        targetV,
+        remaining,
+      );
       const v = smoothedKaleido[i];
       if (v < 0.03) continue;
 
@@ -616,8 +666,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
       ctx.arc(0, 0, r, aStart, aEnd);
       ctx.closePath();
       ctx.fillStyle = `hsla(${hue}, 90%, ${55 + v * 15}%, ${0.35 + v * 0.55})`;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = ctx.fillStyle;
+      applyGlow(ctx.fillStyle, 10);
       ctx.fill();
     }
     ctx.restore();
@@ -628,17 +677,15 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
     ctx.arc(cx, cy, maxR * (0.15 + (1 - kaleidoFlash) * 0.55), 0, Math.PI * 2);
     ctx.strokeStyle = `hsla(${currentHue(0)}, 90%, 70%, ${kaleidoFlash * 0.6})`;
     ctx.lineWidth = 3 + kaleidoFlash * 4;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = ctx.strokeStyle;
+    applyGlow(ctx.strokeStyle, 20);
     ctx.stroke();
   }
 
-  const coreR = maxR * 0.035 * (1 + bassLevel * 0.7 + kaleidoFlash * 0.6);
+  const coreR = maxR * coreRFrac * (1 + bassLevel * 0.7 + kaleidoFlash * 0.6);
   ctx.beginPath();
   ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
   ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 65%, 0.6)`;
-  ctx.shadowBlur = 16;
-  ctx.shadowColor = ctx.fillStyle;
+  applyGlow(ctx.fillStyle, 16);
   ctx.fill();
 
   ctx.shadowBlur = 0;
@@ -654,7 +701,7 @@ function loop(timestamp = performance.now()) {
   if (lastFrameTime === 0) lastFrameTime = timestamp;
   const elapsedMs = Math.min(100, Math.max(0, timestamp - lastFrameTime));
   lastFrameTime = timestamp;
-  const frameEquivalent = elapsedMs / (1000 / 60);
+  const frameEquivalent = elapsedMs / FRAME_MS;
   const dtSec = elapsedMs / 1000;
 
   analyser.getByteFrequencyData(freqData);
@@ -706,26 +753,30 @@ function flashHud() {
 }
 window.addEventListener("mousemove", flashHud);
 
+const KEY_ACTIONS = {
+  c: () => {
+    state.theme = (state.theme + 1) % THEMES.length;
+    saveSettings();
+  },
+  f: () => window.electronAPI.toggleFullscreen(),
+  t: () => window.electronAPI.toggleAlwaysOnTop(),
+  b: () => settingsPanel.classList.toggle("visible"),
+  " ": () => {
+    setAutoCycle(!state.autoCycle);
+    saveSettings();
+  },
+  escape: () => window.electronAPI.quit(),
+};
+
 window.addEventListener("keydown", (e) => {
   flashHud();
   if (e.key >= "1" && e.key <= "5") {
     state.mode = parseInt(e.key, 10) - 1;
     saveSettings();
-  } else if (e.key.toLowerCase() === "c") {
-    state.theme = (state.theme + 1) % THEMES.length;
-    saveSettings();
-  } else if (e.key.toLowerCase() === "f") {
-    window.electronAPI.toggleFullscreen();
-  } else if (e.key.toLowerCase() === "t") {
-    window.electronAPI.toggleAlwaysOnTop();
-  } else if (e.key.toLowerCase() === "b") {
-    settingsPanel.classList.toggle("visible");
-  } else if (e.key === " ") {
-    setAutoCycle(!state.autoCycle);
-    saveSettings();
-  } else if (e.key === "Escape") {
-    window.electronAPI.quit();
+    return;
   }
+  const action = KEY_ACTIONS[e.key.toLowerCase()];
+  if (action) action();
 });
 
 // ---------- start ----------
