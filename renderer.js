@@ -295,7 +295,9 @@ function clearFrame(timestamp = performance.now()) {
 
 function drawBars(bassLevel, midLevel, trebleLevel) {
   const barCount = 96;
-  const step = Math.floor(bufferLength / barCount);
+  // Map the bars across 69% of the analyser range so the quiet upper-
+  // frequency tail does not dominate the layout.
+  const step = Math.max(1, Math.floor((bufferLength * 0.69) / barCount));
   const w = canvas.width / barCount;
   const baseY = canvas.height * 0.75;
 
