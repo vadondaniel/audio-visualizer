@@ -13,7 +13,15 @@
       body {
         width: 100%;
         height: 100%;
-        background: #000;
+        /* You can set a solid color... */
+        background-color: #0f0f1a;
+
+        /* ...OR uncomment below to use a background image! 
+           (Just put 'bg.jpg' in the same folder as your app) */
+        /* background-image: url('bg.jpg'); */
+        /* background-size: cover; */
+        /* background-position: center; */
+
         overflow: hidden;
       }
       #canvas {
@@ -108,7 +116,7 @@
     <canvas id="canvas"></canvas>
 
     <div id="startOverlay">
-      <h1>N C S &nbsp; V I S U A L I Z E R</h1>
+      <h1>M U S I C &nbsp; V I S U A L I Z E R</h1>
       <button id="startBtn">▶ START</button>
       <div id="startHint">
         Captures your Windows system audio (whatever is playing anywhere on your

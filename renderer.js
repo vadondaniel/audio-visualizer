@@ -120,8 +120,12 @@ function spawnParticles(n, energy) {
 
 // ---------- draw modes ----------
 function clearFrame() {
-  ctx.fillStyle = "rgba(0,0,0,0.28)"; // trail effect
+  // Use 'destination-out' to fade pixels to transparent instead of drawing black over them.
+  // This allows the CSS background to remain visible underneath the canvas.
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.fillStyle = "rgba(0,0,0,0.28)";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = "source-over"; // Reset for normal drawing
 }
 
 function drawBars() {
@@ -192,7 +196,8 @@ function drawWaveform() {
   ctx.beginPath();
   const slice = canvas.width / bufferLength;
   for (let i = 0; i < bufferLength; i++) {
-    const v = (timeData[i] - 128) / 128;
+    // Multiply by 1.8 to amplify the visual height of the waveform
+    const v = ((timeData[i] - 128) / 128) * 1.8;
     const y = midY + v * canvas.height * 0.32;
     const x = i * slice;
     if (i === 0) ctx.moveTo(x, y);
@@ -203,7 +208,11 @@ function drawWaveform() {
 }
 
 function drawParticles(bass, treble) {
-  if (bass > 30) spawnParticles(Math.floor(bass / 25), bass);
+  // Burst particles aggressively on detected beats
+  if (beatPulse > 0.5) spawnParticles(8, bass);
+  // Spawn a steady low amount on sustained bass
+  else if (bass > 60) spawnParticles(Math.floor(bass / 40), bass);
+
   if (particles.length > 1200) particles.splice(0, particles.length - 1200);
 
   for (let i = particles.length - 1; i >= 0; i--) {
@@ -244,14 +253,14 @@ function drawKaleidoscope() {
 
     for (let i = 0; i < barCount; i++) {
       const idx = Math.floor((i / barCount) * bufferLength * 0.5);
-      const v = freqData[idx] / 255;
+      const v = Math.min(1, (freqData[idx] / 255) * 1.5);
       const r1 = 20;
       const r2 =
         20 +
         v *
           Math.min(canvas.width, canvas.height) *
           0.38 *
-          (1 + beatPulse * 0.2);
+          (1 + beatPulse * 0.4);
       const a = (i / barCount) * segAngle;
       const hue = currentHue(i / barCount + s / segments);
 
@@ -277,9 +286,9 @@ function loop() {
   analyser.getByteFrequencyData(freqData);
   analyser.getByteTimeDomainData(timeData);
 
-  const bass = bandAverage(freqData, 0, 0.08);
-  const mid = bandAverage(freqData, 0.08, 0.35);
-  const treble = bandAverage(freqData, 0.35, 0.9);
+  const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
+  const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
+  const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
   updateBeat(bass);
 
   if (THEMES[state.theme].hues === null) {
