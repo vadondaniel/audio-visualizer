@@ -17,7 +17,9 @@ const THEMES = [
   { name: "Neon", hues: [320, 200] }, // pink -> cyan
   { name: "Fire", hues: [15, 45] }, // red -> orange
   { name: "Matrix", hues: [130, 160] }, // green
-  { name: "Rainbow", hues: null }, // hue rotates over time
+  { name: "Color Cycle", colorCycle: true }, // one hue rotates over time
+  { name: "Rainbow", rainbow: true }, // fixed full spectrum across each visual
+  { name: "Rainbow Cycle", rainbow: true, cycle: true }, // spectrum rotates
   { name: "Ice", hues: [190, 260] }, // blue -> purple
 ];
 
@@ -71,7 +73,11 @@ async function initAudio() {
 // ---------- helpers ----------
 function currentHue(offset = 0) {
   const theme = THEMES[state.theme];
-  if (!theme.hues) return (state.hueShift + offset) % 360; // rainbow mode
+  if (theme.rainbow) {
+    const rotation = theme.cycle ? state.hueShift : 0;
+    return (offset * 360 + rotation) % 360;
+  }
+  if (theme.colorCycle) return state.hueShift % 360;
   const [a, b] = theme.hues;
   return a + (b - a) * (offset % 1);
 }
@@ -331,7 +337,7 @@ function loop(timestamp) {
   const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
   updateBeat(bass);
 
-  if (THEMES[state.theme].hues === null) {
+  if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
     state.hueShift = (state.hueShift + 0.3 + mid * 0.01) % 360;
   }
 
