@@ -476,69 +476,88 @@ function drawParticles(bass, bassLevel, trebleLevel) {
   ctx.shadowBlur = 0;
 }
 
-const smoothedKaleido = new Array(40).fill(0);
+let kaleidoRotation = 0;
+const smoothedKaleido = new Array(14).fill(0);
 
 function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const segments = 10;
+  const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
-  const barCount = 40;
+  const maxR = Math.min(canvas.width, canvas.height) * 0.48;
+  const shapeCount = 14;
 
-  // Breathing core: scales with canvas size and pulses on bass/beat,
-  // consistent with drawRadial's baseR.
-  const r1 =
-    Math.min(canvas.width, canvas.height) *
-    0.02 *
-    (1 + bassLevel * 0.3 + beatPulse * 0.4);
+  // Continuous drift independent of the hue cycle — this is what makes it
+  // feel alive even during quiet passages, not just audio-reactive.
+  kaleidoRotation += 0.0015 + trebleLevel * 0.004 + beatPulse * 0.01;
 
   for (let s = 0; s < segments; s++) {
     ctx.save();
     ctx.translate(cx, cy);
-    ctx.rotate(s * segAngle);
-    if (s % 2 === 1) ctx.scale(1, -1);
+    ctx.rotate(s * segAngle + kaleidoRotation);
+    if (s % 2 === 1) ctx.scale(1, -1); // true mirror, alternating facets
 
-    for (let i = 0; i < barCount; i++) {
-      const idx = Math.floor((i / barCount) * bufferLength * 0.5);
-      const targetV = Math.min(1, Math.pow(freqData[idx] / 255, 0.82) * 1.2);
+    // Clip to this wedge so shapes crop cleanly at the mirror-box edge
+    // instead of freely overlapping into neighboring segments.
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, maxR, 0, segAngle);
+    ctx.closePath();
+    ctx.clip();
 
-      // Smooth toward target the same way bars/radial do, keyed on bar
-      // index only (shared across all 10 segments — they're already
-      // supposed to look identical/mirrored, so one smoothing array is enough).
+    for (let i = 0; i < shapeCount; i++) {
+      const idx = Math.floor((i / shapeCount) * bufferLength * 0.5);
+      const targetV = Math.pow(freqData[idx] / 255, 0.8);
+
       if (targetV >= smoothedKaleido[i]) {
         smoothedKaleido[i] = targetV;
       } else {
         smoothedKaleido[i] += (targetV - smoothedKaleido[i]) * 0.15;
       }
       const v = smoothedKaleido[i];
+      if (v < 0.05) continue;
 
-      const r2 =
-        r1 +
-        v *
-          Math.min(canvas.width, canvas.height) *
-          0.38 *
-          (0.85 + midLevel * 0.35 + trebleLevel * 0.2 + beatPulse * 0.4);
-      const a = (i / barCount) * segAngle;
-      const hue = currentHue(i / barCount + s / segments);
+      // Slightly overshoot the wedge angle — the clip crops the excess,
+      // which is what gives the shard/mirror-facet look at the seams.
+      const a = (i / shapeCount) * segAngle * 1.4;
+      const r = 20 + (i / shapeCount) * maxR * (0.7 + bassLevel * 0.3);
+      const size = 4 + v * 34 * (0.7 + midLevel * 0.5);
+      const hue = currentHue(i / shapeCount + s / segments);
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
 
-      ctx.strokeStyle = `hsl(${hue}, 90%, 60%)`;
-      ctx.lineWidth = 2;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = ctx.strokeStyle;
       ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
-      ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
-      ctx.stroke();
+      ctx.arc(x, y, size, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${hue}, 90%, 60%, ${0.25 + v * 0.55})`;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = ctx.fillStyle;
+      ctx.fill();
     }
     ctx.restore();
   }
 
-  // Soft pulsing core, mirroring drawRadial's center circle for visual
-  // consistency across modes.
+  // Rotating core mandala — bass-driven, spinning opposite the outer pattern
+  // for a subtle counter-rotation effect.
+  const coreR = maxR * 0.05 * (1 + bassLevel * 0.6 + beatPulse * 0.5);
+  const corePoints = 6;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(-kaleidoRotation * 1.5);
   ctx.beginPath();
-  ctx.arc(cx, cy, r1 * 1.6, 0, Math.PI * 2);
-  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, 0.12)`;
+  for (let i = 0; i <= corePoints; i++) {
+    const a = (i / corePoints) * Math.PI * 2;
+    const rr = i % 2 === 0 ? coreR : coreR * 0.55;
+    const x = Math.cos(a) * rr;
+    const y = Math.sin(a) * rr;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 65%, 0.5)`;
+  ctx.shadowBlur = 16;
+  ctx.shadowColor = ctx.fillStyle;
   ctx.fill();
+  ctx.restore();
 
   ctx.shadowBlur = 0;
 }
