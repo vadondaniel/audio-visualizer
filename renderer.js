@@ -476,25 +476,44 @@ function drawParticles(bass, bassLevel, trebleLevel) {
   ctx.shadowBlur = 0;
 }
 
-function drawKaleidoscope(midLevel, trebleLevel) {
+const smoothedKaleido = new Array(40).fill(0);
+
+function drawKaleidoscope(bassLevel, midLevel, trebleLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 10;
   const segAngle = (Math.PI * 2) / segments;
   const barCount = 40;
 
+  // Breathing core: scales with canvas size and pulses on bass/beat,
+  // consistent with drawRadial's baseR.
+  const r1 =
+    Math.min(canvas.width, canvas.height) *
+    0.02 *
+    (1 + bassLevel * 0.3 + beatPulse * 0.4);
+
   for (let s = 0; s < segments; s++) {
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(s * segAngle);
-    if (s % 2 === 1) ctx.scale(1, -1); // mirror alternate segments
+    if (s % 2 === 1) ctx.scale(1, -1);
 
     for (let i = 0; i < barCount; i++) {
       const idx = Math.floor((i / barCount) * bufferLength * 0.5);
-      const v = Math.min(1, Math.pow(freqData[idx] / 255, 0.82) * 1.2);
-      const r1 = 20;
+      const targetV = Math.min(1, Math.pow(freqData[idx] / 255, 0.82) * 1.2);
+
+      // Smooth toward target the same way bars/radial do, keyed on bar
+      // index only (shared across all 10 segments — they're already
+      // supposed to look identical/mirrored, so one smoothing array is enough).
+      if (targetV >= smoothedKaleido[i]) {
+        smoothedKaleido[i] = targetV;
+      } else {
+        smoothedKaleido[i] += (targetV - smoothedKaleido[i]) * 0.15;
+      }
+      const v = smoothedKaleido[i];
+
       const r2 =
-        20 +
+        r1 +
         v *
           Math.min(canvas.width, canvas.height) *
           0.38 *
@@ -513,6 +532,14 @@ function drawKaleidoscope(midLevel, trebleLevel) {
     }
     ctx.restore();
   }
+
+  // Soft pulsing core, mirroring drawRadial's center circle for visual
+  // consistency across modes.
+  ctx.beginPath();
+  ctx.arc(cx, cy, r1 * 1.6, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, 0.12)`;
+  ctx.fill();
+
   ctx.shadowBlur = 0;
 }
 
@@ -555,7 +582,7 @@ function loop(timestamp) {
       drawParticles(bass, bassLevel, trebleLevel);
       break;
     case "kaleidoscope":
-      drawKaleidoscope(midLevel, trebleLevel);
+      drawKaleidoscope(bassLevel, midLevel, trebleLevel);
       break;
   }
 }
