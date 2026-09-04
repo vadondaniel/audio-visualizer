@@ -343,7 +343,7 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
     (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
   const halfCount = barCount / 2;
-  
+
   ctx.lineCap = "round";
 
   for (let i = 0; i < barCount; i++) {
@@ -397,10 +397,19 @@ function drawRadial(bassLevel, midLevel, trebleLevel) {
 function drawWaveform(midLevel, trebleLevel) {
   const midY = canvas.height / 2;
   ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
-  const hue = currentHue(0);
-  ctx.strokeStyle = `hsl(${hue}, 90%, 60%)`;
+
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, 0);
+  grad.addColorStop(0, `hsl(${currentHue(0)}, 90%, 60%)`);
+  grad.addColorStop(0.5, `hsl(${currentHue(0.5)}, 90%, 65%)`);
+  grad.addColorStop(1, `hsl(${currentHue(1)}, 90%, 60%)`);
+
+  ctx.strokeStyle = grad;
   ctx.shadowBlur = 16;
-  ctx.shadowColor = ctx.strokeStyle;
+  ctx.shadowColor = `hsl(${currentHue(0)}, 90%, 60%)`;
+
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
   ctx.beginPath();
   const slice = canvas.width / bufferLength;
   for (let i = 0; i < bufferLength; i++) {
@@ -414,7 +423,24 @@ function drawWaveform(midLevel, trebleLevel) {
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.lineTo(0, canvas.height);
+  ctx.closePath();
+
+  const fillGrad = ctx.createLinearGradient(
+    0,
+    midY - canvas.height * 0.32,
+    0,
+    canvas.height,
+  );
+  fillGrad.addColorStop(0, `hsla(${currentHue(0)}, 90%, 60%, 0.15)`);
+  fillGrad.addColorStop(1, `hsla(${currentHue(0)}, 90%, 60%, 0.0)`);
+  ctx.fillStyle = fillGrad;
+  ctx.fill();
+
   ctx.shadowBlur = 0;
+  ctx.lineJoin = "butt";
+  ctx.lineCap = "butt";
 }
 
 function drawParticles(bass, bassLevel, trebleLevel) {
