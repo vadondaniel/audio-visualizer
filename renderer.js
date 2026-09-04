@@ -426,33 +426,148 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
   ctx.shadowBlur = 0;
 }
 
-function drawParticles(bass, bassLevel, trebleLevel) {
-  // 1. Organic Variance: Spawn a steady, scaling stream based on bass intensity
-  const intensity = bassLevel;
-  if (intensity > 0.1 && Math.random() < intensity) {
-    // Spawns 1 to 4 particles organically based on the volume
-    spawnParticles(Math.ceil(intensity * 4), bass);
+const PARTICLE_BANDS = [
+  { hueT: 0.05, sizeMul: 1.7, speedMul: 0.55, decayMul: 0.55 },
+  { hueT: 0.5, sizeMul: 1.0, speedMul: 1.0, decayMul: 1.0 },
+  { hueT: 0.95, sizeMul: 0.5, speedMul: 2.0, decayMul: 2.0 },
+];
+
+const bandSpawnAccum = [0, 0, 0];
+
+// Auto-gain: tracks the recent range of raw energy so particles use the
+// FULL visual range regardless of a given track's absolute loudness or
+// how compressed normalizeEnergy's fixed floor/range leaves it. Without
+// this, tracks that don't hit the hardcoded floor/range extremes look
+// artificially flat no matter what multiplier ranges you pick downstream.
+const ENERGY_HISTORY_LEN = 180; // ~3s at 60fps
+const energyHistory = [];
+let energyNow = 0; // fast-reacting, drives speed/size/alpha — snappy
+let energyTrend = 0; // slow-reacting, drives buildup/decay only
+
+function spawnBandParticle(band, energyRatio) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const angle = Math.random() * Math.PI * 2;
+  const speed =
+    (1.4 + Math.random() * 5.6) * band.speedMul * (0.6 + energyRatio * 1.6);
+  particles.push({
+    x: cx,
+    y: cy,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    life: 1,
+    decay: (0.007 + Math.random() * 0.014) * band.decayMul,
+    drag: 0.975 + Math.random() * 0.02,
+    size:
+      (1.5 + Math.random() * 3.5) * band.sizeMul * (0.8 + energyRatio * 0.6),
+    twinkle: Math.random() * Math.PI * 2,
+    twinkleSpeed: 0.08 + Math.random() * 0.16,
+    hueOffset: band.hueT + (Math.random() - 0.5) * 0.06,
+  });
+}
+
+function spawnBeatRing(bass) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const count = Math.max(12, Math.floor(bass / 6));
+  const speed = 4 + Math.min(1, bass / 255) * 6;
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.018,
+      drag: 0.965,
+      size: 3.5,
+      twinkle: Math.random() * Math.PI * 2,
+      twinkleSpeed: 0.12,
+      hueOffset: 0.0,
+    });
+  }
+}
+
+let previousParticleFrameTime = 0;
+
+function drawParticles(
+  bass,
+  bassLevel,
+  midLevel,
+  trebleLevel,
+  timestamp = performance.now(),
+) {
+  if (previousParticleFrameTime === 0) previousParticleFrameTime = timestamp;
+  const elapsed = Math.min(
+    100,
+    Math.max(0, timestamp - previousParticleFrameTime),
+  );
+  previousParticleFrameTime = timestamp;
+  const dt = elapsed / (1000 / 60);
+
+  const rawEnergy = bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2;
+
+  energyHistory.push(rawEnergy);
+  if (energyHistory.length > ENERGY_HISTORY_LEN) energyHistory.shift();
+  let histMin = 1,
+    histMax = 0;
+  for (const e of energyHistory) {
+    if (e < histMin) histMin = e;
+    if (e > histMax) histMax = e;
+  }
+  // Guard against a near-silent/flat window collapsing the range to ~0,
+  // which would otherwise amplify noise into huge swings.
+  const span = Math.max(0.08, histMax - histMin);
+  const normalized = Math.min(1, Math.max(0, (rawEnergy - histMin) / span));
+
+  // Fast attack AND fast-ish release — this is the key change. The old
+  // single energyPulse used the same slow factor both ways, which is why
+  // it read as "almost constant." Speed/size need to visibly track loud
+  // vs quiet moment-to-moment, not ease into them.
+  const fastFactor = normalized > energyNow ? 0.5 : 0.25;
+  energyNow += (normalized - energyNow) * Math.min(1, fastFactor * dt);
+
+  // Trend still eases slowly — this is what gives the "buildup over a
+  // sustained loud section" feel for decay/density, kept separate so it
+  // doesn't also mute the fast per-hit response above.
+  energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
+
+  const levels = [bassLevel, midLevel, trebleLevel];
+  const SPAWN_RATE = 40;
+  const AMBIENT_FLOOR = 0.05;
+  for (let b = 0; b < 3; b++) {
+    const rate = (AMBIENT_FLOOR + levels[b]) * SPAWN_RATE;
+    bandSpawnAccum[b] += rate * (dt / 60);
+    while (bandSpawnAccum[b] >= 1) {
+      spawnBandParticle(PARTICLE_BANDS[b], levels[b]);
+      bandSpawnAccum[b] -= 1;
+    }
   }
 
-  // 2. Explosive Burst: Huge explosion exactly on the kick drum
   if (beatPulse > 0.8) {
-    // Burst amount scales with the power of the bass, and they fly out 50% faster
-    spawnParticles(Math.floor(bass / 12), bass * 1.5);
-    beatPulse = 0; // Consume the beat pulse immediately so it doesn't spew across multiple frames
+    spawnBeatRing(bass);
+    beatPulse = 0;
   }
 
-  // 3. Keep the list size manageable
-  if (particles.length > 1200) particles.splice(0, particles.length - 1200);
+  const decayScale = 1.7 - energyTrend * 1.1;
+  // Much wider swing than before (was 0.5–1.3): quiet moments visibly
+  // crawl, loud moments visibly rush.
+  const speedScale = 0.3 + energyNow * 2.4;
 
-  // 4. Update and draw the particles
+  const overCap = particles.length - 1400;
+  if (overCap > 0) {
+    for (let i = 0; i < overCap; i++) particles[i].life -= 0.05;
+  }
+
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vx *= p.drag;
-    p.vy *= p.drag;
-    p.twinkle += p.twinkleSpeed;
-    p.life -= p.decay;
+    p.x += p.vx * speedScale * dt;
+    p.y += p.vy * speedScale * dt;
+    p.vx *= Math.pow(p.drag, dt);
+    p.vy *= Math.pow(p.drag, dt);
+    p.twinkle += p.twinkleSpeed * dt;
+    p.life -= p.decay * decayScale * dt;
     if (p.life <= 0) {
       particles.splice(i, 1);
       continue;
@@ -460,20 +575,21 @@ function drawParticles(bass, bassLevel, trebleLevel) {
 
     const hue = currentHue(p.hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
+    // Much wider swing than before (was 0.75–1.65): 0.4–2.1.
+    const r = p.size * p.life * (0.4 + energyNow * 1.7);
+    const alpha = p.life * shimmer * (0.45 + energyNow * 0.8);
+
+    ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${Math.min(1, alpha)})`;
+    const glow = r > 2.2 && alpha > 0.25;
+    if (glow) {
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = ctx.fillStyle;
+    }
     ctx.beginPath();
-    ctx.arc(
-      p.x,
-      p.y,
-      p.size * p.life * (1.5 + trebleLevel * 1.2),
-      0,
-      Math.PI * 2,
-    );
-    ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${p.life * shimmer})`;
-    ctx.shadowBlur = 8;
-    ctx.shadowColor = ctx.fillStyle;
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fill();
+    if (glow) ctx.shadowBlur = 0;
   }
-  ctx.shadowBlur = 0;
 }
 
 let kaleidoRotation = 0;
@@ -627,7 +743,7 @@ function loop(timestamp) {
       drawWaveform(bassLevel, midLevel, trebleLevel);
       break;
     case "particles":
-      drawParticles(bass, bassLevel, trebleLevel);
+      drawParticles(bass, bassLevel, midLevel, trebleLevel, timestamp);
       break;
     case "kaleidoscope":
       drawKaleidoscope(bassLevel, midLevel, trebleLevel);
