@@ -150,18 +150,25 @@ loadSettings();
 
 // ---------- audio ----------
 let analyser, freqData, timeData, bufferLength;
+
+const BASS_HISTORY_MS = 1000;
 let bassHistory = [];
-const BASS_HISTORY_LEN = 60;
-let beatCooldown = 0;
-let beatPulse = 0; // 0..1, decays each frame, spikes on detected beat
+
+let beatCooldownMsLeft = 0;
+let sustainedCooldownMsLeft = 0;
+let beatPulse = 0;
+let beatJustHit = false;
+let previousBeatTime = 0;
 
 const AUDIO_TUNING = {
   beatRatio: 1.25,
   beatFloor: 42,
-  beatCooldownFrames: 8,
-  pulseDecay: 0.9,
+  beatCooldownMs: 133,
+  pulseDecayPerSec: 6.0,
   particleFloor: 26,
   particleRange: 210,
+  sustainedFloor: 150,
+  sustainedIntervalMs: 333,
 };
 
 async function initAudio() {
@@ -218,21 +225,40 @@ function normalizeEnergy(value, floor = 20, range = 210) {
   return Math.min(1, Math.max(0, (value - floor) / range));
 }
 
-function updateBeat(bass) {
-  bassHistory.push(bass);
-  if (bassHistory.length > BASS_HISTORY_LEN) bassHistory.shift();
-  const avg = bassHistory.reduce((a, b) => a + b, 0) / bassHistory.length;
+function updateBeat(bass, timestamp = performance.now()) {
+  if (previousBeatTime === 0) previousBeatTime = timestamp;
+  const elapsedMs = Math.min(100, Math.max(0, timestamp - previousBeatTime));
+  previousBeatTime = timestamp;
 
-  beatCooldown = Math.max(0, beatCooldown - 1);
-  if (
+  bassHistory.push({ bass, t: timestamp });
+  while (bassHistory.length && timestamp - bassHistory[0].t > BASS_HISTORY_MS) {
+    bassHistory.shift();
+  }
+  const avg = bassHistory.reduce((a, e) => a + e.bass, 0) / bassHistory.length;
+
+  beatCooldownMsLeft = Math.max(0, beatCooldownMsLeft - elapsedMs);
+  sustainedCooldownMsLeft = Math.max(0, sustainedCooldownMsLeft - elapsedMs);
+
+  const isSpike =
     bass > avg * AUDIO_TUNING.beatRatio &&
     bass > AUDIO_TUNING.beatFloor &&
-    beatCooldown === 0
-  ) {
+    beatCooldownMsLeft === 0;
+
+  const isSustainedLoud =
+    bass > AUDIO_TUNING.sustainedFloor && sustainedCooldownMsLeft === 0;
+
+  if (isSpike || isSustainedLoud) {
     beatPulse = 1;
-    beatCooldown = AUDIO_TUNING.beatCooldownFrames;
+    beatJustHit = true;
+    if (isSpike) {
+      beatCooldownMsLeft = AUDIO_TUNING.beatCooldownMs;
+    } else {
+      sustainedCooldownMsLeft = AUDIO_TUNING.sustainedIntervalMs;
+    }
   }
-  beatPulse *= AUDIO_TUNING.pulseDecay;
+
+  const dtSec = elapsedMs / 1000;
+  beatPulse *= Math.exp(-AUDIO_TUNING.pulseDecayPerSec * dtSec);
 }
 
 // ---------- particle system (used by 'particles' mode) ----------
@@ -545,9 +571,9 @@ function drawParticles(
     }
   }
 
-  if (beatPulse > 0.8) {
+  if (beatJustHit) {
     spawnBeatRing(bass);
-    beatPulse = 0;
+    beatJustHit = false;
   }
 
   const decayScale = 1.7 - energyTrend * 1.1;
@@ -725,7 +751,7 @@ function loop(timestamp) {
   );
   const midLevel = normalizeEnergy(mid, 18, 180);
   const trebleLevel = normalizeEnergy(treble, 14, 170);
-  updateBeat(bass);
+  updateBeat(bass, timestamp);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
     state.hueShift = (state.hueShift + 0.3 + mid * 0.01) % 360;
