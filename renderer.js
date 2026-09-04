@@ -40,6 +40,15 @@ const BASS_HISTORY_LEN = 60;
 let beatCooldown = 0;
 let beatPulse = 0; // 0..1, decays each frame, spikes on detected beat
 
+const AUDIO_TUNING = {
+  beatRatio: 1.25,
+  beatFloor: 42,
+  beatCooldownFrames: 8,
+  pulseDecay: 0.9,
+  particleFloor: 26,
+  particleRange: 210,
+};
+
 async function initAudio() {
   const stream = await navigator.mediaDevices.getDisplayMedia({
     video: true,
@@ -96,11 +105,15 @@ function updateBeat(bass) {
   const avg = bassHistory.reduce((a, b) => a + b, 0) / bassHistory.length;
 
   beatCooldown = Math.max(0, beatCooldown - 1);
-  if (bass > avg * 1.18 && bass > 40 && beatCooldown === 0) {
+  if (
+    bass > avg * AUDIO_TUNING.beatRatio &&
+    bass > AUDIO_TUNING.beatFloor &&
+    beatCooldown === 0
+  ) {
     beatPulse = 1;
-    beatCooldown = 10; // ~1/6s at 60fps, avoids re-triggering every frame
+    beatCooldown = AUDIO_TUNING.beatCooldownFrames;
   }
-  beatPulse *= 0.9; // decay
+  beatPulse *= AUDIO_TUNING.pulseDecay;
 }
 
 // ---------- particle system (used by 'particles' mode) ----------
@@ -168,7 +181,7 @@ function drawBars() {
   const baseY = canvas.height * 0.75;
 
   for (let i = 0; i < barCount; i++) {
-    const v = freqData[i * step] / 255;
+    const v = Math.pow(freqData[i * step] / 255, 0.82);
     const h = v * canvas.height * 0.6 * (1 + beatPulse * 0.15);
     const hue = currentHue(i / barCount);
     ctx.fillStyle = `hsl(${hue}, 90%, ${50 + v * 20}%)`;
@@ -192,7 +205,7 @@ function drawRadial() {
 
   for (let i = 0; i < barCount; i++) {
     const idx = Math.floor((i / barCount) * bufferLength * 0.5);
-    const v = freqData[idx] / 255;
+    const v = Math.pow(freqData[idx] / 255, 0.82);
     const len = v * Math.min(canvas.width, canvas.height) * 0.32;
     const angle = (i / barCount) * Math.PI * 2;
     const x1 = cx + Math.cos(angle) * baseR;
@@ -242,7 +255,13 @@ function drawWaveform() {
 
 function drawParticles(bass, treble) {
   // 1. Organic Variance: Spawn a steady, scaling stream based on bass intensity
-  const intensity = Math.max(0, (bass - 30) / 225); // Creates a smooth 0.0 to 1.0 scale
+  const intensity = Math.min(
+    1,
+    Math.max(
+      0,
+      (bass - AUDIO_TUNING.particleFloor) / AUDIO_TUNING.particleRange,
+    ),
+  );
   if (intensity > 0.1 && Math.random() < intensity) {
     // Spawns 1 to 4 particles organically based on the volume
     spawnParticles(Math.ceil(intensity * 4), bass);
@@ -299,7 +318,7 @@ function drawKaleidoscope() {
 
     for (let i = 0; i < barCount; i++) {
       const idx = Math.floor((i / barCount) * bufferLength * 0.5);
-      const v = Math.min(1, (freqData[idx] / 255) * 1.5);
+      const v = Math.min(1, Math.pow(freqData[idx] / 255, 0.82) * 1.2);
       const r1 = 20;
       const r2 =
         20 +
