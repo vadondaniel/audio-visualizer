@@ -179,7 +179,7 @@ describe("mergeSettings", () => {
     autoCycle: false,
     smoothingEnabled: true,
     radialMode: "mirrored",
-    kaleidoMaxRFrac: 0.46,
+    kaleidoClipEnabled: true,
   };
 
   test("falls back to defaults when nothing was saved", () => {
@@ -199,7 +199,7 @@ describe("mergeSettings", () => {
       autoCycle: true,
       smoothingEnabled: false,
       radialMode: "full",
-      kaleidoMaxRFrac: 0.6,
+      kaleidoClipEnabled: false,
     };
     expect(mergeSettings(defaults, saved, 5, 7)).toEqual(saved);
   });
@@ -231,8 +231,8 @@ describe("mergeSettings", () => {
     expect(mergeSettings(defaults, saved, 5, 7).radialMode).toBe("mirrored");
   });
 
-  test("ignores a non-positive kaleidoMaxRFrac", () => {
-    const saved = { kaleidoMaxRFrac: 0 };
-    expect(mergeSettings(defaults, saved, 5, 7).kaleidoMaxRFrac).toBe(0.46);
+  test("respects an explicit kaleidoClipEnabled: false (not just truthy checks)", () => {
+    const saved = { kaleidoClipEnabled: false };
+    expect(mergeSettings(defaults, saved, 5, 7).kaleidoClipEnabled).toBe(false);
   });
 });

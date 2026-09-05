@@ -29,18 +29,21 @@ const bgColorInput = document.getElementById("bgColorInput");
 const bgImageInput = document.getElementById("bgImageInput");
 const bgImageName = document.getElementById("bgImageName");
 const clearBgImageBtn = document.getElementById("clearBgImageBtn");
+const brightnessRow = document.getElementById("brightnessRow");
 const brightnessSlider = document.getElementById("brightnessSlider");
 const brightnessVal = document.getElementById("brightnessVal");
+const blurRow = document.getElementById("blurRow");
 const blurSlider = document.getElementById("blurSlider");
 const blurVal = document.getElementById("blurVal");
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");
-const radialModeSelect = document.getElementById("radialModeSelect");
-const kaleidoRadiusRow = document.getElementById("kaleidoRadiusRow");
-const kaleidoRadiusSlider = document.getElementById("kaleidoRadiusSlider");
-const kaleidoRadiusVal = document.getElementById("kaleidoRadiusVal");
+const radialMirroredCheckbox = document.getElementById(
+  "radialMirroredCheckbox",
+);
+const kaleidoClipRow = document.getElementById("kaleidoClipRow");
+const kaleidoClipCheckbox = document.getElementById("kaleidoClipCheckbox");
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -91,7 +94,7 @@ const state = {
   bgBlur: 0,
   smoothingEnabled: true,
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
-  kaleidoMaxRFrac: 0.46, // kaleidoscope visual only, seeded from VISUAL_TUNING below
+  kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
 };
 
 const VISUAL_TUNING = {
@@ -106,7 +109,7 @@ const VISUAL_TUNING = {
     releasePerSec: 9.75,
   },
   kaleidoscope: {
-    // maxRFrac now lives in state.kaleidoMaxRFrac (adjustable in Settings)
+    maxRFrac: 0.46,
     coreRFrac: 0.035,
     releasePerSec: 14.9,
     spinPerSec: 0.072,
@@ -140,7 +143,7 @@ const PERSISTED_KEYS = [
   "autoCycle",
   "smoothingEnabled",
   "radialMode",
-  "kaleidoMaxRFrac",
+  "kaleidoClipEnabled",
 ];
 
 // state.bgType is the explicit switch — an uploaded image stays remembered
@@ -155,13 +158,29 @@ function applyBackground() {
   }
   // Filter lives on #bgLayer only (see index.html) — never on #canvas or
   // the UI — so cranking blur/brightness can't wash out the visuals.
-  bgLayer.style.filter = `brightness(${state.bgBrightness}) blur(${state.bgBlur}px)`;
+  // Only meaningful for an image background (see updateBgRowsVisibility,
+  // which hides these controls for solid color) — a solid color is
+  // already exactly the shade the swatch shows, and there's no image
+  // detail for blur to smear, so a leftover value from a previous image
+  // session must not silently tint or blur the flat color.
+  const isImage = state.bgType === "image";
+  bgLayer.style.filter = isImage
+    ? `brightness(${state.bgBrightness}) blur(${state.bgBlur}px)`
+    : "none";
 }
 
 function updateBgRowsVisibility() {
   bgTypeSelect.value = state.bgType;
-  bgColorRow.style.display = state.bgType === "color" ? "" : "none";
-  bgImageRow.style.display = state.bgType === "image" ? "" : "none";
+  const isImage = state.bgType === "image";
+  bgColorRow.style.display = isImage ? "none" : "";
+  bgImageRow.style.display = isImage ? "" : "none";
+  // Brightness/blur only act on #bgLayer's filter (see applyBackground) —
+  // with a solid color, brightness is redundant with just picking a
+  // darker color, and blur has nothing to smear since there's no image
+  // detail, so both controls are pointless there and only shown for
+  // "Image" backgrounds.
+  brightnessRow.style.display = isImage ? "" : "none";
+  blurRow.style.display = isImage ? "" : "none";
   bgImageName.textContent = state.bgImageName || "none chosen";
 }
 
@@ -201,13 +220,13 @@ function resizeImageFile(file) {
   });
 }
 
-// Shows/hides the radial-shape and kaleidoscope-size rows depending on
+// Shows/hides the radial-shape and kaleidoscope-clip rows depending on
 // which visual is currently selected, same idea as updateBgRowsVisibility
-// above — no point offering a kaleidoscope-only slider while looking at
+// above — no point offering a kaleidoscope-only toggle while looking at
 // the bars.
 function updateVisualOptionRows() {
   radialModeRow.style.display = MODES[state.mode] === "radial" ? "" : "none";
-  kaleidoRadiusRow.style.display =
+  kaleidoClipRow.style.display =
     MODES[state.mode] === "kaleidoscope" ? "" : "none";
 }
 
@@ -223,7 +242,6 @@ function syncSelectsToState() {
 function updateSliderLabels() {
   brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
   blurVal.textContent = `${state.bgBlur}px`;
-  kaleidoRadiusVal.textContent = `${Math.round(state.kaleidoMaxRFrac * 100)}%`;
 }
 
 function saveSettings() {
@@ -265,8 +283,8 @@ function loadSettings() {
   brightnessSlider.value = state.bgBrightness;
   blurSlider.value = state.bgBlur;
   smoothingCheckbox.checked = state.smoothingEnabled;
-  radialModeSelect.value = state.radialMode;
-  kaleidoRadiusSlider.value = Math.round(state.kaleidoMaxRFrac * 100);
+  radialMirroredCheckbox.checked = state.radialMode === "mirrored";
+  kaleidoClipCheckbox.checked = state.kaleidoClipEnabled;
   updateSliderLabels();
   updateBgRowsVisibility();
   syncSelectsToState();
@@ -316,14 +334,13 @@ smoothingCheckbox.addEventListener("change", (e) => {
   saveSettings();
 });
 
-radialModeSelect.addEventListener("change", (e) => {
-  state.radialMode = e.target.value;
+radialMirroredCheckbox.addEventListener("change", (e) => {
+  state.radialMode = e.target.checked ? "mirrored" : "full";
   saveSettings();
 });
 
-kaleidoRadiusSlider.addEventListener("input", (e) => {
-  state.kaleidoMaxRFrac = parseInt(e.target.value, 10) / 100;
-  updateSliderLabels();
+kaleidoClipCheckbox.addEventListener("change", (e) => {
+  state.kaleidoClipEnabled = e.target.checked;
   saveSettings();
 });
 
@@ -812,6 +829,7 @@ const KALEIDO_BAND_EDGES = (() => {
 
 function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   const {
+    maxRFrac,
     coreRFrac,
     releasePerSec,
     spinPerSec,
@@ -823,7 +841,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   const cy = canvas.height / 2;
   const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
-  const maxR = Math.min(canvas.width, canvas.height) * state.kaleidoMaxRFrac;
+  const maxR = Math.min(canvas.width, canvas.height) * maxRFrac;
 
   kaleidoRotation +=
     (spinPerSec + trebleLevel * spinTreblePerSec + beatPulse * spinBeatPerSec) *
@@ -841,11 +859,17 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
     ctx.rotate(s * segAngle + kaleidoRotation);
     const mirrored = s % 2 === 1;
 
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.arc(0, 0, maxR, 0, segAngle);
-    ctx.closePath();
-    ctx.clip();
+    // With clipping on, bars that would reach past maxR get sliced flat at
+    // that circle — that flat-edged "hits the wall" look is exactly what
+    // Settings > Clip to circle is for turning off: unchecked, bars are
+    // free to spike out past maxR instead of being capped at a circle.
+    if (state.kaleidoClipEnabled) {
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, maxR, 0, segAngle);
+      ctx.closePath();
+      ctx.clip();
+    }
 
     for (let i = 0; i < KALEIDO_BARS; i++) {
       const raw = bandAverage(
@@ -969,6 +993,13 @@ function loop(timestamp = performance.now()) {
 // ---------- input ----------
 let hudTimeout;
 let hudActive = false;
+// Whether the pointer currently rests over one of the elements that would
+// otherwise auto-hide (hud/settingsBtn/settingsPanel). While true, the
+// hide countdown is suspended entirely — resting the mouse on a slider or
+// dropdown doesn't fire "mousemove" continuously, so without this the UI
+// could fade out from under the cursor mid-interaction.
+let hoveringPersistentUI = false;
+
 // The gear button and the settings panel (when open) both ride along
 // with #hud's show-on-activity/fade-on-idle cycle — see
 // updatePanelVisibility above, which reads hudActive too.
@@ -978,6 +1009,7 @@ function flashHud() {
   settingsBtn.classList.add("visible");
   updatePanelVisibility();
   clearTimeout(hudTimeout);
+  if (hoveringPersistentUI) return; // don't schedule a hide while the pointer is resting on the UI
   hudTimeout = setTimeout(() => {
     hudActive = false;
     hud.classList.remove("visible");
@@ -986,6 +1018,19 @@ function flashHud() {
   }, 2500);
 }
 window.addEventListener("mousemove", flashHud);
+
+// Pause the auto-hide countdown while hovering the HUD, gear button, or
+// open settings panel, and resume a fresh countdown on mouse-leave.
+[hud, settingsBtn, settingsPanel].forEach((el) => {
+  el.addEventListener("mouseenter", () => {
+    hoveringPersistentUI = true;
+    flashHud();
+  });
+  el.addEventListener("mouseleave", () => {
+    hoveringPersistentUI = false;
+    flashHud();
+  });
+});
 
 const KEY_ACTIONS = {
   c: () => {

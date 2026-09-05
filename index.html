@@ -237,10 +237,39 @@
         font-size: var(--fs-sm);
         display: none;
         flex-direction: column;
-        gap: 14px;
       }
       #settingsPanel.visible {
         display: flex;
+      }
+      #settingsPanel .settingsHeader {
+        font-size: var(--fs-md);
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        padding-bottom: 12px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+      #settingsPanel .settingsSection {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 14px 0;
+      }
+      #settingsPanel .settingsSection:first-of-type {
+        padding-top: 2px;
+      }
+      #settingsPanel .settingsSection:last-of-type {
+        padding-bottom: 2px;
+      }
+      #settingsPanel .settingsSection + .settingsSection {
+        border-top: 1px solid var(--border-subtle);
+      }
+      #settingsPanel .settingsSectionTitle {
+        font-size: var(--fs-xs);
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        opacity: 0.45;
       }
       #settingsPanel label {
         display: flex;
@@ -259,10 +288,6 @@
       }
       #settingsPanel label span:first-child {
         flex-shrink: 0;
-      }
-      #settingsPanel hr {
-        border: none;
-        border-top: 1px solid var(--border-subtle);
       }
       #settingsPanel input[type="color"] {
         width: 100%;
@@ -356,90 +381,80 @@
 
     <button id="settingsBtn" title="Settings">⚙</button>
     <div id="settingsPanel">
-      <div>
-        <label for="modeSelect">Visual</label>
-        <select id="modeSelect"></select>
-      </div>
-      <div>
-        <label for="themeSelect">Color theme</label>
-        <select id="themeSelect"></select>
+      <div class="settingsHeader">Settings</div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">Visual</div>
+        <div>
+          <label for="modeSelect">Style</label>
+          <select id="modeSelect"></select>
+        </div>
+        <div id="radialModeRow" class="toggleRow">
+          <label for="radialMirroredCheckbox">Mirrored</label>
+          <input type="checkbox" id="radialMirroredCheckbox" checked />
+        </div>
+        <div id="kaleidoClipRow" class="toggleRow">
+          <label for="kaleidoClipCheckbox">Clip to circle</label>
+          <input type="checkbox" id="kaleidoClipCheckbox" checked />
+        </div>
+        <div>
+          <label for="themeSelect">Color theme</label>
+          <select id="themeSelect"></select>
+        </div>
+        <div class="toggleRow">
+          <label for="smoothingCheckbox">Smooth motion</label>
+          <input type="checkbox" id="smoothingCheckbox" checked />
+        </div>
       </div>
 
-      <hr />
-
-      <div class="toggleRow">
-        <label for="smoothingCheckbox">Smooth motion</label>
-        <input type="checkbox" id="smoothingCheckbox" checked />
-      </div>
-      <div id="radialModeRow">
-        <label for="radialModeSelect">Radial shape</label>
-        <select id="radialModeSelect">
-          <option value="mirrored">Mirrored</option>
-          <option value="full">Full circle</option>
-        </select>
-      </div>
-      <div id="kaleidoRadiusRow">
-        <label for="kaleidoRadiusSlider"
-          ><span>Kaleidoscope size</span
-          ><span class="val" id="kaleidoRadiusVal">46%</span></label
-        >
-        <input
-          type="range"
-          id="kaleidoRadiusSlider"
-          min="15"
-          max="70"
-          step="1"
-          value="46"
-        />
-      </div>
-
-      <hr />
-
-      <div>
-        <label for="bgTypeSelect">Background</label>
-        <select id="bgTypeSelect">
-          <option value="color">Solid color</option>
-          <option value="image">Image</option>
-        </select>
-      </div>
-      <div id="bgColorRow">
-        <label for="bgColorInput">Color</label>
-        <input type="color" id="bgColorInput" value="#0f0f1a" />
-      </div>
-      <div id="bgImageRow">
-        <label for="bgImageInput"
-          ><span>Image</span
-          ><span class="val" id="bgImageName">none chosen</span></label
-        >
-        <input type="file" id="bgImageInput" accept="image/*" />
-        <button id="clearBgImageBtn">Clear image</button>
-      </div>
-      <div>
-        <label for="brightnessSlider"
-          ><span>Brightness</span
-          ><span class="val" id="brightnessVal">100%</span></label
-        >
-        <input
-          type="range"
-          id="brightnessSlider"
-          min="0.2"
-          max="1.6"
-          step="0.05"
-          value="1"
-        />
-      </div>
-      <div>
-        <label for="blurSlider"
-          ><span>Blur</span><span class="val" id="blurVal">0px</span></label
-        >
-        <input
-          type="range"
-          id="blurSlider"
-          min="0"
-          max="20"
-          step="1"
-          value="0"
-        />
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">Background</div>
+        <div>
+          <label for="bgTypeSelect">Type</label>
+          <select id="bgTypeSelect">
+            <option value="color">Solid color</option>
+            <option value="image">Image</option>
+          </select>
+        </div>
+        <div id="bgColorRow">
+          <label for="bgColorInput">Color</label>
+          <input type="color" id="bgColorInput" value="#0f0f1a" />
+        </div>
+        <div id="bgImageRow">
+          <label for="bgImageInput"
+            ><span>Image</span
+            ><span class="val" id="bgImageName">none chosen</span></label
+          >
+          <input type="file" id="bgImageInput" accept="image/*" />
+          <button id="clearBgImageBtn">Clear image</button>
+        </div>
+        <div id="brightnessRow">
+          <label for="brightnessSlider"
+            ><span>Brightness</span
+            ><span class="val" id="brightnessVal">100%</span></label
+          >
+          <input
+            type="range"
+            id="brightnessSlider"
+            min="0.2"
+            max="1.6"
+            step="0.05"
+            value="1"
+          />
+        </div>
+        <div id="blurRow">
+          <label for="blurSlider"
+            ><span>Blur</span><span class="val" id="blurVal">0px</span></label
+          >
+          <input
+            type="range"
+            id="blurSlider"
+            min="0"
+            max="20"
+            step="1"
+            value="0"
+          />
+        </div>
       </div>
     </div>
 

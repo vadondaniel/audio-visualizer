@@ -117,8 +117,8 @@
       state.smoothingEnabled = saved.smoothingEnabled;
     if (saved.radialMode === "mirrored" || saved.radialMode === "full")
       state.radialMode = saved.radialMode;
-    if (typeof saved.kaleidoMaxRFrac === "number" && saved.kaleidoMaxRFrac > 0)
-      state.kaleidoMaxRFrac = saved.kaleidoMaxRFrac;
+    if (typeof saved.kaleidoClipEnabled === "boolean")
+      state.kaleidoClipEnabled = saved.kaleidoClipEnabled;
 
     return state;
   }
