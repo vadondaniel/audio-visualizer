@@ -164,6 +164,30 @@ describe("detectBeat", () => {
     });
     expect(result.isBeat).toBe(false);
   });
+
+  test("uses strict thresholds at the exact spike boundary", () => {
+    const result = detectBeat({
+      bass: 75,
+      avg: 60,
+      beatCooldownMsLeft: 0,
+      sustainedCooldownMsLeft: 1000,
+      tuning,
+    });
+    expect(result.isSpike).toBe(false);
+    expect(result.isBeat).toBe(false);
+  });
+
+  test("keeps sustained beats disabled until their cooldown expires", () => {
+    const result = detectBeat({
+      bass: 200,
+      avg: 195,
+      beatCooldownMsLeft: 0,
+      sustainedCooldownMsLeft: 1,
+      tuning,
+    });
+    expect(result.isSustainedLoud).toBe(false);
+    expect(result.isBeat).toBe(false);
+  });
 });
 
 describe("mergeSettings", () => {
@@ -272,5 +296,29 @@ describe("mergeSettings", () => {
     expect(merged.reactiveVignette).toBe(false);
     expect(merged.crtFilter).toBe(true);
     expect(merged.beatFlash).toBe(false);
+  });
+
+  test("does not restore non-finite numeric values from localStorage", () => {
+    const saved = {
+      bgBrightness: Number.NaN,
+      bgBlur: Number.POSITIVE_INFINITY,
+      sensitivity: Number.NEGATIVE_INFINITY,
+      glowIntensity: Number.NaN,
+    };
+    const merged = mergeSettings(defaults, saved, 8, 7);
+
+    expect(merged.bgBrightness).toBe(defaults.bgBrightness);
+    expect(merged.bgBlur).toBe(defaults.bgBlur);
+    expect(merged.sensitivity).toBe(defaults.sensitivity);
+    expect(merged.glowIntensity).toBe(defaults.glowIntensity);
+  });
+
+  test("does not mutate the defaults object while merging", () => {
+    const saved = { mode: 3, smoothingEnabled: false };
+    const result = mergeSettings(defaults, saved, 8, 7);
+
+    expect(result).not.toBe(defaults);
+    expect(defaults.mode).toBe(0);
+    expect(defaults.smoothingEnabled).toBe(true);
   });
 });

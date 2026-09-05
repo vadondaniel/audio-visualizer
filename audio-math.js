@@ -97,9 +97,9 @@
     if (saved.bgColor) state.bgColor = saved.bgColor;
     if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
     if (saved.bgImageName) state.bgImageName = saved.bgImageName;
-    if (typeof saved.bgBrightness === "number")
+    if (Number.isFinite(saved.bgBrightness))
       state.bgBrightness = saved.bgBrightness;
-    if (typeof saved.bgBlur === "number") state.bgBlur = saved.bgBlur;
+    if (Number.isFinite(saved.bgBlur)) state.bgBlur = saved.bgBlur;
     if (
       typeof saved.mode === "number" &&
       saved.mode >= 0 &&
@@ -124,13 +124,13 @@
     if (saved.waveformStyle === "line" || saved.waveformStyle === "filled")
       state.waveformStyle = saved.waveformStyle;
     if (
-      typeof saved.sensitivity === "number" &&
+      Number.isFinite(saved.sensitivity) &&
       saved.sensitivity >= 0.2 &&
       saved.sensitivity <= 3.0
     )
       state.sensitivity = saved.sensitivity;
     if (
-      typeof saved.glowIntensity === "number" &&
+      Number.isFinite(saved.glowIntensity) &&
       saved.glowIntensity >= 0 &&
       saved.glowIntensity <= 2.5
     )
