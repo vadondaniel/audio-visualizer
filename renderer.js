@@ -17,9 +17,8 @@ const ctx = canvas.getContext("2d");
 const startOverlay = document.getElementById("startOverlay");
 const startBtn = document.getElementById("startBtn");
 const errorMsg = document.getElementById("errorMsg");
-const hud = document.getElementById("hud");
-
 const settingsBtn = document.getElementById("settingsBtn");
+
 const settingsPanel = document.getElementById("settingsPanel");
 const bgLayer = document.getElementById("bgLayer");
 const bgTypeSelect = document.getElementById("bgTypeSelect");
@@ -35,6 +34,9 @@ const brightnessVal = document.getElementById("brightnessVal");
 const blurRow = document.getElementById("blurRow");
 const blurSlider = document.getElementById("blurSlider");
 const blurVal = document.getElementById("blurVal");
+const hotkeysBtn = document.getElementById("hotkeysBtn");
+const hotkeysOverlay = document.getElementById("hotkeysOverlay");
+const hotkeysCloseBtn = document.getElementById("hotkeysCloseBtn");
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
@@ -1033,14 +1035,12 @@ let hoveringPersistentUI = false;
 // updatePanelVisibility above, which reads hudActive too.
 function flashHud() {
   hudActive = true;
-  hud.classList.add("visible");
   settingsBtn.classList.add("visible");
   updatePanelVisibility();
   clearTimeout(hudTimeout);
   if (hoveringPersistentUI) return; // don't schedule a hide while the pointer is resting on the UI
   hudTimeout = setTimeout(() => {
     hudActive = false;
-    hud.classList.remove("visible");
     settingsBtn.classList.remove("visible");
     updatePanelVisibility();
   }, 2500);
@@ -1049,7 +1049,7 @@ window.addEventListener("mousemove", flashHud);
 
 // Pause the auto-hide countdown while hovering the HUD, gear button, or
 // open settings panel, and resume a fresh countdown on mouse-leave.
-[hud, settingsBtn, settingsPanel].forEach((el) => {
+[settingsBtn, settingsPanel].forEach((el) => {
   el.addEventListener("mouseenter", () => {
     hoveringPersistentUI = true;
     flashHud();
@@ -1058,6 +1058,23 @@ window.addEventListener("mousemove", flashHud);
     hoveringPersistentUI = false;
     flashHud();
   });
+});
+
+// ---------- hotkeys modal ----------
+function openHotkeys() {
+  hotkeysOverlay.classList.add("visible");
+}
+function closeHotkeys() {
+  hotkeysOverlay.classList.remove("visible");
+}
+
+hotkeysBtn.addEventListener("click", (e) => {
+  e.stopPropagation();
+  openHotkeys();
+});
+hotkeysCloseBtn.addEventListener("click", closeHotkeys);
+hotkeysOverlay.addEventListener("click", (e) => {
+  if (e.target === hotkeysOverlay) closeHotkeys();
 });
 
 const KEY_ACTIONS = {
@@ -1080,6 +1097,11 @@ const KEY_ACTIONS = {
 };
 
 window.addEventListener("keydown", (e) => {
+  // Let Escape close the hotkeys modal first before potentially quitting.
+  if (e.key === "Escape" && hotkeysOverlay.classList.contains("visible")) {
+    closeHotkeys();
+    return;
+  }
   flashHud();
   if (e.key >= "1" && e.key <= "5") {
     state.mode = parseInt(e.key, 10) - 1;

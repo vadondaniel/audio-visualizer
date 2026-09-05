@@ -57,8 +57,10 @@
           ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
 
         /* Layout */
-        --edge-gap: 20px; /* consistent inset from the screen edge for all floating UI */
-        --bg-overscan: 60px; /* #bgLayer overshoot so blur() edges land offscreen, see below */
+        --edge-gap: 20px;
+        /* consistent inset from the screen edge for all floating UI */
+        --bg-overscan: 60px;
+        /* #bgLayer overshoot so blur() edges land offscreen, see below */
 
         /* Radius scale */
         --radius-sm: 8px;
@@ -137,6 +139,7 @@
            itself. Values are set live from renderer.js. */
         filter: brightness(1) blur(0px);
       }
+
       #canvas {
         position: absolute;
         top: 0;
@@ -165,6 +168,7 @@
         z-index: var(--z-overlay);
         padding: 32px;
       }
+
       #startOverlay h1 {
         font-size: var(--fs-xl);
         letter-spacing: 6px;
@@ -175,6 +179,7 @@
         color: transparent;
         margin-bottom: 30px;
       }
+
       #startBtn {
         display: inline-flex;
         align-items: center;
@@ -197,14 +202,17 @@
           border-color var(--transition-med),
           transform var(--transition-fast);
       }
+
       #startBtn:hover {
         background: var(--accent-gradient);
         border-color: transparent;
         box-shadow: 0 0 36px rgba(var(--accent-rgb), 0.45);
       }
+
       #startBtn:active {
         transform: scale(0.97);
       }
+
       #startHint {
         display: flex;
         align-items: flex-start;
@@ -220,11 +228,13 @@
         line-height: var(--leading-normal);
         text-align: left;
       }
+
       #startHint svg {
         flex: none;
         margin-top: 1px;
         color: var(--ink-faint);
       }
+
       /* Note: renderer.js toggles this element's visibility by setting
          style.display directly to "none" / "block" (not a class), so the
          shown state must work as a block container — the icon below is an
@@ -243,6 +253,7 @@
         line-height: var(--leading-normal);
         text-align: left;
       }
+
       #errorMsg::before {
         content: "!";
         display: inline-flex;
@@ -259,48 +270,171 @@
         vertical-align: -2px;
       }
 
-      /* ---------- HUD (bottom-left shortcut hint) ---------- */
-      #hud {
-        position: absolute;
-        bottom: var(--edge-gap);
-        left: var(--edge-gap);
-        z-index: var(--z-hud);
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        color: var(--ink-dim);
-        font-size: var(--fs-xs);
-        background: var(--glass-fill);
-        backdrop-filter: var(--glass-blur);
-        -webkit-backdrop-filter: var(--glass-blur);
-        border: 1px solid var(--hairline);
-        padding: 12px 14px;
-        border-radius: var(--radius-md);
-        opacity: 0;
-        transition: opacity var(--transition-slow);
-        pointer-events: none;
-      }
-      #hud.visible {
-        opacity: 1;
-      }
-      #hud .hudRow {
+      /* ---------- hotkeys modal ---------- */
+      #hotkeysOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: calc(var(--z-overlay) + 5);
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 6px;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-med);
       }
-      #hud kbd {
+
+      #hotkeysOverlay.visible {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      #hotkeysModal {
+        background: var(--glass-fill-strong);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-lg);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+        width: 340px;
+        max-width: calc(100vw - 48px);
+        overflow: hidden;
+        transform: translateY(8px) scale(0.97);
+        transition:
+          transform var(--transition-med),
+          opacity var(--transition-med);
+        opacity: 0;
+      }
+
+      #hotkeysOverlay.visible #hotkeysModal {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+
+      #hotkeysModal .modalHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 16px 20px 14px;
+        border-bottom: 1px solid var(--hairline);
+      }
+
+      #hotkeysModal .modalTitle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: var(--fs-md);
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+
+      #hotkeysModal .modalTitle svg {
+        color: var(--accent-2);
+      }
+
+      #hotkeysModal .modalClose {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--hairline);
+        background: transparent;
+        color: var(--ink-dim);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        transition:
+          background var(--transition-fast),
+          color var(--transition-fast),
+          border-color var(--transition-fast);
+        flex-shrink: 0;
+      }
+
+      #hotkeysModal .modalClose:hover {
+        background: rgba(var(--ink-rgb), 0.08);
+        color: var(--ink);
+        border-color: var(--hairline-strong);
+      }
+
+      #hotkeysModal .modalBody {
+        padding: 16px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      #hotkeysModal .hotkeyRow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--hairline);
+        gap: 12px;
+      }
+
+      #hotkeysModal .hotkeyRow:last-child {
+        border-bottom: none;
+      }
+
+      #hotkeysModal .hotkeyDesc {
+        font-size: var(--fs-sm);
+        color: var(--ink-dim);
+        flex: 1;
+      }
+
+      #hotkeysModal .hotkeyKeys {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      #hotkeysModal kbd {
         font-family: var(--font-mono);
         font-size: var(--fs-2xs);
         color: var(--ink);
-        background: rgba(var(--ink-rgb), 0.1);
+        background: rgba(var(--ink-rgb), 0.08);
         border: 1px solid var(--hairline-strong);
         border-radius: var(--radius-sm);
-        padding: 2px 6px;
+        padding: 3px 8px;
         line-height: 1.5;
+        white-space: nowrap;
       }
-      #hud span.sep {
-        color: var(--ink-faint);
+
+      /* ---------- hotkeys button in settings panel ---------- */
+      #hotkeysBtn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        width: 100%;
+        padding: 9px 0;
+        font-family: inherit;
+        font-size: var(--fs-sm);
+        font-weight: 500;
+        background: var(--surface-input);
+        color: var(--ink-dim);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition:
+          border-color var(--transition-fast),
+          color var(--transition-fast),
+          background var(--transition-fast);
+      }
+
+      #hotkeysBtn:hover {
+        border-color: rgba(var(--accent-2-rgb), 0.5);
+        color: var(--ink);
+        background: var(--surface-input-hover);
+      }
+
+      #hotkeysBtn svg {
+        flex-shrink: 0;
       }
 
       /* ---------- settings trigger ---------- */
@@ -331,16 +465,20 @@
           transform var(--transition-fast),
           opacity var(--transition-slow);
       }
+
       #settingsBtn.visible {
         opacity: 1;
       }
+
       #settingsBtn:hover {
         border-color: rgba(var(--accent-rgb), 0.5);
         color: var(--accent-2);
       }
+
       #settingsBtn svg {
         display: block;
       }
+
       /* Custom tooltip, styled to match the rest of the UI — a native
          title="" attribute renders as a plain OS tooltip (light box, system
          font) that clashes with the dark glass theme, so this is built with
@@ -365,6 +503,7 @@
           opacity var(--transition-fast),
           transform var(--transition-fast);
       }
+
       #settingsBtn:hover::after {
         opacity: 1;
         transform: translateY(-50%) translateX(0);
@@ -391,16 +530,20 @@
         flex-direction: column;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
       }
+
       #settingsPanel.visible {
         display: flex;
       }
+
       #settingsPanel::-webkit-scrollbar {
         width: 8px;
       }
+
       #settingsPanel::-webkit-scrollbar-thumb {
         background: var(--hairline-strong);
         border-radius: var(--radius-pill);
       }
+
       #settingsPanel::-webkit-scrollbar-track {
         background: transparent;
       }
@@ -429,6 +572,7 @@
         position: sticky;
         top: 0;
       }
+
       #settingsPanel .settingsHeader svg {
         color: var(--accent-2);
       }
@@ -439,15 +583,19 @@
         gap: 14px;
         padding: 16px 0;
       }
+
       #settingsPanel .settingsSection:first-of-type {
         padding-top: 14px;
       }
+
       #settingsPanel .settingsSection:last-of-type {
         padding-bottom: 4px;
       }
+
       #settingsPanel .settingsSection + .settingsSection {
         border-top: 1px solid var(--hairline);
       }
+
       #settingsPanel .settingsSectionTitle {
         display: flex;
         align-items: center;
@@ -457,6 +605,7 @@
         letter-spacing: 0.6px;
         color: var(--ink-faint);
       }
+
       #settingsPanel .settingsSectionTitle svg {
         flex: none;
       }
@@ -466,6 +615,7 @@
         flex-direction: column;
         gap: 7px;
       }
+
       #settingsPanel label {
         display: flex;
         justify-content: space-between;
@@ -473,6 +623,7 @@
         color: var(--ink-dim);
         font-size: var(--fs-sm);
       }
+
       #settingsPanel label .val {
         font-family: var(--font-mono);
         font-size: var(--fs-2xs);
@@ -483,6 +634,7 @@
         min-width: 0;
         margin-left: 10px;
       }
+
       #settingsPanel label span:first-child {
         flex-shrink: 0;
       }
@@ -497,11 +649,13 @@
         cursor: pointer;
         padding: 3px;
       }
+
       #settingsPanel input[type="color"]::-webkit-color-swatch-wrapper {
         padding: 0;
         border-radius: 5px;
         overflow: hidden;
       }
+
       #settingsPanel input[type="color"]::-webkit-color-swatch {
         border: none;
         border-radius: 5px;
@@ -516,11 +670,13 @@
         background: transparent;
         cursor: pointer;
       }
+
       #settingsPanel input[type="range"]::-webkit-slider-runnable-track {
         height: 4px;
         border-radius: var(--radius-pill);
         background: var(--surface-input);
       }
+
       #settingsPanel input[type="range"]::-webkit-slider-thumb {
         -webkit-appearance: none;
         margin-top: -6px;
@@ -534,17 +690,21 @@
           transform var(--transition-fast),
           box-shadow var(--transition-fast);
       }
+
       #settingsPanel input[type="range"]:hover::-webkit-slider-thumb {
         box-shadow: 0 0 0 6px rgba(var(--accent-2-rgb), 0.16);
       }
+
       #settingsPanel input[type="range"]:active::-webkit-slider-thumb {
         transform: scale(1.1);
       }
+
       #settingsPanel input[type="range"]::-moz-range-track {
         height: 4px;
         border-radius: var(--radius-pill);
         background: var(--surface-input);
       }
+
       #settingsPanel input[type="range"]::-moz-range-thumb {
         width: 16px;
         height: 16px;
@@ -561,6 +721,7 @@
         font-size: var(--fs-xs);
         color: var(--ink-faint);
       }
+
       #settingsPanel input[type="file"]::file-selector-button {
         font-family: inherit;
         font-size: var(--fs-xs);
@@ -574,6 +735,7 @@
         cursor: pointer;
         transition: background var(--transition-fast);
       }
+
       #settingsPanel input[type="file"]::file-selector-button:hover {
         background: var(--surface-input-hover);
       }
@@ -597,13 +759,16 @@
         -webkit-appearance: none;
         transition: border-color var(--transition-fast);
       }
+
       #settingsPanel select:hover {
         border-color: rgba(var(--accent-2-rgb), 0.5);
       }
+
       #settingsPanel select option {
         background: #16161f;
         color: var(--ink);
       }
+
       /* The dropdown's open option list is normally drawn by the OS/browser
          chrome, not this page, which is why it shows a plain white row and
          a system-blue highlight no matter what "option" is styled to look
@@ -617,13 +782,16 @@
           appearance: base-select;
           background-image: none;
         }
+
         #settingsPanel select::picker-icon {
           color: var(--ink-faint);
           transition: color var(--transition-fast);
         }
+
         #settingsPanel select:hover::picker-icon {
           color: var(--ink);
         }
+
         #settingsPanel select::picker(select) {
           appearance: base-select;
           background: #16161f;
@@ -632,14 +800,17 @@
           padding: 4px;
           box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
         }
+
         #settingsPanel select option {
           padding: 8px 10px;
           border-radius: var(--radius-sm);
           background: transparent;
         }
+
         #settingsPanel select option:hover {
           background: rgba(var(--accent-2-rgb), 0.16);
         }
+
         #settingsPanel select option:checked {
           background: var(--accent-gradient);
           color: #0b0b10;
@@ -652,9 +823,11 @@
         justify-content: space-between;
         align-items: center;
       }
+
       #settingsPanel .toggleRow label {
         color: var(--ink);
       }
+
       #settingsPanel input[type="checkbox"] {
         flex: none;
         appearance: none;
@@ -670,6 +843,7 @@
           background var(--transition-med),
           border-color var(--transition-med);
       }
+
       #settingsPanel input[type="checkbox"]::before {
         content: "";
         position: absolute;
@@ -681,10 +855,12 @@
         background: var(--ink);
         transition: transform var(--transition-med);
       }
+
       #settingsPanel input[type="checkbox"]:checked {
         background: var(--accent-gradient);
         border-color: transparent;
       }
+
       #settingsPanel input[type="checkbox"]:checked::before {
         transform: translateX(15px);
       }
@@ -705,12 +881,14 @@
           border-color var(--transition-fast),
           color var(--transition-fast);
       }
+
       #clearBgImageBtn:hover {
         border-color: var(--accent-2);
         color: var(--ink);
       }
     </style>
   </head>
+
   <body>
     <div id="bgLayer"></div>
     <canvas id="canvas"></canvas>
@@ -742,16 +920,70 @@
       <div id="errorMsg"></div>
     </div>
 
-    <div id="hud">
-      <div class="hudRow">
-        <kbd>1-5</kbd> switch visual <span class="sep">·</span>
-        <kbd>C</kbd> color theme <span class="sep">·</span>
-        <kbd>Space</kbd> auto-cycle
-      </div>
-      <div class="hudRow">
-        <kbd>F</kbd> fullscreen <span class="sep">·</span> <kbd>T</kbd> always
-        on top <span class="sep">·</span> <kbd>B</kbd> background
-        <span class="sep">·</span> <kbd>Esc</kbd> quit
+    <!-- hotkeys modal -->
+    <div
+      id="hotkeysOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hotkeysModalTitle"
+    >
+      <div id="hotkeysModal">
+        <div class="modalHeader">
+          <div class="modalTitle" id="hotkeysModalTitle">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path
+                d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"
+              />
+            </svg>
+            Keyboard Shortcuts
+          </div>
+          <button class="modalClose" id="hotkeysCloseBtn" aria-label="Close">
+            &#x2715;
+          </button>
+        </div>
+        <div class="modalBody">
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Switch visual style</span>
+            <span class="hotkeyKeys"
+              ><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd
+              ><kbd>5</kbd></span
+            >
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Next color theme</span>
+            <span class="hotkeyKeys"><kbd>C</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle auto-cycle visuals</span>
+            <span class="hotkeyKeys"><kbd>Space</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle background panel</span>
+            <span class="hotkeyKeys"><kbd>B</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle fullscreen</span>
+            <span class="hotkeyKeys"><kbd>F</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle always on top</span>
+            <span class="hotkeyKeys"><kbd>T</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Quit</span>
+            <span class="hotkeyKeys"><kbd>Esc</kbd></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -894,6 +1126,28 @@
             value="0"
           />
         </div>
+      </div>
+
+      <!-- hotkeys button at the bottom of the settings panel -->
+      <div class="settingsSection">
+        <button id="hotkeysBtn">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path
+              d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"
+            />
+          </svg>
+          Keyboard Shortcuts
+        </button>
       </div>
     </div>
 
