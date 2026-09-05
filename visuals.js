@@ -1756,6 +1756,25 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   // 4. On drops, pulse ripples through the circle with the intensity of the pulses
   const themeHue = currentHue(0);
   const accentHue = (themeHue + 25) % 360;
+  const cascadeRingStyle = (alpha, lightness) => {
+    const theme = THEMES[state.theme];
+    if (!theme.rainbow) {
+      return `hsla(${themeHue}, 100%, ${lightness}%, ${alpha})`;
+    }
+
+    // The contour is circular, so a conic gradient follows its geometry.
+    // Using currentHue(0) alone would make Rainbow themes solid red because
+    // computeHue intentionally ignores the offset for that case.
+    const gradient = ctx.createConicGradient(-Math.PI / 2, cx, cy);
+    const stops = 6;
+    for (let s = 0; s <= stops; s++) {
+      gradient.addColorStop(
+        s / stops,
+        `hsla(${currentHue(s / stops)}, 100%, ${lightness}%, ${alpha})`
+      );
+    }
+    return gradient;
+  };
 
   ctx.save();
   for (const sw of cascadeDropRipples) {
@@ -1786,9 +1805,12 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.save();
   // Layer A: Outer Neon Glow Contour (Intense peaks)
   traceContour(6);
-  ctx.strokeStyle = `hsla(${themeHue}, 100%, 65%, 0.95)`;
+  ctx.strokeStyle = cascadeRingStyle(0.95, 65);
   ctx.lineWidth = 3.6 + beatPulse * 1.4;
-  applyGlow(ctx.strokeStyle, 14 + beatPulse * 10);
+  applyGlow(
+    THEMES[state.theme].rainbow ? "rgba(255, 255, 255, 0.7)" : ctx.strokeStyle,
+    14 + beatPulse * 10
+  );
   ctx.stroke();
 
   // Layer B: Black Contrast Separation Gap
@@ -1806,9 +1828,14 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
 
   // Layer D: Inner Neon Line
   traceContour(0);
-  ctx.strokeStyle = `hsla(${accentHue}, 100%, 70%, 0.9)`;
+  ctx.strokeStyle = THEMES[state.theme].rainbow
+    ? cascadeRingStyle(0.9, 70)
+    : `hsla(${accentHue}, 100%, 70%, 0.9)`;
   ctx.lineWidth = 2.6 + beatPulse * 1.0;
-  applyGlow(ctx.strokeStyle, 8);
+  applyGlow(
+    THEMES[state.theme].rainbow ? "rgba(255, 255, 255, 0.7)" : ctx.strokeStyle,
+    8
+  );
   ctx.stroke();
   ctx.restore();
 
