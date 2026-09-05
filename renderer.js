@@ -8,9 +8,16 @@ const hud = document.getElementById("hud");
 
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsPanel = document.getElementById("settingsPanel");
+const bgLayer = document.getElementById("bgLayer");
 const bgColorInput = document.getElementById("bgColorInput");
 const bgImageInput = document.getElementById("bgImageInput");
 const clearBgImageBtn = document.getElementById("clearBgImageBtn");
+const brightnessSlider = document.getElementById("brightnessSlider");
+const brightnessVal = document.getElementById("brightnessVal");
+const blurSlider = document.getElementById("blurSlider");
+const blurVal = document.getElementById("blurVal");
+const modeSelect = document.getElementById("modeSelect");
+const themeSelect = document.getElementById("themeSelect");
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -31,6 +38,22 @@ const THEMES = [
 
 const MODES = ["bars", "radial", "waveform", "particles", "kaleidoscope"];
 
+// Populate the settings-panel dropdowns straight from MODES/THEMES so a
+// new visual or theme added above shows up here automatically instead of
+// needing a matching edit in the HTML.
+MODES.forEach((name, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+  modeSelect.appendChild(opt);
+});
+THEMES.forEach((theme, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = theme.name;
+  themeSelect.appendChild(opt);
+});
+
 const state = {
   mode: 0,
   theme: 0,
@@ -39,6 +62,8 @@ const state = {
   hueShift: 0,
   bgColor: "#0f0f1a",
   bgImageDataUrl: null,
+  bgBrightness: 1,
+  bgBlur: 0,
 };
 
 const VISUAL_TUNING = {
@@ -78,6 +103,8 @@ const SETTINGS_KEY = "audioVisualizerSettings";
 const PERSISTED_KEYS = [
   "bgColor",
   "bgImageDataUrl",
+  "bgBrightness",
+  "bgBlur",
   "mode",
   "theme",
   "autoCycle",
@@ -85,11 +112,27 @@ const PERSISTED_KEYS = [
 
 function applyBackground() {
   if (state.bgImageDataUrl) {
-    document.body.style.backgroundImage = `url("${state.bgImageDataUrl}")`;
+    bgLayer.style.backgroundImage = `url("${state.bgImageDataUrl}")`;
   } else {
-    document.body.style.backgroundImage = "none";
-    document.body.style.backgroundColor = state.bgColor;
+    bgLayer.style.backgroundImage = "none";
+    bgLayer.style.backgroundColor = state.bgColor;
   }
+  // Filter lives on #bgLayer only (see index.html) — never on #canvas or
+  // the UI — so cranking blur/brightness can't wash out the visuals.
+  bgLayer.style.filter = `brightness(${state.bgBrightness}) blur(${state.bgBlur}px)`;
+}
+
+// Keeps the dropdowns showing whatever visual/theme is actually active,
+// whether that came from the dropdown, a keyboard shortcut, or a restored
+// setting on launch.
+function syncSelectsToState() {
+  modeSelect.value = state.mode;
+  themeSelect.value = state.theme;
+}
+
+function updateSliderLabels() {
+  brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
+  blurVal.textContent = `${state.bgBlur}px`;
 }
 
 function saveSettings() {
@@ -108,6 +151,7 @@ function setAutoCycle(enabled) {
   if (enabled) {
     state.autoCycleTimer = setInterval(() => {
       state.mode = (state.mode + 1) % MODES.length;
+      syncSelectsToState();
       saveSettings();
     }, 12000);
   }
@@ -123,6 +167,9 @@ function loadSettings() {
   if (saved) {
     if (saved.bgColor) state.bgColor = saved.bgColor;
     if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
+    if (typeof saved.bgBrightness === "number")
+      state.bgBrightness = saved.bgBrightness;
+    if (typeof saved.bgBlur === "number") state.bgBlur = saved.bgBlur;
     if (typeof saved.mode === "number" && MODES[saved.mode] !== undefined)
       state.mode = saved.mode;
     if (typeof saved.theme === "number" && THEMES[saved.theme] !== undefined)
@@ -130,11 +177,25 @@ function loadSettings() {
     if (saved.autoCycle) setAutoCycle(true);
   }
   bgColorInput.value = state.bgColor;
+  brightnessSlider.value = state.bgBrightness;
+  blurSlider.value = state.bgBlur;
+  updateSliderLabels();
+  syncSelectsToState();
   applyBackground();
 }
 
 settingsBtn.addEventListener("click", () => {
   settingsPanel.classList.toggle("visible");
+});
+
+modeSelect.addEventListener("change", (e) => {
+  state.mode = parseInt(e.target.value, 10);
+  saveSettings();
+});
+
+themeSelect.addEventListener("change", (e) => {
+  state.theme = parseInt(e.target.value, 10);
+  saveSettings();
 });
 
 bgColorInput.addEventListener("input", (e) => {
@@ -158,6 +219,20 @@ bgImageInput.addEventListener("change", (e) => {
 clearBgImageBtn.addEventListener("click", () => {
   state.bgImageDataUrl = null;
   bgImageInput.value = "";
+  applyBackground();
+  saveSettings();
+});
+
+brightnessSlider.addEventListener("input", (e) => {
+  state.bgBrightness = parseFloat(e.target.value);
+  updateSliderLabels();
+  applyBackground();
+  saveSettings();
+});
+
+blurSlider.addEventListener("input", (e) => {
+  state.bgBlur = parseFloat(e.target.value);
+  updateSliderLabels();
   applyBackground();
   saveSettings();
 });
@@ -777,6 +852,7 @@ window.addEventListener("mousemove", flashHud);
 const KEY_ACTIONS = {
   c: () => {
     state.theme = (state.theme + 1) % THEMES.length;
+    syncSelectsToState();
     saveSettings();
   },
   f: () => window.electronAPI.toggleFullscreen(),
@@ -793,6 +869,7 @@ window.addEventListener("keydown", (e) => {
   flashHud();
   if (e.key >= "1" && e.key <= "5") {
     state.mode = parseInt(e.key, 10) - 1;
+    syncSelectsToState();
     saveSettings();
     return;
   }

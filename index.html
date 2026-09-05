@@ -34,6 +34,7 @@
           0.45
         ); /* floating chips: hud, settingsBtn */
         --surface-panel: rgba(10, 10, 14, 0.85); /* settingsPanel */
+        --surface-input: rgba(var(--text-rgb), 0.08); /* select boxes */
         --border-subtle: rgba(var(--text-rgb), 0.1);
         --border-medium: rgba(var(--text-rgb), 0.25);
 
@@ -61,6 +62,8 @@
         --transition-slow: 0.4s ease;
 
         /* Stacking order, named instead of ad-hoc numbers per element */
+        --z-bg: 0;
+        --z-canvas: 1;
         --z-hud: 5;
         --z-panel: 6;
         --z-overlay: 10;
@@ -70,13 +73,23 @@
       body {
         width: 100%;
         height: 100%;
+        background-color: #000;
+        overflow: hidden;
+        font-family: "Segoe UI", Arial, sans-serif;
+      }
+      #bgLayer {
+        position: absolute;
+        inset: 0;
+        z-index: var(--z-bg);
         /* Default background color/image — overridden live from the
            settings panel (gear icon) and remembered between launches. */
         background-color: var(--bg-default);
         background-size: cover;
         background-position: center;
-        overflow: hidden;
-        font-family: "Segoe UI", Arial, sans-serif;
+        /* Brightness/blur live here only, never on #canvas or the UI, so
+           tuning them can't wash out the visuals or the settings panel
+           itself. Values are set live from renderer.js. */
+        filter: brightness(1) blur(0px);
       }
       #canvas {
         position: absolute;
@@ -84,6 +97,7 @@
         left: 0;
         width: 100%;
         height: 100%;
+        z-index: var(--z-canvas);
         display: block;
       }
 
@@ -196,6 +210,8 @@
         right: var(--edge-gap);
         z-index: var(--z-panel);
         width: 240px;
+        max-height: calc(100vh - 62px - var(--edge-gap) * 2);
+        overflow-y: auto;
         background: var(--surface-panel);
         border: 1px solid var(--border-subtle);
         border-radius: var(--radius-lg);
@@ -204,15 +220,24 @@
         font-size: var(--fs-sm);
         display: none;
         flex-direction: column;
-        gap: 12px;
+        gap: 14px;
       }
       #settingsPanel.visible {
         display: flex;
       }
       #settingsPanel label {
-        display: block;
+        display: flex;
+        justify-content: space-between;
         opacity: 0.7;
         margin-bottom: 6px;
+      }
+      #settingsPanel label .val {
+        opacity: 0.6;
+        font-variant-numeric: tabular-nums;
+      }
+      #settingsPanel hr {
+        border: none;
+        border-top: 1px solid var(--border-subtle);
       }
       #settingsPanel input[type="color"] {
         width: 100%;
@@ -222,6 +247,9 @@
         background: transparent;
         cursor: pointer;
       }
+      #settingsPanel input[type="range"] {
+        width: 100%;
+      }
       #settingsPanel input[type="file"] {
         width: 100%;
         font-size: var(--fs-xs);
@@ -229,6 +257,20 @@
            muted-text element here, instead of a one-off gray literal. */
         color: var(--text);
         opacity: 0.8;
+      }
+      #settingsPanel select {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: var(--fs-sm);
+        background: var(--surface-input);
+        color: var(--text);
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+      #settingsPanel select option {
+        background: var(--bg-default);
+        color: var(--text);
       }
       #clearBgImageBtn {
         margin-top: 6px;
@@ -247,6 +289,7 @@
     </style>
   </head>
   <body>
+    <div id="bgLayer"></div>
     <canvas id="canvas"></canvas>
 
     <div id="startOverlay">
@@ -271,8 +314,19 @@
       </div>
     </div>
 
-    <button id="settingsBtn" title="Background">⚙</button>
+    <button id="settingsBtn" title="Settings">⚙</button>
     <div id="settingsPanel">
+      <div>
+        <label for="modeSelect">Visual</label>
+        <select id="modeSelect"></select>
+      </div>
+      <div>
+        <label for="themeSelect">Color theme</label>
+        <select id="themeSelect"></select>
+      </div>
+
+      <hr />
+
       <div>
         <label for="bgColorInput">Background color</label>
         <input type="color" id="bgColorInput" value="#0f0f1a" />
@@ -281,6 +335,32 @@
         <label for="bgImageInput">Background image</label>
         <input type="file" id="bgImageInput" accept="image/*" />
         <button id="clearBgImageBtn">Clear image</button>
+      </div>
+      <div>
+        <label for="brightnessSlider"
+          >Brightness <span class="val" id="brightnessVal">100%</span></label
+        >
+        <input
+          type="range"
+          id="brightnessSlider"
+          min="0.2"
+          max="1.6"
+          step="0.05"
+          value="1"
+        />
+      </div>
+      <div>
+        <label for="blurSlider"
+          >Blur <span class="val" id="blurVal">0px</span></label
+        >
+        <input
+          type="range"
+          id="blurSlider"
+          min="0"
+          max="20"
+          step="1"
+          value="0"
+        />
       </div>
     </div>
 
