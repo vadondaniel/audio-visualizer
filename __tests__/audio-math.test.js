@@ -239,6 +239,8 @@ describe("mergeSettings", () => {
     smoothingEnabled: true,
     radialMode: "mirrored",
     kaleidoClipEnabled: true,
+    trailsEnabled: true,
+    trailDuration: 220,
   };
 
   test("falls back to defaults when nothing was saved", () => {
@@ -259,6 +261,8 @@ describe("mergeSettings", () => {
       smoothingEnabled: false,
       radialMode: "full",
       kaleidoClipEnabled: false,
+      trailsEnabled: false,
+      trailDuration: 350,
     };
     expect(mergeSettings(defaults, saved, 5, 7)).toEqual(saved);
   });
@@ -331,6 +335,23 @@ describe("mergeSettings", () => {
     expect(merged.reactiveVignette).toBe(false);
     expect(merged.crtFilter).toBe(true);
     expect(merged.beatFlash).toBe(false);
+  });
+
+  test("accepts trail enablement and duration within the control range", () => {
+    const merged = mergeSettings(
+      defaults,
+      { trailsEnabled: false, trailDuration: 350 },
+      8,
+      7
+    );
+    expect(merged.trailsEnabled).toBe(false);
+    expect(merged.trailDuration).toBe(350);
+  });
+
+  test("rejects an unsafe persisted trail duration", () => {
+    expect(
+      mergeSettings(defaults, { trailDuration: 1000 }, 8, 7).trailDuration
+    ).toBe(defaults.trailDuration);
   });
 
   test("does not restore non-finite numeric values from localStorage", () => {

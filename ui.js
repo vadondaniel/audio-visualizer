@@ -73,6 +73,24 @@ glowSlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+trailsCheckbox.addEventListener("change", (e) => {
+  state.trailsEnabled = e.target.checked;
+  updateTrailDurationVisibility();
+  if (!state.trailsEnabled) resetTrailHistory();
+  saveSettings();
+});
+
+trailDurationSlider.addEventListener("input", (e) => {
+  state.trailDuration = parseInt(e.target.value, 10);
+  updateSliderLabels();
+  resetTrailHistory();
+  saveSettings();
+});
+
+function updateTrailDurationVisibility() {
+  trailDurationRow.style.display = state.trailsEnabled ? "" : "none";
+}
+
 bgTypeSelect.addEventListener("change", (e) => {
   state.bgType = e.target.value;
   updateBgRowsVisibility();
@@ -145,6 +163,7 @@ beatFlashCheckbox.addEventListener("change", (e) => {
 
 // Initialize settings from localStorage into UI and state
 loadSettings();
+updateTrailDurationVisibility();
 
 // ---------- input & hud ----------
 let hudTimeout;

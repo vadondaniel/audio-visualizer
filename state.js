@@ -22,6 +22,8 @@ const state = {
   waveformStyle: "line", // "line" | "filled"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
+  trailsEnabled: true,
+  trailDuration: TRAIL_DURATION_MS,
   reactiveVignette: true, // audio-reactive peripheral pulse
   crtFilter: false, // retro CRT scanlines & chromatic fringe
   beatFlash: true, // cinematic transient beat flare
@@ -46,6 +48,8 @@ const PERSISTED_KEYS = [
   "waveformStyle",
   "sensitivity",
   "glowIntensity",
+  "trailsEnabled",
+  "trailDuration",
   "reactiveVignette",
   "crtFilter",
   "beatFlash",
@@ -100,6 +104,8 @@ function loadSettings() {
   waveformStyleSelect.value = state.waveformStyle;
   sensitivitySlider.value = state.sensitivity;
   glowSlider.value = state.glowIntensity;
+  trailsCheckbox.checked = state.trailsEnabled;
+  trailDurationSlider.value = state.trailDuration;
   if (typeof reactiveVignetteCheckbox !== "undefined")
     reactiveVignetteCheckbox.checked = state.reactiveVignette;
   if (typeof crtFilterCheckbox !== "undefined")

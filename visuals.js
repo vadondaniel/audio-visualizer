@@ -47,7 +47,7 @@ function discardExpiredTrailFrames(timestamp) {
     TrailMath.isTrailFrameExpired(
       timestamp,
       trailFrames[0].timestamp,
-      TRAIL_DURATION_MS
+      state.trailDuration
     )
   ) {
     trailCanvasPool.push(trailFrames.shift().canvas);
@@ -67,11 +67,22 @@ function captureTrailFrame(timestamp) {
 }
 
 function renderTrailHistory(timestamp) {
+  if (!state.trailsEnabled) {
+    resetTrailHistory();
+    displayCtx.save();
+    displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+    displayCtx.globalAlpha = 1;
+    displayCtx.clearRect(0, 0, canvas.width, canvas.height);
+    displayCtx.drawImage(renderCanvas, 0, 0);
+    displayCtx.restore();
+    return;
+  }
+
   discardExpiredTrailFrames(timestamp);
   const shouldCapture = TrailMath.shouldCaptureTrail(
     timestamp,
     lastTrailCaptureMs,
-    TRAIL_DURATION_MS,
+    state.trailDuration,
     TRAIL_MAX_SNAPSHOTS
   );
   if (shouldCapture) captureTrailFrame(timestamp);
@@ -84,7 +95,7 @@ function renderTrailHistory(timestamp) {
   for (const frame of trailFrames) {
     displayCtx.globalAlpha = TrailMath.trailOpacity(
       timestamp - frame.timestamp,
-      TRAIL_DURATION_MS
+      state.trailDuration
     );
     displayCtx.drawImage(frame.canvas, 0, 0);
   }

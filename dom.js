@@ -32,6 +32,10 @@ const sensitivitySlider = document.getElementById("sensitivitySlider");
 const sensitivityVal = document.getElementById("sensitivityVal");
 const glowSlider = document.getElementById("glowSlider");
 const glowVal = document.getElementById("glowVal");
+const trailsCheckbox = document.getElementById("trailsCheckbox");
+const trailDurationRow = document.getElementById("trailDurationRow");
+const trailDurationSlider = document.getElementById("trailDurationSlider");
+const trailDurationVal = document.getElementById("trailDurationVal");
 
 // Background controls
 const bgLayer = document.getElementById("bgLayer");

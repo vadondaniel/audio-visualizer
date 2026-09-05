@@ -389,4 +389,5 @@ function updateSliderLabels() {
   blurVal.textContent = `${state.bgBlur}px`;
   sensitivityVal.textContent = `${state.sensitivity.toFixed(1)}x`;
   glowVal.textContent = `${Math.round(state.glowIntensity * 100)}%`;
+  trailDurationVal.textContent = `${state.trailDuration}ms`;
 }

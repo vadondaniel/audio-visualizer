@@ -144,6 +144,14 @@
       saved.glowIntensity <= 2.5
     )
       state.glowIntensity = saved.glowIntensity;
+    if (typeof saved.trailsEnabled === "boolean")
+      state.trailsEnabled = saved.trailsEnabled;
+    if (
+      Number.isFinite(saved.trailDuration) &&
+      saved.trailDuration >= 80 &&
+      saved.trailDuration <= 600
+    )
+      state.trailDuration = saved.trailDuration;
     if (typeof saved.reactiveVignette === "boolean")
       state.reactiveVignette = saved.reactiveVignette;
     if (typeof saved.crtFilter === "boolean") state.crtFilter = saved.crtFilter;
