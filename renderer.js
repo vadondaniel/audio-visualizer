@@ -1,4 +1,17 @@
 // ---------- setup ----------
+// bandAverage/normalizeEnergy/smoothTowards/computeHue/detectBeat/
+// mergeSettings live in audio-math.js (loaded before this file in
+// index.html) so they can be unit tested outside the app — see that file
+// for what each one does.
+const {
+  bandAverage,
+  normalizeEnergy,
+  smoothTowards,
+  computeHue,
+  detectBeat,
+  mergeSettings,
+} = AudioMath;
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const startOverlay = document.getElementById("startOverlay");
@@ -218,21 +231,12 @@ function loadSettings() {
   } catch (e) {
     saved = null;
   }
-  if (saved) {
-    if (saved.bgType === "color" || saved.bgType === "image")
-      state.bgType = saved.bgType;
-    if (saved.bgColor) state.bgColor = saved.bgColor;
-    if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
-    if (saved.bgImageName) state.bgImageName = saved.bgImageName;
-    if (typeof saved.bgBrightness === "number")
-      state.bgBrightness = saved.bgBrightness;
-    if (typeof saved.bgBlur === "number") state.bgBlur = saved.bgBlur;
-    if (typeof saved.mode === "number" && MODES[saved.mode] !== undefined)
-      state.mode = saved.mode;
-    if (typeof saved.theme === "number" && THEMES[saved.theme] !== undefined)
-      state.theme = saved.theme;
-    if (saved.autoCycle) setAutoCycle(true);
-  }
+  Object.assign(
+    state,
+    mergeSettings(state, saved, MODES.length, THEMES.length),
+  );
+  if (state.autoCycle) setAutoCycle(true);
+
   bgColorInput.value = state.bgColor;
   brightnessSlider.value = state.bgBrightness;
   blurSlider.value = state.bgBlur;
@@ -388,32 +392,7 @@ async function initAudio() {
 
 // ---------- helpers ----------
 function currentHue(offset = 0) {
-  const theme = THEMES[state.theme];
-  if (theme.rainbow) {
-    const rotation = theme.cycle ? state.hueShift : 0;
-    return (offset * 360 + rotation) % 360;
-  }
-  if (theme.colorCycle) return state.hueShift % 360;
-  const [a, b] = theme.hues;
-  return a + (b - a) * (offset % 1);
-}
-
-function bandAverage(data, loFrac, hiFrac) {
-  const lo = Math.floor(data.length * loFrac);
-  const hi = Math.floor(data.length * hiFrac);
-  let sum = 0;
-  for (let i = lo; i < hi; i++) sum += data[i];
-  return sum / Math.max(1, hi - lo);
-}
-
-function normalizeEnergy(value, floor = 20, range = 210) {
-  return Math.min(1, Math.max(0, (value - floor) / range));
-}
-
-function smoothTowards(current, target, remainingFraction) {
-  return target >= current
-    ? target
-    : current + (target - current) * (1 - remainingFraction);
+  return computeHue(THEMES[state.theme], state.hueShift, offset);
 }
 
 function applyGlow(color, blur) {
@@ -436,13 +415,13 @@ function updateBeat(bass, elapsedMs, dtSec) {
   beatCooldownMsLeft = Math.max(0, beatCooldownMsLeft - elapsedMs);
   sustainedCooldownMsLeft = Math.max(0, sustainedCooldownMsLeft - elapsedMs);
 
-  const isSpike =
-    bass > avg * AUDIO_TUNING.beatRatio &&
-    bass > AUDIO_TUNING.beatFloor &&
-    beatCooldownMsLeft === 0;
-
-  const isSustainedLoud =
-    bass > AUDIO_TUNING.sustainedFloor && sustainedCooldownMsLeft === 0;
+  const { isSpike, isSustainedLoud } = detectBeat({
+    bass,
+    avg,
+    beatCooldownMsLeft,
+    sustainedCooldownMsLeft,
+    tuning: AUDIO_TUNING,
+  });
 
   if (isSpike || isSustainedLoud) {
     beatPulse = 1;
