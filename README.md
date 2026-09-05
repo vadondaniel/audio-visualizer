@@ -41,19 +41,20 @@ drive the visuals.
 
 | Key     | Action                                  |
 | ------- | --------------------------------------- |
-| `1`-`5` | Switch visual style                     |
+| `1`-`8` | Switch visual style                     |
 | `C`     | Cycle color theme                       |
 | `Space` | Toggle auto-cycle through visual styles |
 | `F`     | Toggle fullscreen                       |
 | `T`     | Toggle always-on-top                    |
-| `B`     | Toggle background panel                 |
+| `B`     | Toggle settings panel                   |
 | `Esc`   | Quit                                    |
 
 Move your mouse to bring back the control hint overlay; it fades away on
 its own after a moment.
 
-The 5 visual styles are: **bars**, **radial spectrum**, **waveform**,
-**particles** (bass-reactive bursts), and **kaleidoscope**.
+The 8 visual styles are: **bars**, **radial spectrum**, **waveform**,
+**particles** (bass-reactive bursts), **kaleidoscope**, **tunnel**, **waves**,
+and **aurora**.
 
 ## Settings panel
 
@@ -61,13 +62,17 @@ Click the gear icon (top-right) or press `B` to open it. Like the control
 hint overlay, the gear icon fades out when your mouse is idle, and the
 panel fades with it — just move the mouse to bring both back.
 
-- **Visual** / **Color theme** — the same options as the `1`-`5` and `C`
+- **Visual** / **Color theme** — the same options as the `1`-`8` and `C`
   keys, for when a mouse is easier than remembering keys.
-- **Background** — switch between a solid color or your own image. Pick an
-  image and it's used right away; switch back to solid color and the image
-  is remembered so you don't have to re-pick it later.
+- **Visual options** — configure bars alignment, radial mirroring, waveform
+  style, kaleidoscope clipping, smoothing, sensitivity, and glow intensity.
+- **Background** — switch between a solid color, your own image, or one of the
+  procedural **Cosmic Nebula**, **Warp Starfield**, and **Synthwave Grid**
+  backgrounds. Your chosen image is remembered when switching away from it.
 - **Brightness** / **Blur** — these only affect the background, so you can
   tune it to sit nicely behind the visuals without them competing.
+- **Effects & Post-Processing** — toggle the reactive edge vignette, retro CRT
+  scanlines, and beat flash effects.
 
 Everything you set — including your chosen background image — is saved
 automatically and will still be there next time you open the app.
@@ -104,7 +109,8 @@ this, it will download some extra tooling, so it may take a minute.
   answering `getDisplayMedia()` with `{ video: <screen>, audio: 'loopback' }`
   (WASAPI loopback under the hood, no virtual audio cable needed). The
   video track is discarded immediately; only audio is used.
-- That audio feeds a Web Audio `AnalyserNode` in `renderer.js`, which
+- That audio feeds a Web Audio `AnalyserNode` in the renderer-side scripts
+  (`audio.js` and `visuals.js`), which
   extracts FFT/waveform data once per display refresh. All animation
   (smoothing, kaleidoscope spin, trail fade, beat detection) is driven by
   elapsed time rather than frame count, so it looks consistent across
