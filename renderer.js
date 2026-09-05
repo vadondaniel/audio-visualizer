@@ -47,7 +47,7 @@ const THEMES = [
   { name: "Neon", hues: [320, 200] }, // pink -> cyan
   { name: "Fire", hues: [15, 45] }, // red -> orange
   { name: "Matrix", hues: [130, 160] }, // green
-  { name: "Color Cycle", colorCycle: true }, // one hue rotates over time
+  { name: "Color Cycle", colorCycle: true, spread: 30 }, // rotates over time, with a hue gradient across each visual so it isn't flat
   { name: "Rainbow", rainbow: true }, // fixed full spectrum across each visual
   { name: "Rainbow Cycle", rainbow: true, cycle: true }, // spectrum rotates
   { name: "Ice", hues: [190, 260] }, // blue -> purple

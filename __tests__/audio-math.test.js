@@ -70,10 +70,22 @@ describe("computeHue", () => {
     expect(computeHue(theme, 0, 0.5)).toBe(260);
   });
 
-  test("colorCycle theme ignores offset and just follows the shift", () => {
+  test("colorCycle theme with no spread set is flat and just follows the shift", () => {
     const theme = { colorCycle: true };
     expect(computeHue(theme, 90, 0.75)).toBe(90);
     expect(computeHue(theme, 400, 0)).toBe(40); // wraps at 360
+  });
+
+  test("colorCycle theme with a spread varies hue across offset too", () => {
+    const theme = { colorCycle: true, spread: 50 };
+    expect(computeHue(theme, 90, 0)).toBe(90); // offset 0 -> no added spread
+    expect(computeHue(theme, 90, 1)).toBe(140); // offset 1 -> full spread added
+    expect(computeHue(theme, 90, 0.5)).toBe(115); // partway across
+  });
+
+  test("colorCycle spread still cycles with hueShift and wraps at 360", () => {
+    const theme = { colorCycle: true, spread: 50 };
+    expect(computeHue(theme, 340, 1)).toBe(30); // 340 + 50 = 390 -> wraps to 30
   });
 
   test("rainbow (static) theme spreads offset across the full spectrum", () => {

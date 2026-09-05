@@ -51,7 +51,14 @@
       const rotation = theme.cycle ? hueShift : 0;
       return (offset * 360 + rotation) % 360;
     }
-    if (theme.colorCycle) return hueShift % 360;
+    if (theme.colorCycle) {
+      // `spread` lets a colorCycle theme vary hue across offset (position)
+      // as well as over time, instead of painting everything the exact
+      // same hue at any given instant. Defaults to 0 (old flat behavior)
+      // for any theme that doesn't set it.
+      const spread = theme.spread || 0;
+      return (hueShift + offset * spread) % 360;
+    }
     const [a, b] = theme.hues;
     return a + (b - a) * (offset % 1);
   }
