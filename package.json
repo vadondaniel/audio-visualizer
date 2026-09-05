@@ -1,6 +1,6 @@
 {
   "name": "audio-visualizer",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
   "scripts": {
@@ -24,8 +24,16 @@
       "preload.js",
       "ipc-channels.js",
       "index.html",
-      "renderer.js",
-      "audio-math.js"
+      "style.css",
+      "audio-math.js",
+      "constants.js",
+      "state.js",
+      "dom.js",
+      "background.js",
+      "audio.js",
+      "visuals.js",
+      "ui.js",
+      "renderer.js"
     ]
   }
 }
