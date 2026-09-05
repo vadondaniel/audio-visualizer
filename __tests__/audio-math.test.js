@@ -6,6 +6,41 @@ const {
   detectBeat,
   mergeSettings,
 } = require("../audio-math");
+const { formatAudioCaptureError } = require("../audio");
+
+describe("formatAudioCaptureError", () => {
+  test.each([
+    ["NotAllowedError", "Audio capture was blocked."],
+    ["PermissionDeniedError", "Audio capture was blocked."],
+  ])(
+    "translates %s into an actionable permission message",
+    (name, expected) => {
+      expect(formatAudioCaptureError({ name })).toContain(expected);
+    }
+  );
+
+  test.each(["NotFoundError", "NotReadableError"])(
+    "translates %s into a playback-device message",
+    (name) => {
+      expect(formatAudioCaptureError({ name })).toContain(
+        "Windows could not provide a system-audio source."
+      );
+    }
+  );
+
+  test("preserves a useful message for an unknown capture error", () => {
+    expect(
+      formatAudioCaptureError({ name: "AbortError", message: "Device lost" })
+    ).toBe("Device lost");
+  });
+
+  test("falls back safely for missing or incomplete errors", () => {
+    expect(formatAudioCaptureError()).toBe("Audio capture failed.");
+    expect(formatAudioCaptureError({ name: "AbortError" })).toBe(
+      "Audio capture failed."
+    );
+  });
+});
 
 describe("bandAverage", () => {
   test("averages the slice between two fractional positions", () => {

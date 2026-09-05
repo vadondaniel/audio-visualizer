@@ -102,6 +102,13 @@ function formatAudioCaptureError(err) {
   return err.message || "Audio capture failed.";
 }
 
+// Keep the user-facing error translation testable without loading Electron or
+// constructing browser media devices. The renderer still uses this function
+// exactly as before when this file is loaded as a plain script.
+if (typeof module === "object" && module.exports) {
+  module.exports = { formatAudioCaptureError };
+}
+
 function cleanupAudioCapture() {
   audioEventCleanup.forEach((cleanup) => cleanup());
   audioEventCleanup = [];
