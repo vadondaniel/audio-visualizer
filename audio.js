@@ -197,7 +197,6 @@ function checkSilence() {
   }
 }
 
-
 function scheduleAudioRecovery() {
   if (audioRecoveryTimer) return;
   const delayMs = Math.min(10000, 500 * 2 ** audioRecoveryAttempt);

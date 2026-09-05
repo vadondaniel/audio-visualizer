@@ -632,12 +632,11 @@ body {
 #settingsPanel .settingsSection {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px 0;
+  padding: 0;
 }
 
 #settingsPanel .settingsSection:first-of-type {
-  padding-top: 14px;
+  padding-top: 0;
 }
 
 #settingsPanel .settingsSection:last-of-type {
@@ -656,10 +655,56 @@ body {
   font-weight: 600;
   letter-spacing: 0.6px;
   color: var(--ink-faint);
+  cursor: pointer;
+  user-select: none;
+  padding: 14px 0;
+  transition: color 0.18s ease;
+}
+
+#settingsPanel .settingsSectionTitle:hover {
+  color: var(--ink);
 }
 
 #settingsPanel .settingsSectionTitle svg {
   flex: none;
+}
+
+/* Chevron indicator */
+#settingsPanel .settingsSectionTitle::after {
+  content: "";
+  margin-left: auto;
+  width: 7px;
+  height: 7px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.25s ease;
+  flex: none;
+}
+
+#settingsPanel .settingsSection.collapsed .settingsSectionTitle::after {
+  transform: rotate(-45deg);
+}
+
+/* Collapsible content wrapper */
+#settingsPanel .sectionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  max-height: 600px;
+  padding-bottom: 14px;
+  transition:
+    max-height 0.3s ease,
+    padding-bottom 0.3s ease,
+    opacity 0.25s ease;
+  opacity: 1;
+}
+
+#settingsPanel .settingsSection.collapsed .sectionContent {
+  max-height: 0;
+  padding-bottom: 0;
+  opacity: 0;
 }
 
 #settingsPanel .field {

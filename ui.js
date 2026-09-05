@@ -9,6 +9,22 @@ function updatePanelVisibility() {
   settingsPanel.classList.toggle("visible", panelOpen && hudActive);
 }
 
+// Collapsible accordion sections: only one open at a time.
+settingsPanel.addEventListener("click", (e) => {
+  const title = e.target.closest(".settingsSectionTitle");
+  if (!title) return;
+  const section = title.closest(".settingsSection");
+  if (!section) return;
+
+  const isCollapsed = section.classList.contains("collapsed");
+  // Collapse every section first
+  for (const s of settingsPanel.querySelectorAll(".settingsSection")) {
+    s.classList.add("collapsed");
+  }
+  // If the clicked one was collapsed, expand it (otherwise all stay collapsed)
+  if (isCollapsed) section.classList.remove("collapsed");
+});
+
 settingsBtn.addEventListener("click", (e) => {
   panelOpen = !panelOpen;
   flashHud();

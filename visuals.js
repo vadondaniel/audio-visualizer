@@ -758,7 +758,8 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
           : (TUNNEL_SEGMENTS - seg) / (TUNNEL_SEGMENTS / 2);
       const binIdx = Math.floor(normSeg * (bufferLength * 0.38));
       const rawAmp = Math.pow(
-        applyValueHandling(freqData[binIdx] / 255, state.valueHandling), 0.82
+        applyValueHandling(freqData[binIdx] / 255, state.valueHandling),
+        0.82
       );
 
       tunnelGrid[r][seg] = smoothTowards(tunnelGrid[r][seg], rawAmp, remaining);
@@ -942,7 +943,11 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
     const loFrac = Math.pow(b / WAVES_BANDS, 2.0) * 0.72 + 0.005;
     const hiFrac = Math.pow((b + 1) / WAVES_BANDS, 2.0) * 0.72 + 0.01;
     const rawVal = Math.pow(
-      applyValueHandling(bandAverage(freqData, loFrac, hiFrac) / 255, state.valueHandling), 0.85
+      applyValueHandling(
+        bandAverage(freqData, loFrac, hiFrac) / 255,
+        state.valueHandling
+      ),
+      0.85
     );
     wavesSmoothedBands[b] = smoothTowards(
       wavesSmoothedBands[b],
@@ -1223,7 +1228,11 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
     const hiFrac = Math.pow((b + 1) / AURORA_BANDS, 2.0) * 0.72 + 0.012;
     const rawVal =
       Math.pow(
-        applyValueHandling(bandAverage(freqData, loFrac, hiFrac) / 255, state.valueHandling), 0.82
+        applyValueHandling(
+          bandAverage(freqData, loFrac, hiFrac) / 255,
+          state.valueHandling
+        ),
+        0.82
       ) * state.sensitivity;
     auroraSmoothedBands[b] = smoothTowards(
       auroraSmoothedBands[b],

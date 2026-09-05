@@ -144,7 +144,7 @@
         </svg>
         Settings
       </div>
-
+      <!-- ── Style ── -->
       <div class="settingsSection">
         <div class="settingsSectionTitle">
           <svg
@@ -159,103 +159,151 @@
           >
             <polyline points="2 12 6 12 9 5 14 19 17 12 22 12" />
           </svg>
-          Visual
+          Style
         </div>
-        <div class="field">
-          <label for="modeSelect">Style</label>
-          <select id="modeSelect"></select>
-        </div>
-        <div id="barsAlignmentRow" class="field">
-          <label for="barsAlignmentSelect">Bars alignment</label>
-          <select id="barsAlignmentSelect">
-            <option value="bottom">Bottom</option>
-            <option value="center">Center split</option>
-          </select>
-        </div>
-        <div id="radialModeRow" class="toggleRow">
-          <label for="radialMirroredCheckbox">Mirrored</label>
-          <input type="checkbox" id="radialMirroredCheckbox" checked />
-        </div>
-        <div id="waveformStyleRow" class="field">
-          <label for="waveformStyleSelect">Waveform style</label>
-          <select id="waveformStyleSelect">
-            <option value="line">Single line</option>
-            <option value="filled">Filled ribbon</option>
-          </select>
-        </div>
-        <div id="kaleidoClipRow" class="toggleRow">
-          <label for="kaleidoClipCheckbox">Clip to circle</label>
-          <input type="checkbox" id="kaleidoClipCheckbox" checked />
-        </div>
-        <div class="field">
-          <label for="themeSelect">Color theme</label>
-          <select id="themeSelect"></select>
-        </div>
-        <div id="smoothingRow" class="toggleRow">
-          <label for="smoothingCheckbox">Smooth motion</label>
-          <input type="checkbox" id="smoothingCheckbox" checked />
-        </div>
-        <div class="field">
-          <label for="sensitivitySlider"
-            ><span>Sensitivity</span
-            ><span class="val" id="sensitivityVal">1.0x</span></label
-          >
-          <input
-            type="range"
-            id="sensitivitySlider"
-            min="0.4"
-            max="2.4"
-            step="0.1"
-            value="1.0"
-          />
-        </div>
-        <div class="field">
-          <label for="valueHandlingSelect">Response curve</label>
-          <select id="valueHandlingSelect">
-            <option value="exponential">Exponential (Punchy)</option>
-            <option value="logarithmic">Logarithmic (Perceptual)</option>
-            <option value="linear">Linear (Direct)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="glowSlider"
-            ><span>Glow intensity</span
-            ><span class="val" id="glowVal">100%</span></label
-          >
-          <input
-            type="range"
-            id="glowSlider"
-            min="0"
-            max="2.0"
-            step="0.1"
-            value="1.0"
-          />
-        </div>
-        <div class="toggleRow">
-          <label for="trailsCheckbox">Trails</label>
-          <input type="checkbox" id="trailsCheckbox" checked />
-        </div>
-        <div class="toggleRow">
-          <label for="wakeLockCheckbox">Keep screen awake</label>
-          <input type="checkbox" id="wakeLockCheckbox" />
-        </div>
-        <div id="trailDurationRow" class="field">
-          <label for="trailDurationSlider"
-            ><span>Trail length</span
-            ><span class="val" id="trailDurationVal">220ms</span></label
-          >
-          <input
-            type="range"
-            id="trailDurationSlider"
-            min="80"
-            max="600"
-            step="10"
-            value="220"
-          />
+        <div class="sectionContent">
+          <div class="field">
+            <label for="modeSelect">Visual mode</label>
+            <select id="modeSelect"></select>
+          </div>
+          <div id="barsAlignmentRow" class="field">
+            <label for="barsAlignmentSelect">Bars alignment</label>
+            <select id="barsAlignmentSelect">
+              <option value="bottom">Bottom</option>
+              <option value="center">Center split</option>
+            </select>
+          </div>
+          <div id="radialModeRow" class="toggleRow">
+            <label for="radialMirroredCheckbox">Mirrored</label>
+            <input type="checkbox" id="radialMirroredCheckbox" checked />
+          </div>
+          <div id="waveformStyleRow" class="field">
+            <label for="waveformStyleSelect">Waveform style</label>
+            <select id="waveformStyleSelect">
+              <option value="line">Single line</option>
+              <option value="filled">Filled ribbon</option>
+            </select>
+          </div>
+          <div id="kaleidoClipRow" class="toggleRow">
+            <label for="kaleidoClipCheckbox">Clip to circle</label>
+            <input type="checkbox" id="kaleidoClipCheckbox" checked />
+          </div>
+          <div class="field">
+            <label for="themeSelect">Color theme</label>
+            <select id="themeSelect"></select>
+          </div>
         </div>
       </div>
 
-      <div class="settingsSection">
+      <!-- ── Audio ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+          Audio
+        </div>
+        <div class="sectionContent">
+          <div class="field">
+            <label for="sensitivitySlider"
+              ><span>Sensitivity</span
+              ><span class="val" id="sensitivityVal">1.0x</span></label
+            >
+            <input
+              type="range"
+              id="sensitivitySlider"
+              min="0.4"
+              max="2.4"
+              step="0.1"
+              value="1.0"
+            />
+          </div>
+          <div class="field">
+            <label for="valueHandlingSelect">Response curve</label>
+            <select id="valueHandlingSelect">
+              <option value="exponential">Exponential (Punchy)</option>
+              <option value="logarithmic">Logarithmic (Perceptual)</option>
+              <option value="linear">Linear (Direct)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Appearance ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="13.5" cy="6.5" r="2.5" />
+            <path
+              d="M17.08 3.87A9.96 9.96 0 0 1 22 12c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2"
+            />
+            <path d="M12 12l-4.5 4.5" />
+            <path d="M12 12l4.5-1.5" />
+          </svg>
+          Appearance
+        </div>
+        <div class="sectionContent">
+          <div id="smoothingRow" class="toggleRow">
+            <label for="smoothingCheckbox">Smooth motion</label>
+            <input type="checkbox" id="smoothingCheckbox" checked />
+          </div>
+          <div class="field">
+            <label for="glowSlider"
+              ><span>Glow intensity</span
+              ><span class="val" id="glowVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="glowSlider"
+              min="0"
+              max="2.0"
+              step="0.1"
+              value="1.0"
+            />
+          </div>
+          <div class="toggleRow">
+            <label for="trailsCheckbox">Trails</label>
+            <input type="checkbox" id="trailsCheckbox" checked />
+          </div>
+          <div id="trailDurationRow" class="field">
+            <label for="trailDurationSlider"
+              ><span>Trail length</span
+              ><span class="val" id="trailDurationVal">220ms</span></label
+            >
+            <input
+              type="range"
+              id="trailDurationSlider"
+              min="80"
+              max="600"
+              step="10"
+              value="220"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Background ── -->
+      <div class="settingsSection collapsed">
         <div class="settingsSectionTitle">
           <svg
             width="13"
@@ -273,58 +321,61 @@
           </svg>
           Background
         </div>
-        <div class="field">
-          <label for="bgTypeSelect">Type</label>
-          <select id="bgTypeSelect">
-            <option value="color">Solid color</option>
-            <option value="nebula">Cosmic Nebula</option>
-            <option value="stars">Warp Starfield</option>
-            <option value="grid">Synthwave Grid</option>
-            <option value="image">Custom Image</option>
-          </select>
-        </div>
-        <div id="bgColorRow" class="field">
-          <label for="bgColorInput">Color</label>
-          <input type="color" id="bgColorInput" value="#0f0f1a" />
-        </div>
-        <div id="bgImageRow" class="field">
-          <label for="bgImageInput"
-            ><span>Image</span
-            ><span class="val" id="bgImageName">none chosen</span></label
-          >
-          <input type="file" id="bgImageInput" accept="image/*" />
-          <button id="clearBgImageBtn">Clear image</button>
-        </div>
-        <div id="brightnessRow" class="field">
-          <label for="brightnessSlider"
-            ><span>Brightness</span
-            ><span class="val" id="brightnessVal">100%</span></label
-          >
-          <input
-            type="range"
-            id="brightnessSlider"
-            min="0.2"
-            max="1.6"
-            step="0.05"
-            value="1"
-          />
-        </div>
-        <div id="blurRow" class="field">
-          <label for="blurSlider"
-            ><span>Blur</span><span class="val" id="blurVal">0px</span></label
-          >
-          <input
-            type="range"
-            id="blurSlider"
-            min="0"
-            max="20"
-            step="1"
-            value="0"
-          />
+        <div class="sectionContent">
+          <div class="field">
+            <label for="bgTypeSelect">Type</label>
+            <select id="bgTypeSelect">
+              <option value="color">Solid color</option>
+              <option value="nebula">Cosmic Nebula</option>
+              <option value="stars">Warp Starfield</option>
+              <option value="grid">Synthwave Grid</option>
+              <option value="image">Custom Image</option>
+            </select>
+          </div>
+          <div id="bgColorRow" class="field">
+            <label for="bgColorInput">Color</label>
+            <input type="color" id="bgColorInput" value="#0f0f1a" />
+          </div>
+          <div id="bgImageRow" class="field">
+            <label for="bgImageInput"
+              ><span>Image</span
+              ><span class="val" id="bgImageName">none chosen</span></label
+            >
+            <input type="file" id="bgImageInput" accept="image/*" />
+            <button id="clearBgImageBtn">Clear image</button>
+          </div>
+          <div id="brightnessRow" class="field">
+            <label for="brightnessSlider"
+              ><span>Brightness</span
+              ><span class="val" id="brightnessVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="brightnessSlider"
+              min="0.2"
+              max="1.6"
+              step="0.05"
+              value="1"
+            />
+          </div>
+          <div id="blurRow" class="field">
+            <label for="blurSlider"
+              ><span>Blur</span><span class="val" id="blurVal">0px</span></label
+            >
+            <input
+              type="range"
+              id="blurSlider"
+              min="0"
+              max="20"
+              step="1"
+              value="0"
+            />
+          </div>
         </div>
       </div>
 
-      <div class="settingsSection">
+      <!-- ── Effects & Post-Processing ── -->
+      <div class="settingsSection collapsed">
         <div class="settingsSectionTitle">
           <svg
             width="13"
@@ -340,19 +391,25 @@
               points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
             />
           </svg>
-          Effects & Post-Processing
+          Effects
         </div>
-        <div class="toggleRow">
-          <label for="reactiveVignetteCheckbox">Reactive Edge Vignette</label>
-          <input type="checkbox" id="reactiveVignetteCheckbox" checked />
-        </div>
-        <div class="toggleRow">
-          <label for="crtFilterCheckbox">Retro CRT & Scanlines</label>
-          <input type="checkbox" id="crtFilterCheckbox" />
-        </div>
-        <div class="toggleRow">
-          <label for="beatFlashCheckbox">Beat Flash & Flares</label>
-          <input type="checkbox" id="beatFlashCheckbox" checked />
+        <div class="sectionContent">
+          <div class="toggleRow">
+            <label for="reactiveVignetteCheckbox">Reactive Edge Vignette</label>
+            <input type="checkbox" id="reactiveVignetteCheckbox" checked />
+          </div>
+          <div class="toggleRow">
+            <label for="crtFilterCheckbox">Retro CRT & Scanlines</label>
+            <input type="checkbox" id="crtFilterCheckbox" />
+          </div>
+          <div class="toggleRow">
+            <label for="beatFlashCheckbox">Beat Flash & Flares</label>
+            <input type="checkbox" id="beatFlashCheckbox" checked />
+          </div>
+          <div class="toggleRow">
+            <label for="wakeLockCheckbox">Keep screen awake</label>
+            <input type="checkbox" id="wakeLockCheckbox" />
+          </div>
         </div>
       </div>
 
