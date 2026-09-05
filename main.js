@@ -42,6 +42,11 @@ function createWindow() {
       desktopCapturer
         .getSources({ types: ["screen"] })
         .then((sources) => {
+          if (sources.length === 0) {
+            console.error("No desktop sources available for loopback capture");
+            callback({});
+            return;
+          }
           callback({ video: sources[0], audio: "loopback" });
         })
         .catch((err) => {

@@ -9,6 +9,12 @@
         padding: 0;
         box-sizing: border-box;
       }
+      :root {
+        /* Single source of truth for the accent color — was hardcoded
+           identically (or as an rgba tuple) in 5 separate rules below. */
+        --accent-rgb: 255, 95, 216;
+        --accent: rgb(var(--accent-rgb));
+      }
       html,
       body {
         width: 100%;
@@ -19,6 +25,7 @@
         background-size: cover;
         background-position: center;
         overflow: hidden;
+        font-family: "Segoe UI", Arial, sans-serif;
       }
       #canvas {
         position: absolute;
@@ -37,7 +44,6 @@
         align-items: center;
         justify-content: center;
         background: radial-gradient(circle at center, #12001f 0%, #000 75%);
-        font-family: "Segoe UI", Arial, sans-serif;
         color: #fff;
         text-align: center;
         z-index: 10;
@@ -46,7 +52,7 @@
         font-size: 28px;
         letter-spacing: 4px;
         font-weight: 300;
-        background: linear-gradient(90deg, #ff5fd8, #5fc9ff);
+        background: linear-gradient(90deg, var(--accent), #5fc9ff);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -58,14 +64,14 @@
         letter-spacing: 2px;
         background: transparent;
         color: #fff;
-        border: 1px solid #ff5fd8;
+        border: 1px solid var(--accent);
         border-radius: 30px;
         cursor: pointer;
         transition: all 0.2s ease;
       }
       #startBtn:hover {
-        background: #ff5fd8;
-        box-shadow: 0 0 30px #ff5fd8;
+        background: var(--accent);
+        box-shadow: 0 0 30px var(--accent);
       }
       #startHint {
         margin-top: 18px;
@@ -88,7 +94,6 @@
         bottom: 18px;
         left: 18px;
         z-index: 5;
-        font-family: "Segoe UI", Arial, sans-serif;
         color: #fff;
         font-size: 12px;
         background: rgba(0, 0, 0, 0.45);
@@ -123,7 +128,7 @@
         transition: background 0.2s ease;
       }
       #settingsBtn:hover {
-        background: rgba(255, 95, 216, 0.5);
+        background: rgba(var(--accent-rgb), 0.5);
       }
 
       #settingsPanel {
@@ -136,7 +141,6 @@
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 10px;
         padding: 16px;
-        font-family: "Segoe UI", Arial, sans-serif;
         color: #fff;
         font-size: 12px;
         display: none;
@@ -176,7 +180,7 @@
         cursor: pointer;
       }
       #clearBgImageBtn:hover {
-        border-color: #ff5fd8;
+        border-color: var(--accent);
       }
     </style>
   </head>
