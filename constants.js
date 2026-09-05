@@ -83,14 +83,14 @@ const VISUAL_TUNING = {
 
 // ---------- audio tuning ----------
 const AUDIO_TUNING = {
-  beatRatio: 1.25,
-  beatFloor: 42,
-  beatCooldownMs: 133,
-  pulseDecayPerSec: 6.0,
-  particleFloor: 26,
-  particleRange: 210,
-  sustainedFloor: 150,
-  sustainedIntervalMs: 333,
+  beatRatio: 1.2,
+  beatFloor: 38,
+  beatCooldownMs: 120,
+  pulseDecayPerSec: 5.6,
+  particleFloor: 20,
+  particleRange: 190,
+  sustainedFloor: 140,
+  sustainedIntervalMs: 300,
 };
 
 // ---------- particle system constants ----------

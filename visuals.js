@@ -468,74 +468,76 @@ const tunnelStars = Array.from({ length: 90 }, () => ({
 }));
 
 function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
-  const energy = Math.min(
-    1,
-    bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15
-  );
+  const rawEnergy = bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15;
+  // Gamma contrast curve: low levels stay serene; high levels punch through clearly
+  const energy = Math.min(1, Math.pow(rawEnergy, 1.12));
+  const surgeEnergy = Math.pow(energy, 1.75);
 
   // 1. Visceral camera shake — ONLY kicks in on real beat hits & loud drops
-  const shakeAmp = Math.pow(beatPulse, 1.5) * 8 + Math.pow(bassLevel, 2) * 4;
-  const shakeX = shakeAmp > 0.4 ? (Math.random() - 0.5) * shakeAmp : 0;
-  const shakeY = shakeAmp > 0.4 ? (Math.random() - 0.5) * shakeAmp : 0;
+  const isImpact = beatPulse > 0.55 || bassLevel > 0.7;
+  const shakeAmp = isImpact
+    ? Math.pow(beatPulse, 1.8) * 9 + Math.pow(bassLevel - 0.45, 2) * 8
+    : 0;
+  const shakeX = shakeAmp > 0.5 ? (Math.random() - 0.5) * shakeAmp : 0;
+  const shakeY = shakeAmp > 0.5 ? (Math.random() - 0.5) * shakeAmp : 0;
 
   const cx = canvas.width / 2 + shakeX;
   const cy = canvas.height / 2 + shakeY;
 
   // Aperture dynamic range:
-  // Low intensity = tight, sleek, focused 0.38 cylindrical corridor
-  // High intensity = massive 0.88 wide-angle warp vortex engulfing the screen
+  // Pronounced aperture threshold:
+  // Below threshold: narrow, deep, sleek 0.35 cylindrical corridor
+  // Above threshold: massive 0.88 wide-angle warp vortex
   const minDim = Math.min(canvas.width, canvas.height);
   const maxDim = Math.max(canvas.width, canvas.height);
   const maxR =
-    minDim * 0.38 * (1 - energy) +
-    maxDim * (0.42 + energy * 0.36 + beatPulse * 0.12) * energy;
+    minDim * 0.35 * (1 - surgeEnergy * 0.86) +
+    maxDim * (0.44 + surgeEnergy * 0.38 + beatPulse * 0.15) * surgeEnergy;
 
   // Dynamic Camera Focal Depth:
   // Low intensity = deep telephoto lens (3.4 exponent), rings recede far into infinite distance
-  // High intensity = wide-angle fisheye (2.2 exponent), rings rush past the camera
-  const depthExp = 3.3 - energy * 1.05;
+  // High intensity = wide-angle fisheye (2.15 exponent), rings rush past the camera
+  const depthExp = 3.4 - surgeEnergy * 1.25;
 
   // Speed dynamic range:
-  // Low intensity = serene, hypnotic cruise (0.16)
-  // High intensity = hypersonic warp jump (up to 5.0+)
-  const currentSpeed =
-    (0.16 + Math.pow(bassLevel, 1.5) * 2.9 + beatPulse * 3.7) * dtSec;
+  // Low intensity = serene, hypnotic cruise (0.15)
+  // High intensity = supersonic hyperdrive surge (up to 6.0+)
+  const warpBoost =
+    Math.pow(energy, 2.2) * 3.8 + Math.pow(beatPulse, 1.6) * 4.2;
+  const currentSpeed = (0.15 + warpBoost) * dtSec;
   tunnelZOffset = (tunnelZOffset + currentSpeed) % 1.0;
-  tunnelAngle += (0.12 + trebleLevel * 0.9 + beatPulse * 0.5) * dtSec;
+  tunnelAngle += (0.1 + trebleLevel * 0.85 + beatPulse * 0.5) * dtSec;
 
   const remaining = state.smoothingEnabled
     ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
     : 0;
 
   // Low-intensity feature: Atmospheric Cosmic Nebula at the vanishing point
-  // When music is quiet, a soft celestial aura fills the void, giving it depth and serene mood.
-  // As energy peaks, the nebula gets vaporized by the blinding singularity.
-  const lowIntensityAtmosphere = Math.max(0, 1 - energy * 1.4);
-  if (lowIntensityAtmosphere > 0.05) {
+  // Pronounced threshold: HUD and nebula remain clean and steady for energy < 0.42,
+  // then dramatically glitch and shatter when entering warp speed!
+  const inLowRegime = energy < 0.42 && beatPulse < 0.45;
+  const hudAlpha = inLowRegime
+    ? Math.max(0, 1 - Math.pow(energy / 0.42, 2.0))
+    : 0;
+  if (hudAlpha > 0.05) {
     const nebR = maxR * 0.52;
     const nebGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nebR);
     const nebHue = (currentHue(0) + 35) % 360;
-    nebGrad.addColorStop(
-      0,
-      `hsla(${nebHue}, 70%, 50%, ${0.26 * lowIntensityAtmosphere})`
-    );
+    nebGrad.addColorStop(0, `hsla(${nebHue}, 70%, 50%, ${0.28 * hudAlpha})`);
     nebGrad.addColorStop(
       0.5,
-      `hsla(${(nebHue + 40) % 360}, 60%, 25%, ${0.12 * lowIntensityAtmosphere})`
+      `hsla(${(nebHue + 40) % 360}, 60%, 25%, ${0.14 * hudAlpha})`
     );
     nebGrad.addColorStop(1, "transparent");
     ctx.fillStyle = nebGrad;
     ctx.beginPath();
     ctx.arc(cx, cy, nebR, 0, Math.PI * 2);
     ctx.fill();
-  }
 
-  // Low-intensity feature: Futuristic Navigation Reticle / Calibrated Horizon Ring
-  // Shows a crisp, subtle sci-fi HUD guidance ring when quiet, which shatters/fades under high energy
-  if (lowIntensityAtmosphere > 0.15) {
+    // Futuristic Navigation Reticle / Calibrated Horizon Ring
     ctx.save();
     const reticleR = maxR * 0.16;
-    ctx.strokeStyle = `hsla(${currentHue(0)}, 80%, 75%, ${0.22 * lowIntensityAtmosphere})`;
+    ctx.strokeStyle = `hsla(${currentHue(0)}, 80%, 75%, ${0.24 * hudAlpha})`;
     ctx.lineWidth = 0.8;
     ctx.beginPath();
     ctx.arc(cx, cy, reticleR, 0, Math.PI * 2);
@@ -554,7 +556,14 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   }
 
   // 2. Stars: tiny peaceful dots when quiet, stretching into warp lasers on high intensity
-  const streakLength = Math.pow(energy, 1.8) * 0.22 + beatPulse * 0.08;
+  // Pronounced star threshold:
+  // Below threshold: 100% crisp pinpoint stars drifting peacefully
+  // Above threshold: Instant hyperdrive warp laser streaks!
+  const isWarp = energy > 0.38 || beatPulse > 0.42;
+  const streakLength = isWarp
+    ? Math.pow(energy, 1.5) * 0.28 + beatPulse * 0.1
+    : 0;
+
   for (let s of tunnelStars) {
     s.z -= currentSpeed * s.speed;
     if (s.z <= 0.02) {
@@ -614,9 +623,10 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     const ringRot = tunnelAngle + (1 - rawZ) * 2.2;
     const points = [];
 
-    // In quiet passages: deformScale is low (rings retain clean geometric perfection)
-    // In loud drops: deformScale triples and rings violently warp into audio shockwaves
-    const deformScale = 0.15 + energy * 0.75 + beatPulse * 0.25;
+    // Pronounced deformation threshold:
+    // Rings remain pristine and smooth below threshold,
+    // aggressively rippling into audio shockwaves above threshold
+    const deformScale = 0.08 + Math.pow(energy, 1.6) * 0.85 + beatPulse * 0.35;
 
     for (let seg = 0; seg < TUNNEL_SEGMENTS; seg++) {
       const normSeg =
@@ -629,7 +639,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       tunnelGrid[r][seg] = smoothTowards(tunnelGrid[r][seg], rawAmp, remaining);
       const v = tunnelGrid[r][seg];
 
-      const deformedR = ringRadius * (0.92 + v * deformScale);
+      const deformedR = ringRadius * (0.94 + v * deformScale);
       const angle = (seg / TUNNEL_SEGMENTS) * Math.PI * 2 + ringRot;
 
       points.push({
@@ -642,8 +652,10 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   }
 
   // 4. Draw illuminated tunnel wall panels between adjacent rings (Tron Grid Glow)
-  // Completely invisible during quiet passages; lights up only on energy surges
-  if (energy > 0.18 || beatPulse > 0.25) {
+  // Pronounced wall panel threshold:
+  // Dark and sleek during low/medium intensity,
+  // igniting with intense neon screen glow during high-intensity drops
+  if (energy > 0.38 || beatPulse > 0.42) {
     ctx.save();
     ctx.globalCompositeOperation = "screen";
     for (let r = 0; r < TUNNEL_RINGS - 1; r++) {
@@ -654,10 +666,10 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       for (let seg = 0; seg < TUNNEL_SEGMENTS; seg += 2) {
         const nextSeg = (seg + 1) % TUNNEL_SEGMENTS;
         const vAvg = (ringA.points[seg].v + ringB.points[seg].v) / 2;
-        if (vAvg < 0.24 && beatPulse < 0.35) continue;
+        if (vAvg < 0.28 && beatPulse < 0.42) continue;
 
         const panelAlpha =
-          Math.min(0.42, vAvg * 0.45 + beatPulse * 0.28) * (1 - ringA.rawZ);
+          Math.min(0.45, vAvg * 0.48 + beatPulse * 0.3) * (1 - ringA.rawZ);
         const hue = currentHue(ringA.rawZ);
 
         ctx.fillStyle = `hsla(${hue}, 90%, 55%, ${panelAlpha})`;
@@ -675,8 +687,8 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
 
   // 5. Longitudinal perspective rails
   // Whisper-thin threads when quiet; bright neon highway beams when loud
-  const railAlpha = 0.08 + energy * 0.45 + beatPulse * 0.35;
-  ctx.lineWidth = 0.7 + energy * 1.6 + beatPulse * 1.8;
+  const railAlpha = 0.08 + Math.pow(energy, 1.4) * 0.5 + beatPulse * 0.35;
+  ctx.lineWidth = 0.7 + Math.pow(energy, 1.4) * 1.8 + beatPulse * 1.8;
   const rails = 16;
   const railStep = TUNNEL_SEGMENTS / rails;
 
@@ -698,7 +710,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     }
 
     ctx.strokeStyle = `hsla(${currentHue(rl / rails)}, 90%, ${55 + energy * 20}%, ${railAlpha})`;
-    if (energy > 0.2)
+    if (energy > 0.25)
       applyGlow(ctx.strokeStyle, 6 + energy * 10 + beatPulse * 8);
     ctx.stroke();
   }
@@ -711,7 +723,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     const { points, rawZ, zDepth } = ring;
 
     const baseRingAlpha = Math.min(1, Math.sin(rawZ * Math.PI) * 1.5);
-    const ringAlpha = baseRingAlpha * (0.24 + energy * 0.76);
+    const ringAlpha = baseRingAlpha * (0.22 + Math.pow(energy, 1.3) * 0.78);
     const hue = currentHue(rawZ);
 
     ctx.beginPath();
@@ -724,22 +736,32 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
 
     ctx.strokeStyle = `hsla(${hue}, 95%, ${50 + energy * 25 + beatPulse * 15}%, ${ringAlpha})`;
     ctx.lineWidth =
-      (0.7 + zDepth * 3.0) * (0.5 + energy * 0.8) +
-      bassLevel * 2.5 +
+      (0.7 + zDepth * 3.0) * (0.5 + Math.pow(energy, 1.3) * 0.8) +
+      Math.pow(bassLevel, 1.5) * 2.8 +
       beatPulse * 2.0;
-    if (energy > 0.15)
+    if (energy > 0.2)
       applyGlow(ctx.strokeStyle, 6 + energy * 12 + beatPulse * 10);
     ctx.stroke();
   }
 
   // 7. Shockwave blast rings erupting on beats
-  if (beatPulse > 0.38) {
-    const shockwaveR = maxR * (0.25 + (1 - beatPulse) * 0.7);
+  if (beatPulse > 0.42) {
+    const prog1 = Math.pow(1 - beatPulse, 0.75);
+    const prog2 = Math.pow(1 - beatPulse, 1.1);
+    const shockwaveR1 = maxR * (0.15 + prog1 * 0.85);
+    const shockwaveR2 = maxR * (0.08 + prog2 * 0.65);
+
     ctx.beginPath();
-    ctx.arc(cx, cy, shockwaveR, 0, Math.PI * 2);
-    ctx.strokeStyle = `hsla(${currentHue(0)}, 95%, 85%, ${beatPulse * 0.65})`;
-    ctx.lineWidth = 2 + beatPulse * 6;
-    applyGlow(ctx.strokeStyle, 24);
+    ctx.arc(cx, cy, shockwaveR1, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${currentHue(0)}, 95%, 88%, ${beatPulse * 0.75})`;
+    ctx.lineWidth = 2.5 + beatPulse * 6;
+    applyGlow(ctx.strokeStyle, 26);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, shockwaveR2, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${currentHue(0.2)}, 90%, 75%, ${beatPulse * 0.45})`;
+    ctx.lineWidth = 1.5 + beatPulse * 3;
     ctx.stroke();
   }
 
@@ -749,8 +771,8 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   const lowPulse = Math.sin(Date.now() * 0.003) * 0.8;
   const centerR =
     Math.max(2.5, 4 + lowPulse * (1 - energy)) +
-    energy * 18 +
-    bassLevel * 22 +
+    Math.pow(energy, 1.6) * 20 +
+    Math.pow(bassLevel, 1.5) * 24 +
     beatPulse * 26;
   ctx.beginPath();
   ctx.arc(cx, cy, centerR, 0, Math.PI * 2);
@@ -761,21 +783,26 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.shadowBlur = 0;
 }
 
-// ---------- Liquid Waves mode (True Spectral Fluid) ----------
+// ---------- Liquid Waves mode (True Spectral Fluid Dynamics) ----------
 const WAVES_LAYERS = 4;
-const WAVES_POINTS = 64;
-const wavesGrid = Array.from({ length: WAVES_LAYERS }, () =>
-  new Array(WAVES_POINTS).fill(0)
-);
-const wavesPhaseDrift = [0, 1.4, 2.8, 4.2];
+const WAVES_POINTS = 80;
+const WAVES_BANDS = 16;
+const wavesSmoothedBands = new Float32Array(WAVES_BANDS).fill(0);
+const wavesPhase = [0, 1.4, 2.8, 4.2];
 
-// Floating bioluminescent spores that drift across the fluid
-const wavesSpores = Array.from({ length: 45 }, () => ({
+// Dynamic bioluminescent spores / airborne spray particles
+const WAVES_SPORES_COUNT = 55;
+const wavesSpores = Array.from({ length: WAVES_SPORES_COUNT }, () => ({
   xNorm: Math.random(),
   layer: Math.floor(Math.random() * WAVES_LAYERS),
-  speed: 0.04 + Math.random() * 0.08,
-  size: 1.5 + Math.random() * 2.5,
+  speed: 0.02 + Math.random() * 0.05,
+  size: 1.4 + Math.random() * 2.2,
   twinkle: Math.random() * Math.PI * 2,
+  twinkleSpeed: 2.0 + Math.random() * 3.0,
+  airborne: false,
+  yOffset: 0,
+  vy: 0,
+  vx: 0,
 }));
 
 function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
@@ -784,39 +811,122 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
     ? Math.exp(-releasePerSec * dtSec)
     : 0;
 
-  const segW = canvas.width / (WAVES_POINTS - 1);
-  const midY = canvas.height * 0.62;
+  // 1. Smooth 16 musical frequency bands (from 35 Hz sub-bass to 16 kHz brilliance)
+  // This eliminates high-frequency FFT pixel noise while capturing every musical nuance
+  for (let b = 0; b < WAVES_BANDS; b++) {
+    const loFrac = Math.pow(b / WAVES_BANDS, 2.0) * 0.72 + 0.005;
+    const hiFrac = Math.pow((b + 1) / WAVES_BANDS, 2.0) * 0.72 + 0.01;
+    const rawVal = Math.pow(bandAverage(freqData, loFrac, hiFrac) / 255, 0.85);
+    wavesSmoothedBands[b] = smoothTowards(
+      wavesSmoothedBands[b],
+      rawVal,
+      remaining
+    );
+  }
+
+  // Smooth interpolation helper for spectral energy across normalized position u [0, 1]
+  function getSpectralEnergy(u) {
+    const pos = Math.max(0, Math.min(WAVES_BANDS - 1, u * (WAVES_BANDS - 1)));
+    const idx = Math.floor(pos);
+    const frac = pos - idx;
+    const v0 = wavesSmoothedBands[idx];
+    const v1 = wavesSmoothedBands[Math.min(WAVES_BANDS - 1, idx + 1)];
+    // Smooth cosine interpolation ensures continuous fluid curvature without jagged stair-steps
+    const t = (1 - Math.cos(frac * Math.PI)) * 0.5;
+    return v0 + (v1 - v0) * t;
+  }
+
+  // Distinct musical frequency roles:
+  const subBass = wavesSmoothedBands[0] * 0.6 + wavesSmoothedBands[1] * 0.4;
+  const punchBass = wavesSmoothedBands[2] * 0.5 + wavesSmoothedBands[3] * 0.5;
+  const lowMids = wavesSmoothedBands[4] * 0.4 + wavesSmoothedBands[5] * 0.6;
+  const mids =
+    (wavesSmoothedBands[6] + wavesSmoothedBands[7] + wavesSmoothedBands[8]) / 3;
+  const highs =
+    (wavesSmoothedBands[9] + wavesSmoothedBands[10] + wavesSmoothedBands[11]) /
+    3;
+  const air =
+    (wavesSmoothedBands[12] +
+      wavesSmoothedBands[13] +
+      wavesSmoothedBands[14] +
+      wavesSmoothedBands[15]) /
+    4;
 
   ctx.save();
   ctx.globalCompositeOperation = "screen";
 
+  // Cache of calculated surface points per layer for spore collision and foam highlights
+  const layerPoints = [];
+
   for (let l = 0; l < WAVES_LAYERS; l++) {
-    const bandStart = l === 0 ? 0.005 : l === 1 ? 0.03 : l === 2 ? 0.1 : 0.22;
-    const bandEnd = l === 0 ? 0.03 : l === 1 ? 0.1 : l === 2 ? 0.22 : 0.45;
     const layerHue = currentHue(l / WAVES_LAYERS);
 
-    wavesPhaseDrift[l] += (0.6 + l * 0.3 + bassLevel * 0.5) * dtSec;
-    const phase = wavesPhaseDrift[l];
+    // Dynamic wave phase accumulation:
+    // Layers drift at distinct harmonic speeds and alternating directions for natural fluid parallax
+    const speedDir = l % 2 === 0 ? 1 : -0.75;
+    wavesPhase[l] +=
+      (0.42 + l * 0.16 + punchBass * 0.75 + beatPulse * 0.35) *
+      speedDir *
+      dtSec;
+    const phase = wavesPhase[l];
 
-    const layerBaseY = midY + (l - WAVES_LAYERS / 2) * 40;
-    const maxLayerH = canvas.height * (0.24 + l * 0.06);
+    // Layer depth staging & maximum amplitude
+    const layerBaseY = canvas.height * (0.58 + l * 0.08);
+    const maxLayerH = canvas.height * (0.16 + l * 0.05);
+
+    // Gerstner Wave crest peaking:
+    // Pronounced Gerstner steepness curve:
+    // Below threshold: pure smooth glassy swells (steepness ~ 0.02)
+    // Above threshold: crests curl and peak into sharp oceanic breakers
+    const peakEnergy =
+      Math.pow(punchBass, 1.6) * 0.55 + Math.pow(beatPulse, 1.4) * 0.35;
+    const steepness = Math.min(0.65, 0.02 + peakEnergy) * (1 - l * 0.12);
 
     const pts = [];
+
     for (let p = 0; p < WAVES_POINTS; p++) {
-      const normX = p / (WAVES_POINTS - 1);
-      const fFrac = bandStart + normX * (bandEnd - bandStart);
-      const binIdx = Math.floor(fFrac * bufferLength);
-      const rawV = Math.pow(freqData[binIdx] / 255, 0.82);
+      const u = p / (WAVES_POINTS - 1);
+      const spec = getSpectralEnergy(u);
 
-      wavesGrid[l][p] = smoothTowards(wavesGrid[l][p], rawV, remaining);
-      const v = wavesGrid[l][p];
+      // 1. Primary Deep Ocean Swell (Sub-bass): lifts the entire fluid body
+      const k1 = 1.0 + l * 0.22;
+      const s1 = Math.sin(u * Math.PI * 2 * k1 - phase * 0.85);
+      const c1 = Math.cos(u * Math.PI * 2 * k1 - phase * 0.85);
+      const swellPower =
+        Math.pow(subBass, 1.6) * 0.72 + Math.pow(bassLevel, 1.4) * 0.3;
+      const swell = s1 * (0.14 + swellPower);
 
-      const fluidRoll = Math.sin(normX * Math.PI * 2.5 + phase) * 0.15;
-      const waveH = (v * 0.85 + fluidRoll + beatPulse * 0.15) * maxLayerH;
-      const y = layerBaseY - waveH;
-      pts.push({ x: p * segW, y });
+      // 2. Rhythmic Harmonic Roller (Punch Bass & Low-Mids): creates rolling waves that follow the rhythm
+      const k2 = 2.2 + l * 0.35;
+      const s2 = Math.sin(u * Math.PI * 2 * k2 + phase * 1.15);
+      const roller = s2 * (0.12 + lowMids * 0.38 + punchBass * 0.2);
+
+      // 3. Melodic Traveling Ripple (Mids & Vocals): standing wave harmonics moving with the melody
+      const k3 = 5.2 + l * 0.6;
+      const s3 = Math.sin(u * Math.PI * 2 * k3 - phase * 1.9);
+      const melodic = s3 * (spec * 0.52 + mids * 0.22);
+
+      // 4. Capillary Ripple Shimmer (Highs & Treble):
+      // In quiet acoustic sections: delicate, glassy ripples that glisten with guitar strums and vocal plucks
+      // In loud sections: high-frequency surface chop
+      const k4 = 14.0 + l * 2.0;
+      const s4 = Math.sin(u * Math.PI * 2 * k4 + phase * 3.4);
+      const capillary = s4 * (0.02 + highs * 0.1 + air * 0.08);
+
+      const totalH = (swell + roller + melodic + capillary) * maxLayerH;
+      const y = layerBaseY - totalH;
+
+      // Gerstner horizontal crest-peaking displacement
+      let x = u * canvas.width - c1 * steepness * 36;
+      if (p === 0) x = 0;
+      else if (p === WAVES_POINTS - 1) x = canvas.width;
+
+      pts.push({ x, y, u, crestAmp: swell + roller });
     }
 
+    layerPoints.push(pts);
+
+    // 2. Draw Translucent Oceanic Gradient Body
     ctx.beginPath();
     ctx.moveTo(0, canvas.height);
     ctx.lineTo(pts[0].x, pts[0].y);
@@ -832,16 +942,20 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
 
     const grad = ctx.createLinearGradient(
       0,
-      layerBaseY - maxLayerH,
+      layerBaseY - maxLayerH * 1.3,
       0,
       canvas.height
     );
+    // At surface: luminous translucent neon
     grad.addColorStop(0, `hsla(${layerHue}, 90%, 65%, 0.42)`);
-    grad.addColorStop(0.5, `hsla(${layerHue}, 85%, 45%, 0.18)`);
-    grad.addColorStop(1, `hsla(${layerHue}, 80%, 20%, 0)`);
+    // At mid-depth: rich oceanic body
+    grad.addColorStop(0.45, `hsla(${layerHue}, 85%, 42%, 0.18)`);
+    // At deep floor: deep oceanic floor
+    grad.addColorStop(1, `hsla(${layerHue}, 80%, 15%, 0.02)`);
     ctx.fillStyle = grad;
     ctx.fill();
 
+    // 3. Draw Glowing Surface Crest Line
     ctx.beginPath();
     ctx.moveTo(pts[0].x, pts[0].y);
     for (let i = 0; i < pts.length - 1; i++) {
@@ -852,27 +966,86 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
     ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
 
     ctx.strokeStyle = `hsl(${layerHue}, 95%, 72%)`;
-    ctx.lineWidth = 2.4 + l * 0.4 + beatPulse * 1.2;
-    applyGlow(ctx.strokeStyle, 16);
+    ctx.lineWidth = 1.8 + l * 0.4 + punchBass * 1.6 + beatPulse * 1.2;
+    applyGlow(ctx.strokeStyle, 12 + punchBass * 12);
     ctx.stroke();
 
-    for (let sp of wavesSpores) {
-      if (sp.layer !== l) continue;
-      sp.xNorm = (sp.xNorm + sp.speed * dtSec) % 1.0;
-      sp.twinkle += dtSec * 4;
-
-      const pIdx = Math.floor(sp.xNorm * (WAVES_POINTS - 1));
-      const pt = pts[pIdx];
-      if (!pt) continue;
-
-      const sporeY = pt.y - 8 - Math.sin(sp.twinkle) * 12;
-      const sporeAlpha = 0.5 + Math.sin(sp.twinkle) * 0.4 + beatPulse * 0.3;
-      ctx.fillStyle = `hsla(${layerHue}, 95%, 85%, ${Math.min(1, sporeAlpha)})`;
-      applyGlow(ctx.fillStyle, 10);
-      ctx.beginPath();
-      ctx.arc(pt.x, sporeY, sp.size * (1 + beatPulse * 0.4), 0, Math.PI * 2);
-      ctx.fill();
+    // 4. Dynamic Crest Foam (Pronounced threshold on surges & beat hits)
+    if (punchBass > 0.32 || beatPulse > 0.38) {
+      for (let i = 2; i < pts.length - 2; i += 2) {
+        if (pts[i].crestAmp > 0.28) {
+          const foamAlpha = Math.min(
+            0.85,
+            (pts[i].crestAmp - 0.28) * 2.2 + beatPulse * 0.45
+          );
+          ctx.fillStyle = `hsla(${layerHue}, 95%, 92%, ${foamAlpha})`;
+          ctx.beginPath();
+          ctx.arc(pts[i].x, pts[i].y, 2.2 + beatPulse * 2.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
     }
+  }
+
+  // 5. Bioluminescent Spores & Airborne Spray Simulation
+  // Quiet passages: Spores bob peacefully on the glassy surface, softly twinkling
+  // Loud drops / beat kicks: Spores are thrown into the air as glowing ballistic spray!
+  for (let sp of wavesSpores) {
+    sp.twinkle += dtSec * sp.twinkleSpeed;
+    const layerPts = layerPoints[sp.layer] || layerPoints[0];
+    const pIdx = Math.floor(sp.xNorm * (WAVES_POINTS - 1));
+    const surfacePt = layerPts[pIdx] || {
+      x: sp.xNorm * canvas.width,
+      y: canvas.height * 0.65,
+    };
+
+    if (sp.airborne) {
+      // Ballistic physics trajectory
+      sp.yOffset += sp.vy * dtSec;
+      sp.vy += 460 * dtSec; // Gravity pulling spray back down to water
+      sp.xNorm = (sp.xNorm + (sp.vx / canvas.width) * dtSec + 1.0) % 1.0;
+
+      // Splash back down onto water surface
+      if (sp.yOffset >= 0) {
+        sp.yOffset = 0;
+        sp.airborne = false;
+        sp.vy = 0;
+      }
+    } else {
+      // Resting on water surface: drift gently with horizontal wave current
+      sp.xNorm = (sp.xNorm + sp.speed * dtSec) % 1.0;
+
+      // Beat hits launch spores into airborne spray
+      if (beatPulse > 0.42 || (punchBass > 0.52 && Math.random() < 0.35)) {
+        sp.airborne = true;
+        sp.vy = -(150 + Math.random() * 220 + beatPulse * 260);
+        sp.vx = (Math.random() - 0.5) * 95;
+      }
+    }
+
+    const sporeX = surfacePt.x;
+    const sporeY = surfacePt.y + sp.yOffset - 3;
+    const layerHue = currentHue(sp.layer / WAVES_LAYERS);
+
+    // In quiet passages: peaceful, soft twinkling glow
+    // In spray mode: bright, radiant glowing sparks
+    const alphaBase = sp.airborne ? 0.85 : 0.45;
+    const sporeAlpha = Math.min(
+      1,
+      alphaBase + Math.sin(sp.twinkle) * 0.35 + beatPulse * 0.25
+    );
+
+    ctx.fillStyle = `hsla(${layerHue}, 95%, ${sp.airborne ? 92 : 82}%, ${sporeAlpha})`;
+    applyGlow(ctx.fillStyle, sp.airborne ? 16 : 8);
+    ctx.beginPath();
+    ctx.arc(
+      sporeX,
+      sporeY,
+      sp.size * (sp.airborne ? 1.4 : 1.0) * (1 + beatPulse * 0.3),
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
   }
 
   ctx.restore();
@@ -1087,11 +1260,11 @@ function loop(timestamp = performance.now()) {
   );
   const midLevel = Math.min(
     1,
-    normalizeEnergy(mid, 18, 180) * state.sensitivity
+    normalizeEnergy(mid, 15, 165) * state.sensitivity
   );
   const trebleLevel = Math.min(
     1,
-    normalizeEnergy(treble, 14, 170) * state.sensitivity
+    normalizeEnergy(treble, 12, 155) * state.sensitivity
   );
   updateBeat(bass, elapsedMs, dtSec);
 
