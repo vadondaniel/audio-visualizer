@@ -9,19 +9,70 @@
         padding: 0;
         box-sizing: border-box;
       }
+
+      /* ---------- design tokens ---------- */
       :root {
-        /* Single source of truth for the accent color — was hardcoded
-           identically (or as an rgba tuple) in 5 separate rules below. */
+        /* Palette. --bg-default also appears as the bgColorInput value in
+           the markup below and as state.bgColor's default in renderer.js —
+           keep all three in sync if it ever changes. */
+        --bg-default: #0f0f1a;
+        --backdrop-start: #12001f;
+        --backdrop-end: #000;
         --accent-rgb: 255, 95, 216;
         --accent: rgb(var(--accent-rgb));
+        --accent-secondary: #5fc9ff;
+        --text-rgb: 255, 255, 255;
+        --text: rgb(var(--text-rgb));
+        --danger: #ff6b6b;
+
+        /* Surfaces & borders — two translucency levels used consistently
+           instead of one-off rgba() literals per element. */
+        --surface-overlay: rgba(
+          0,
+          0,
+          0,
+          0.45
+        ); /* floating chips: hud, settingsBtn */
+        --surface-panel: rgba(10, 10, 14, 0.85); /* settingsPanel */
+        --border-subtle: rgba(var(--text-rgb), 0.1);
+        --border-medium: rgba(var(--text-rgb), 0.25);
+
+        /* Layout */
+        --edge-gap: 18px; /* consistent inset from the screen edge for all floating UI */
+
+        /* Radius scale */
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 10px;
+        --radius-pill: 30px;
+
+        /* Type scale */
+        --fs-xs: 11px;
+        --fs-sm: 12px;
+        --fs-md: 16px;
+        --fs-xl: 28px;
+
+        /* Line-height scale */
+        --leading-normal: 1.6;
+        --leading-loose: 1.8;
+
+        /* Motion */
+        --transition-fast: 0.2s ease;
+        --transition-slow: 0.4s ease;
+
+        /* Stacking order, named instead of ad-hoc numbers per element */
+        --z-hud: 5;
+        --z-panel: 6;
+        --z-overlay: 10;
       }
+
       html,
       body {
         width: 100%;
         height: 100%;
         /* Default background color/image — overridden live from the
            settings panel (gear icon) and remembered between launches. */
-        background-color: #0f0f1a;
+        background-color: var(--bg-default);
         background-size: cover;
         background-position: center;
         overflow: hidden;
@@ -43,16 +94,24 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: radial-gradient(circle at center, #12001f 0%, #000 75%);
-        color: #fff;
+        background: radial-gradient(
+          circle at center,
+          var(--backdrop-start) 0%,
+          var(--backdrop-end) 75%
+        );
+        color: var(--text);
         text-align: center;
-        z-index: 10;
+        z-index: var(--z-overlay);
       }
       #startOverlay h1 {
-        font-size: 28px;
+        font-size: var(--fs-xl);
         letter-spacing: 4px;
         font-weight: 300;
-        background: linear-gradient(90deg, var(--accent), #5fc9ff);
+        background: linear-gradient(
+          90deg,
+          var(--accent),
+          var(--accent-secondary)
+        );
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
@@ -60,14 +119,14 @@
       }
       #startBtn {
         padding: 14px 38px;
-        font-size: 16px;
+        font-size: var(--fs-md);
         letter-spacing: 2px;
         background: transparent;
-        color: #fff;
+        color: var(--text);
         border: 1px solid var(--accent);
-        border-radius: 30px;
+        border-radius: var(--radius-pill);
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all var(--transition-fast);
       }
       #startBtn:hover {
         background: var(--accent);
@@ -75,34 +134,34 @@
       }
       #startHint {
         margin-top: 18px;
-        font-size: 12px;
+        font-size: var(--fs-sm);
         opacity: 0.5;
         max-width: 420px;
-        line-height: 1.6;
+        line-height: var(--leading-normal);
       }
       #errorMsg {
         margin-top: 16px;
-        font-size: 13px;
-        color: #ff6b6b;
+        font-size: var(--fs-sm);
+        color: var(--danger);
         max-width: 460px;
-        line-height: 1.6;
+        line-height: var(--leading-normal);
         display: none;
       }
 
       #hud {
         position: absolute;
-        bottom: 18px;
-        left: 18px;
-        z-index: 5;
-        color: #fff;
-        font-size: 12px;
-        background: rgba(0, 0, 0, 0.45);
+        bottom: var(--edge-gap);
+        left: var(--edge-gap);
+        z-index: var(--z-hud);
+        color: var(--text);
+        font-size: var(--fs-sm);
+        background: var(--surface-overlay);
         padding: 12px 16px;
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         opacity: 0;
-        transition: opacity 0.4s ease;
+        transition: opacity var(--transition-slow);
         pointer-events: none;
-        line-height: 1.8;
+        line-height: var(--leading-loose);
       }
       #hud.visible {
         opacity: 1;
@@ -114,18 +173,18 @@
 
       #settingsBtn {
         position: absolute;
-        top: 18px;
-        right: 18px;
-        z-index: 6;
+        top: var(--edge-gap);
+        right: var(--edge-gap);
+        z-index: var(--z-panel);
         width: 36px;
         height: 36px;
         border-radius: 50%;
         border: none;
-        background: rgba(0, 0, 0, 0.45);
-        color: #fff;
-        font-size: 16px;
+        background: var(--surface-overlay);
+        color: var(--text);
+        font-size: var(--fs-md);
         cursor: pointer;
-        transition: background 0.2s ease;
+        transition: background var(--transition-fast);
       }
       #settingsBtn:hover {
         background: rgba(var(--accent-rgb), 0.5);
@@ -134,15 +193,15 @@
       #settingsPanel {
         position: absolute;
         top: 62px;
-        right: 18px;
-        z-index: 6;
+        right: var(--edge-gap);
+        z-index: var(--z-panel);
         width: 240px;
-        background: rgba(10, 10, 14, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
+        background: var(--surface-panel);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-lg);
         padding: 16px;
-        color: #fff;
-        font-size: 12px;
+        color: var(--text);
+        font-size: var(--fs-sm);
         display: none;
         flex-direction: column;
         gap: 12px;
@@ -159,24 +218,27 @@
         width: 100%;
         height: 30px;
         border: none;
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         background: transparent;
         cursor: pointer;
       }
       #settingsPanel input[type="file"] {
         width: 100%;
-        font-size: 11px;
-        color: #ccc;
+        font-size: var(--fs-xs);
+        /* Same "white at reduced opacity" technique used for every other
+           muted-text element here, instead of a one-off gray literal. */
+        color: var(--text);
+        opacity: 0.8;
       }
       #clearBgImageBtn {
         margin-top: 6px;
         width: 100%;
         padding: 6px 0;
-        font-size: 11px;
+        font-size: var(--fs-xs);
         background: transparent;
-        color: #fff;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-        border-radius: 6px;
+        color: var(--text);
+        border: 1px solid var(--border-medium);
+        border-radius: var(--radius-sm);
         cursor: pointer;
       }
       #clearBgImageBtn:hover {

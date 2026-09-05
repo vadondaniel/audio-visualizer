@@ -1,6 +1,6 @@
 {
   "name": "audio-visualizer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
   "scripts": {
