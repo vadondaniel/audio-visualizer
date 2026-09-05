@@ -1,17 +1,21 @@
 # Audio Visualizer
 
-A standalone Windows app that visualizes whatever audio is currently playing
-on your PC — any app, not just a browser tab — in real time, NCS-video style.
+A standalone Windows app that turns whatever audio is currently playing on
+your PC — Spotify, a game, a browser tab, anything — into a real-time music
+visualizer, NCS-video style.
 
-No virtual audio cable needed. It uses Electron's built-in Windows loopback
-capture (WASAPI under the hood) to grab your system audio directly.
+It works with your system audio directly, so there's nothing extra to
+install or set up beyond the app itself.
 
-## 1. Install Node.js (if you don't have it)
+## Getting started
 
-Download and install from <https://nodejs.org> (LTS version). This gives you
-`npm`, which is all you need — you don't need to know JavaScript to run this.
+### 1. Install Node.js (one-time setup)
 
-## 2. Install dependencies
+Download and install it from <https://nodejs.org> (choose the LTS version).
+You don't need to know any programming — this just gives your PC the
+ability to run the app.
+
+### 2. Install the app's dependencies
 
 Open a terminal (PowerShell) in this folder and run:
 
@@ -19,18 +23,19 @@ Open a terminal (PowerShell) in this folder and run:
 npm install
 ```
 
-This downloads Electron itself (~150-200MB), one time only.
+This downloads everything the app needs (about 150–200MB) and only has to
+be done once.
 
-## 3. Run it
+### 3. Run it
 
 ```bash
 npm start
 ```
 
-A window opens (on your second monitor if you have one). Click **START**.
-Windows may briefly show a screen-share style prompt the very first time —
-just confirm it. After that, whatever is playing anywhere on your PC
-(Spotify, a game, a browser, anything) drives the visuals.
+A window opens (on your second monitor, if you have one). Click **START**.
+The first time, Windows will show a screen-sharing style permission prompt —
+just confirm it. After that, whatever is playing anywhere on your PC will
+drive the visuals.
 
 ## Controls
 
@@ -44,7 +49,8 @@ just confirm it. After that, whatever is playing anywhere on your PC
 | `B`       | Toggle background panel                  |
 | `Esc`     | Quit                                     |
 
-Move the mouse to bring back the control hint overlay; it fades out on its own.
+Move your mouse to bring back the control hint overlay; it fades away on
+its own after a moment.
 
 The 5 visual styles are: **bars**, **radial spectrum**, **waveform**,
 **particles** (bass-reactive bursts), and **kaleidoscope**.
@@ -52,62 +58,62 @@ The 5 visual styles are: **bars**, **radial spectrum**, **waveform**,
 ## Settings panel
 
 Click the gear icon (top-right) or press `B` to open it. Like the control
-hint overlay in the corner, the gear icon itself fades out when the mouse
-sits idle, and the panel (if open) fades with it — move the mouse to bring
-both back.
+hint overlay, the gear icon fades out when your mouse is idle, and the
+panel fades with it — just move the mouse to bring both back.
 
-- **Visual** / **Color theme** — dropdowns, same as `1`-`5` and `C`, for
-  when a mouse is easier than remembering keys.
-- **Background** — a Solid color / Image switch. Picking an image
-  switches to it automatically; switching back to Solid color keeps the
-  image remembered so you can flip back without re-picking the file.
-- **Brightness** / **Blur** — tune the background so it doesn't compete
-  with the visuals; these only affect the background layer, never the
-  bars/particles/etc. themselves.
+- **Visual** / **Color theme** — the same options as the `1`-`5` and `C`
+  keys, for when a mouse is easier than remembering keys.
+- **Background** — switch between a solid color or your own image. Pick an
+  image and it's used right away; switch back to solid color and the image
+  is remembered so you don't have to re-pick it later.
+- **Brightness** / **Blur** — these only affect the background, so you can
+  tune it to sit nicely behind the visuals without them competing.
 
-Everything above — including the background image itself — is saved
-locally and restored next time you launch the app. Images are automatically
-downscaled/compressed on upload so a full-resolution photo doesn't blow
-past the browser storage quota (which was silently failing to save large
-images before).
+Everything you set — including your chosen background image — is saved
+automatically and will still be there next time you open the app.
 
-## 4. (Optional) Turn it into a real .exe
+## Turning it into a double-clickable app (optional)
 
-If you want a double-clickable app instead of running it from a terminal:
+By default you run the app from a terminal with `npm start`. If you'd
+rather have a regular `.exe` you can just double-click, run:
 
 ```bash
 npm run dist
 ```
 
-This uses `electron-builder` to produce a portable `.exe` in the `dist/`
-folder. First run will download some extra tooling.
+This creates a portable `.exe` in the `dist` folder. The first time you run
+this, it will download some extra tooling, so it may take a minute.
 
-## Notes / troubleshooting
+## Troubleshooting
 
-- **"No audio track" error**: make sure something is actually playing before
-  clicking Start, and that your default Windows playback device is set
-  correctly (Settings > System > Sound).
-- **Silent/laggy visuals**: some apps route audio in ways loopback capture
-  can miss (rare). Try playing through a browser tab or your default media
-  player first to confirm it works, then troubleshoot the specific app.
-- **`F`/`T`/`Esc` doing nothing**: this was a real bug, now fixed — Electron
-  defaults `sandbox: true` since v20, which silently breaks a sandboxed
-  preload script's `require()` of a local file (`ipc-channels.js`). If
-  you're merging this into a fork, make sure `main.js`'s `webPreferences`
-  keeps `sandbox: false`.
-- Everything runs locally — no data leaves your machine, no accounts needed.
-- Tested against the Electron version pinned in `package.json` (currently
-  44.x). Loopback audio capture requires Electron ~29+, so older pins won't
-  work.
+- **"No audio track" error**: make sure something is actually playing
+  before you click Start, and check that your default Windows playback
+  device is set correctly (Settings > System > Sound).
+- **Silent or laggy visuals**: a few apps route their audio in unusual ways
+  that can confuse the visualizer (this is rare). Try playing something
+  through a browser tab or your default media player first to confirm the
+  app works, then troubleshoot the specific app that's misbehaving.
+- Everything runs locally on your PC — no data ever leaves your machine,
+  and no account or sign-in is needed.
 
-## How it works, briefly
+---
 
-`main.js` registers a `setDisplayMediaRequestHandler` that answers
-`getDisplayMedia()` calls with `{ video: <screen>, audio: 'loopback' }` —
-this is what gives you system-wide audio without extra software. The video
-track is immediately discarded; only the audio track is used. That audio
-feeds a Web Audio `AnalyserNode` (`renderer.js`), which extracts real-time
-frequency (FFT) and waveform data once per display refresh. All the motion —
-bar/particle smoothing, kaleidoscope spin, the trail fade, the beat
-detector — is driven by real elapsed time rather than a fixed frame count,
-so it looks the same whether your display is 60Hz, 120Hz, or 144Hz.
+## For developers
+
+- System audio is captured via Electron's `setDisplayMediaRequestHandler`,
+  answering `getDisplayMedia()` with `{ video: <screen>, audio: 'loopback' }`
+  (WASAPI loopback under the hood, no virtual audio cable needed). The
+  video track is discarded immediately; only audio is used.
+- That audio feeds a Web Audio `AnalyserNode` in `renderer.js`, which
+  extracts FFT/waveform data once per display refresh. All animation
+  (smoothing, kaleidoscope spin, trail fade, beat detection) is driven by
+  elapsed time rather than frame count, so it looks consistent across
+  60Hz/120Hz/144Hz displays.
+- Background images are downscaled/compressed on upload to stay within
+  local storage limits.
+- Requires Electron ~29+ for loopback capture; currently pinned to 44.x in
+  `package.json`.
+- `webPreferences.sandbox` must stay `false` in `main.js` — Electron's
+  default `sandbox: true` (since v20) breaks the preload script's
+  `require()` of the local `ipc-channels.js`, silently disabling the
+  `F`/`T`/`Esc` shortcuts.
