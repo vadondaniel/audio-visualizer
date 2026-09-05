@@ -451,6 +451,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
 // ---------- Cyber Tunnel mode (True 3D Audio Vortex) ----------
 let tunnelZOffset = 0;
 let tunnelAngle = 0;
+let smoothedTunnelEnergy = 0;
 const TUNNEL_RINGS = 20;
 const TUNNEL_SEGMENTS = 32;
 // 2D grid of smoothed frequency values: [ringIndex][segmentIndex]
@@ -468,9 +469,18 @@ const tunnelStars = Array.from({ length: 90 }, () => ({
 }));
 
 function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
+    : 0;
+
   const rawEnergy = bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15;
+  smoothedTunnelEnergy = smoothTowards(
+    smoothedTunnelEnergy,
+    rawEnergy,
+    remaining
+  );
   // Gamma contrast curve: low levels stay serene; high levels punch through clearly
-  const energy = Math.min(1, Math.pow(rawEnergy, 1.12));
+  const energy = Math.min(1, Math.pow(smoothedTunnelEnergy, 1.12));
   const surgeEnergy = Math.pow(energy, 1.75);
 
   // 1. Visceral camera shake — ONLY kicks in on real beat hits & loud drops
@@ -507,10 +517,6 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   const currentSpeed = (0.15 + warpBoost) * dtSec;
   tunnelZOffset = (tunnelZOffset + currentSpeed) % 1.0;
   tunnelAngle += (0.1 + trebleLevel * 0.85 + beatPulse * 0.5) * dtSec;
-
-  const remaining = state.smoothingEnabled
-    ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
-    : 0;
 
   // Low-intensity feature: Atmospheric Cosmic Nebula at the vanishing point
   // Pronounced threshold: HUD and nebula remain clean and steady for energy < 0.42,
@@ -737,7 +743,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     ctx.strokeStyle = `hsla(${hue}, 95%, ${50 + energy * 25 + beatPulse * 15}%, ${ringAlpha})`;
     ctx.lineWidth =
       (0.7 + zDepth * 3.0) * (0.5 + Math.pow(energy, 1.3) * 0.8) +
-      Math.pow(bassLevel, 1.5) * 2.8 +
+      Math.pow(energy, 1.5) * 2.8 +
       beatPulse * 2.0;
     if (energy > 0.2)
       applyGlow(ctx.strokeStyle, 6 + energy * 12 + beatPulse * 10);
@@ -893,7 +899,7 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
       const s1 = Math.sin(u * Math.PI * 2 * k1 - phase * 0.85);
       const c1 = Math.cos(u * Math.PI * 2 * k1 - phase * 0.85);
       const swellPower =
-        Math.pow(subBass, 1.6) * 0.72 + Math.pow(bassLevel, 1.4) * 0.3;
+        Math.pow(subBass, 1.6) * 0.72 + Math.pow(punchBass, 1.4) * 0.3;
       const swell = s1 * (0.14 + swellPower);
 
       // 2. Rhythmic Harmonic Roller (Punch Bass & Low-Mids): creates rolling waves that follow the rhythm
@@ -1154,7 +1160,7 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
   );
   airglowGrad.addColorStop(
     0.5,
-    `hsla(${skyThemeHue + 20}, 90%, 35%, ${0.04 + bassLevel * 0.12})`
+    `hsla(${skyThemeHue + 20}, 90%, 35%, ${0.04 + intensity * 0.12})`
   );
   airglowGrad.addColorStop(1, "rgba(2, 6, 18, 0)");
   ctx.fillStyle = airglowGrad;
@@ -1165,7 +1171,7 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
   // 4. Render 3 layered, undulating auroral curtains across the sky
   for (let c = 0; c < AURORA_CURTAINS; c++) {
     // Phase drift across the sky
-    const driftSpeed = 0.18 + (2 - c) * 0.12 + bassLevel * 0.25;
+    const driftSpeed = 0.18 + (2 - c) * 0.12 + intensity * 0.25;
     auroraPhase[c] += driftSpeed * dtSec;
     const phase = auroraPhase[c];
 
