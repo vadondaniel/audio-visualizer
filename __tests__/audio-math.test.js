@@ -177,6 +177,9 @@ describe("mergeSettings", () => {
     mode: 0,
     theme: 0,
     autoCycle: false,
+    smoothingEnabled: true,
+    radialMode: "mirrored",
+    kaleidoMaxRFrac: 0.46,
   };
 
   test("falls back to defaults when nothing was saved", () => {
@@ -194,6 +197,9 @@ describe("mergeSettings", () => {
       mode: 2,
       theme: 3,
       autoCycle: true,
+      smoothingEnabled: false,
+      radialMode: "full",
+      kaleidoMaxRFrac: 0.6,
     };
     expect(mergeSettings(defaults, saved, 5, 7)).toEqual(saved);
   });
@@ -213,5 +219,20 @@ describe("mergeSettings", () => {
   test("never turns autoCycle on just because the key exists and is falsy", () => {
     const saved = { autoCycle: false };
     expect(mergeSettings(defaults, saved, 5, 7).autoCycle).toBe(false);
+  });
+
+  test("respects an explicit smoothingEnabled: false (not just truthy checks)", () => {
+    const saved = { smoothingEnabled: false };
+    expect(mergeSettings(defaults, saved, 5, 7).smoothingEnabled).toBe(false);
+  });
+
+  test("ignores an invalid radialMode value", () => {
+    const saved = { radialMode: "spiral" };
+    expect(mergeSettings(defaults, saved, 5, 7).radialMode).toBe("mirrored");
+  });
+
+  test("ignores a non-positive kaleidoMaxRFrac", () => {
+    const saved = { kaleidoMaxRFrac: 0 };
+    expect(mergeSettings(defaults, saved, 5, 7).kaleidoMaxRFrac).toBe(0.46);
   });
 });

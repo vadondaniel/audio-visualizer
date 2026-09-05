@@ -35,6 +35,12 @@ const blurSlider = document.getElementById("blurSlider");
 const blurVal = document.getElementById("blurVal");
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
+const smoothingCheckbox = document.getElementById("smoothingCheckbox");
+const radialModeRow = document.getElementById("radialModeRow");
+const radialModeSelect = document.getElementById("radialModeSelect");
+const kaleidoRadiusRow = document.getElementById("kaleidoRadiusRow");
+const kaleidoRadiusSlider = document.getElementById("kaleidoRadiusSlider");
+const kaleidoRadiusVal = document.getElementById("kaleidoRadiusVal");
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -47,7 +53,7 @@ const THEMES = [
   { name: "Neon", hues: [320, 200] }, // pink -> cyan
   { name: "Fire", hues: [15, 45] }, // red -> orange
   { name: "Matrix", hues: [130, 160] }, // green
-  { name: "Color Cycle", colorCycle: true, spread: 30 }, // rotates over time, with a hue gradient across each visual so it isn't flat
+  { name: "Color Cycle", colorCycle: true, spread: 50 }, // rotates over time, with a hue gradient across each visual so it isn't flat
   { name: "Rainbow", rainbow: true }, // fixed full spectrum across each visual
   { name: "Rainbow Cycle", rainbow: true, cycle: true }, // spectrum rotates
   { name: "Ice", hues: [190, 260] }, // blue -> purple
@@ -83,6 +89,9 @@ const state = {
   bgImageName: null,
   bgBrightness: 1,
   bgBlur: 0,
+  smoothingEnabled: true,
+  radialMode: "mirrored", // "mirrored" | "full" — radial visual only
+  kaleidoMaxRFrac: 0.46, // kaleidoscope visual only, seeded from VISUAL_TUNING below
 };
 
 const VISUAL_TUNING = {
@@ -97,7 +106,7 @@ const VISUAL_TUNING = {
     releasePerSec: 9.75,
   },
   kaleidoscope: {
-    maxRFrac: 0.46,
+    // maxRFrac now lives in state.kaleidoMaxRFrac (adjustable in Settings)
     coreRFrac: 0.035,
     releasePerSec: 14.9,
     spinPerSec: 0.072,
@@ -129,6 +138,9 @@ const PERSISTED_KEYS = [
   "mode",
   "theme",
   "autoCycle",
+  "smoothingEnabled",
+  "radialMode",
+  "kaleidoMaxRFrac",
 ];
 
 // state.bgType is the explicit switch — an uploaded image stays remembered
@@ -189,17 +201,29 @@ function resizeImageFile(file) {
   });
 }
 
+// Shows/hides the radial-shape and kaleidoscope-size rows depending on
+// which visual is currently selected, same idea as updateBgRowsVisibility
+// above — no point offering a kaleidoscope-only slider while looking at
+// the bars.
+function updateVisualOptionRows() {
+  radialModeRow.style.display = MODES[state.mode] === "radial" ? "" : "none";
+  kaleidoRadiusRow.style.display =
+    MODES[state.mode] === "kaleidoscope" ? "" : "none";
+}
+
 // Keeps the dropdowns showing whatever visual/theme is actually active,
 // whether that came from the dropdown, a keyboard shortcut, or a restored
 // setting on launch.
 function syncSelectsToState() {
   modeSelect.value = state.mode;
   themeSelect.value = state.theme;
+  updateVisualOptionRows();
 }
 
 function updateSliderLabels() {
   brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
   blurVal.textContent = `${state.bgBlur}px`;
+  kaleidoRadiusVal.textContent = `${Math.round(state.kaleidoMaxRFrac * 100)}%`;
 }
 
 function saveSettings() {
@@ -240,6 +264,9 @@ function loadSettings() {
   bgColorInput.value = state.bgColor;
   brightnessSlider.value = state.bgBrightness;
   blurSlider.value = state.bgBlur;
+  smoothingCheckbox.checked = state.smoothingEnabled;
+  radialModeSelect.value = state.radialMode;
+  kaleidoRadiusSlider.value = Math.round(state.kaleidoMaxRFrac * 100);
   updateSliderLabels();
   updateBgRowsVisibility();
   syncSelectsToState();
@@ -275,11 +302,28 @@ window.addEventListener("click", (e) => {
 
 modeSelect.addEventListener("change", (e) => {
   state.mode = parseInt(e.target.value, 10);
+  updateVisualOptionRows();
   saveSettings();
 });
 
 themeSelect.addEventListener("change", (e) => {
   state.theme = parseInt(e.target.value, 10);
+  saveSettings();
+});
+
+smoothingCheckbox.addEventListener("change", (e) => {
+  state.smoothingEnabled = e.target.checked;
+  saveSettings();
+});
+
+radialModeSelect.addEventListener("change", (e) => {
+  state.radialMode = e.target.value;
+  saveSettings();
+});
+
+kaleidoRadiusSlider.addEventListener("input", (e) => {
+  state.kaleidoMaxRFrac = parseInt(e.target.value, 10) / 100;
+  updateSliderLabels();
   saveSettings();
 });
 
@@ -468,7 +512,9 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
   const step = Math.max(1, Math.floor((bufferLength * 0.69) / barCount));
   const w = canvas.width / barCount;
   const baseY = canvas.height * baseYFrac;
-  const remaining = Math.exp(-releasePerSec * dtSec);
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-releasePerSec * dtSec)
+    : 0;
 
   for (let i = 0; i < barCount; i++) {
     const targetV = Math.pow(freqData[i * step] / 255, 0.82);
@@ -504,13 +550,19 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
     (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
   const halfCount = barCount / 2;
-  const remaining = Math.exp(-releasePerSec * dtSec);
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-releasePerSec * dtSec)
+    : 0;
 
   ctx.lineCap = "round";
 
   for (let i = 0; i < barCount; i++) {
     const normalized =
-      i < halfCount ? i / halfCount : (barCount - i - 1) / halfCount;
+      state.radialMode === "full"
+        ? i / barCount
+        : i < halfCount
+          ? i / halfCount
+          : (barCount - i - 1) / halfCount;
     const idx = Math.floor(normalized * bufferLength * 0.5);
     const targetV = Math.pow(freqData[idx] / 255, 0.82);
     smoothedRadial[i] = smoothTowards(smoothedRadial[i], targetV, remaining);
@@ -760,7 +812,6 @@ const KALEIDO_BAND_EDGES = (() => {
 
 function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   const {
-    maxRFrac,
     coreRFrac,
     releasePerSec,
     spinPerSec,
@@ -772,7 +823,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   const cy = canvas.height / 2;
   const segments = 8;
   const segAngle = (Math.PI * 2) / segments;
-  const maxR = Math.min(canvas.width, canvas.height) * maxRFrac;
+  const maxR = Math.min(canvas.width, canvas.height) * state.kaleidoMaxRFrac;
 
   kaleidoRotation +=
     (spinPerSec + trebleLevel * spinTreblePerSec + beatPulse * spinBeatPerSec) *
@@ -780,7 +831,9 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   kaleidoFlash = Math.max(0, kaleidoFlash - flashDecayPerSec * dtSec);
   if (beatPulse > 0.75) kaleidoFlash = 1;
 
-  const remaining = Math.exp(-releasePerSec * dtSec);
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-releasePerSec * dtSec)
+    : 0;
 
   for (let s = 0; s < segments; s++) {
     ctx.save();

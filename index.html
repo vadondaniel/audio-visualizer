@@ -297,6 +297,21 @@
         background: var(--bg-default);
         color: var(--text);
       }
+      #settingsPanel .toggleRow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      #settingsPanel .toggleRow label {
+        margin-bottom: 0;
+        opacity: 1;
+      }
+      #settingsPanel input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
       #clearBgImageBtn {
         margin-top: 6px;
         width: 100%;
@@ -348,6 +363,34 @@
       <div>
         <label for="themeSelect">Color theme</label>
         <select id="themeSelect"></select>
+      </div>
+
+      <hr />
+
+      <div class="toggleRow">
+        <label for="smoothingCheckbox">Smooth motion</label>
+        <input type="checkbox" id="smoothingCheckbox" checked />
+      </div>
+      <div id="radialModeRow">
+        <label for="radialModeSelect">Radial shape</label>
+        <select id="radialModeSelect">
+          <option value="mirrored">Mirrored</option>
+          <option value="full">Full circle</option>
+        </select>
+      </div>
+      <div id="kaleidoRadiusRow">
+        <label for="kaleidoRadiusSlider"
+          ><span>Kaleidoscope size</span
+          ><span class="val" id="kaleidoRadiusVal">46%</span></label
+        >
+        <input
+          type="range"
+          id="kaleidoRadiusSlider"
+          min="15"
+          max="70"
+          step="1"
+          value="46"
+        />
       </div>
 
       <hr />
