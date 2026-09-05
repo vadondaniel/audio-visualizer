@@ -20,6 +20,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "ipc-channels.js",
       "index.html",
       "renderer.js"
     ]

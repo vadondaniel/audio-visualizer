@@ -7,6 +7,7 @@ const {
   screen,
 } = require("electron");
 const path = require("path");
+const IPC = require("./ipc-channels");
 
 let mainWindow;
 
@@ -22,7 +23,6 @@ function createWindow() {
     height: 720,
     backgroundColor: "#000000",
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -63,16 +63,16 @@ app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-ipcMain.on("toggle-fullscreen", () => {
+ipcMain.on(IPC.TOGGLE_FULLSCREEN, () => {
   if (!mainWindow) return;
   mainWindow.setFullScreen(!mainWindow.isFullScreen());
 });
 
-ipcMain.on("toggle-always-on-top", () => {
+ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
   if (!mainWindow) return;
   mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop());
 });
 
-ipcMain.on("quit-app", () => {
+ipcMain.on(IPC.QUIT_APP, () => {
   app.quit();
 });

@@ -78,8 +78,9 @@ folder. First run will download some extra tooling.
   can miss (rare). Try playing through a browser tab or your default media
   player first to confirm it works, then troubleshoot the specific app.
 - Everything runs locally — no data leaves your machine, no accounts needed.
-- Tested against Electron 33. If you bump the Electron version in
-  `package.json`, loopback audio capture requires Electron ~29+.
+- Tested against the Electron version pinned in `package.json` (currently
+  44.x). Loopback audio capture requires Electron ~29+, so older pins won't
+  work.
 
 ## How it works, briefly
 
@@ -88,6 +89,7 @@ folder. First run will download some extra tooling.
 this is what gives you system-wide audio without extra software. The video
 track is immediately discarded; only the audio track is used. That audio
 feeds a Web Audio `AnalyserNode` (`renderer.js`), which extracts real-time
-frequency (FFT) and waveform data, 60 times a second, which drives all five
-canvas-based visualizations plus a simple bass-based beat detector for the
-pulse/particle effects.
+frequency (FFT) and waveform data once per display refresh. All the motion —
+bar/particle smoothing, kaleidoscope spin, the trail fade, the beat
+detector — is driven by real elapsed time rather than a fixed frame count,
+so it looks the same whether your display is 60Hz, 120Hz, or 144Hz.
