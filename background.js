@@ -52,13 +52,15 @@ function readImageFile(file) {
 
 // ---------- settings panel sync helpers ----------
 
-// Shows/hides the radial-shape and kaleidoscope-clip rows depending on
-// which visual is currently selected — no point offering a
-// kaleidoscope-only toggle while looking at the bars.
+// Shows/hides visual-specific options (radial shape, kaleidoscope clip,
+// and smoothing toggle which only applies to frequency-decay modes: bars, radial, kaleidoscope)
+// depending on which visual is currently selected.
 function updateVisualOptionRows() {
-  radialModeRow.style.display = MODES[state.mode] === "radial" ? "" : "none";
-  kaleidoClipRow.style.display =
-    MODES[state.mode] === "kaleidoscope" ? "" : "none";
+  const currentMode = MODES[state.mode];
+  radialModeRow.style.display = currentMode === "radial" ? "" : "none";
+  kaleidoClipRow.style.display = currentMode === "kaleidoscope" ? "" : "none";
+  smoothingRow.style.display =
+    currentMode === "particles" || currentMode === "waveform" ? "none" : "";
 }
 
 // Keeps the dropdowns showing whatever visual/theme is actually active,

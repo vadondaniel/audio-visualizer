@@ -14,6 +14,7 @@ const settingsPanel = document.getElementById("settingsPanel");
 // Visual / theme selectors
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
+const smoothingRow = document.getElementById("smoothingRow");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");
 const radialMirroredCheckbox = document.getElementById(
