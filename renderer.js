@@ -859,18 +859,6 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
     ctx.rotate(s * segAngle + kaleidoRotation);
     const mirrored = s % 2 === 1;
 
-    // With clipping on, bars that would reach past maxR get sliced flat at
-    // that circle — that flat-edged "hits the wall" look is exactly what
-    // Settings > Clip to circle is for turning off: unchecked, bars are
-    // free to spike out past maxR instead of being capped at a circle.
-    if (state.kaleidoClipEnabled) {
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, maxR, 0, segAngle);
-      ctx.closePath();
-      ctx.clip();
-    }
-
     for (let i = 0; i < KALEIDO_BARS; i++) {
       const raw = bandAverage(
         freqData,
@@ -878,7 +866,8 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
         KALEIDO_BAND_EDGES[i + 1],
       );
       const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
-      const targetV = Math.min(1, Math.pow((raw / 255) * tilt, 0.7));
+      const rawV = Math.pow((raw / 255) * tilt, 0.7);
+      const targetV = state.kaleidoClipEnabled ? Math.min(1, rawV) : rawV;
       smoothedKaleido[i] = smoothTowards(
         smoothedKaleido[i],
         targetV,
