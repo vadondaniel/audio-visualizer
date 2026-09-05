@@ -9,8 +9,12 @@ const hud = document.getElementById("hud");
 const settingsBtn = document.getElementById("settingsBtn");
 const settingsPanel = document.getElementById("settingsPanel");
 const bgLayer = document.getElementById("bgLayer");
+const bgTypeSelect = document.getElementById("bgTypeSelect");
+const bgColorRow = document.getElementById("bgColorRow");
+const bgImageRow = document.getElementById("bgImageRow");
 const bgColorInput = document.getElementById("bgColorInput");
 const bgImageInput = document.getElementById("bgImageInput");
+const bgImageName = document.getElementById("bgImageName");
 const clearBgImageBtn = document.getElementById("clearBgImageBtn");
 const brightnessSlider = document.getElementById("brightnessSlider");
 const brightnessVal = document.getElementById("brightnessVal");
@@ -60,8 +64,10 @@ const state = {
   autoCycle: false,
   autoCycleTimer: null,
   hueShift: 0,
+  bgType: "color", // "color" | "image" — which one is actually shown
   bgColor: "#0f0f1a",
   bgImageDataUrl: null,
+  bgImageName: null,
   bgBrightness: 1,
   bgBlur: 0,
 };
@@ -101,8 +107,10 @@ const VISUAL_TUNING = {
 // ---------- settings persistence ----------
 const SETTINGS_KEY = "audioVisualizerSettings";
 const PERSISTED_KEYS = [
+  "bgType",
   "bgColor",
   "bgImageDataUrl",
+  "bgImageName",
   "bgBrightness",
   "bgBlur",
   "mode",
@@ -110,8 +118,11 @@ const PERSISTED_KEYS = [
   "autoCycle",
 ];
 
+// state.bgType is the explicit switch — an uploaded image stays remembered
+// even while "Solid color" is selected, so flipping the dropdown back to
+// "Image" doesn't require re-picking the file.
 function applyBackground() {
-  if (state.bgImageDataUrl) {
+  if (state.bgType === "image" && state.bgImageDataUrl) {
     bgLayer.style.backgroundImage = `url("${state.bgImageDataUrl}")`;
   } else {
     bgLayer.style.backgroundImage = "none";
@@ -120,6 +131,49 @@ function applyBackground() {
   // Filter lives on #bgLayer only (see index.html) — never on #canvas or
   // the UI — so cranking blur/brightness can't wash out the visuals.
   bgLayer.style.filter = `brightness(${state.bgBrightness}) blur(${state.bgBlur}px)`;
+}
+
+function updateBgRowsVisibility() {
+  bgTypeSelect.value = state.bgType;
+  bgColorRow.style.display = state.bgType === "color" ? "" : "none";
+  bgImageRow.style.display = state.bgType === "image" ? "" : "none";
+  bgImageName.textContent = state.bgImageName || "none chosen";
+}
+
+// Background images are stored as data URLs in localStorage, which has a
+// ~5-10MB quota shared across everything else we save. A phone photo
+// easily blows past that on its own, so the save silently failed and the
+// image never survived a restart. Downscaling to a sane max resolution
+// and re-encoding as JPEG keeps it well under quota — the background is
+// cover-fit and blurred/dimmed anyway, so full original resolution buys
+// nothing visible.
+const BG_IMAGE_MAX_DIMENSION = 1920;
+const BG_IMAGE_JPEG_QUALITY = 0.82;
+
+function resizeImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const scale = Math.min(
+        1,
+        BG_IMAGE_MAX_DIMENSION / Math.max(img.width, img.height),
+      );
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const off = document.createElement("canvas");
+      off.width = w;
+      off.height = h;
+      off.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(off.toDataURL("image/jpeg", BG_IMAGE_JPEG_QUALITY));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Could not read that image file"));
+    };
+    img.src = objectUrl;
+  });
 }
 
 // Keeps the dropdowns showing whatever visual/theme is actually active,
@@ -165,8 +219,11 @@ function loadSettings() {
     saved = null;
   }
   if (saved) {
+    if (saved.bgType === "color" || saved.bgType === "image")
+      state.bgType = saved.bgType;
     if (saved.bgColor) state.bgColor = saved.bgColor;
     if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
+    if (saved.bgImageName) state.bgImageName = saved.bgImageName;
     if (typeof saved.bgBrightness === "number")
       state.bgBrightness = saved.bgBrightness;
     if (typeof saved.bgBlur === "number") state.bgBlur = saved.bgBlur;
@@ -180,12 +237,26 @@ function loadSettings() {
   brightnessSlider.value = state.bgBrightness;
   blurSlider.value = state.bgBlur;
   updateSliderLabels();
+  updateBgRowsVisibility();
   syncSelectsToState();
   applyBackground();
 }
 
+// ---------- settings panel: open/close + auto-hide ----------
+// The gear button fades with mouse inactivity exactly like #hud (see
+// flashHud below). The panel itself only shows when BOTH the person has
+// opened it AND the mouse is currently active — so it fades away together
+// with the rest of the UI on an idle screen instead of staying pinned
+// open forever once toggled on.
+let panelOpen = false;
+function updatePanelVisibility() {
+  settingsPanel.classList.toggle("visible", panelOpen && hudActive);
+}
+
 settingsBtn.addEventListener("click", () => {
-  settingsPanel.classList.toggle("visible");
+  panelOpen = !panelOpen;
+  flashHud();
+  updatePanelVisibility();
 });
 
 modeSelect.addEventListener("change", (e) => {
@@ -198,27 +269,40 @@ themeSelect.addEventListener("change", (e) => {
   saveSettings();
 });
 
+bgTypeSelect.addEventListener("change", (e) => {
+  state.bgType = e.target.value;
+  updateBgRowsVisibility();
+  applyBackground();
+  saveSettings();
+});
+
 bgColorInput.addEventListener("input", (e) => {
   state.bgColor = e.target.value;
   applyBackground();
   saveSettings();
 });
 
-bgImageInput.addEventListener("change", (e) => {
+bgImageInput.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.bgImageDataUrl = reader.result;
+  try {
+    state.bgImageDataUrl = await resizeImageFile(file);
+    state.bgImageName = file.name;
+    state.bgType = "image";
+    updateBgRowsVisibility();
     applyBackground();
     saveSettings();
-  };
-  reader.readAsDataURL(file);
+  } catch (err) {
+    console.warn("Could not use that background image", err);
+  }
 });
 
 clearBgImageBtn.addEventListener("click", () => {
   state.bgImageDataUrl = null;
+  state.bgImageName = null;
+  state.bgType = "color";
   bgImageInput.value = "";
+  updateBgRowsVisibility();
   applyBackground();
   saveSettings();
 });
@@ -842,10 +926,22 @@ function loop(timestamp = performance.now()) {
 
 // ---------- input ----------
 let hudTimeout;
+let hudActive = false;
+// The gear button and the settings panel (when open) both ride along
+// with #hud's show-on-activity/fade-on-idle cycle — see
+// updatePanelVisibility above, which reads hudActive too.
 function flashHud() {
+  hudActive = true;
   hud.classList.add("visible");
+  settingsBtn.classList.add("visible");
+  updatePanelVisibility();
   clearTimeout(hudTimeout);
-  hudTimeout = setTimeout(() => hud.classList.remove("visible"), 2500);
+  hudTimeout = setTimeout(() => {
+    hudActive = false;
+    hud.classList.remove("visible");
+    settingsBtn.classList.remove("visible");
+    updatePanelVisibility();
+  }, 2500);
 }
 window.addEventListener("mousemove", flashHud);
 
@@ -857,7 +953,10 @@ const KEY_ACTIONS = {
   },
   f: () => window.electronAPI.toggleFullscreen(),
   t: () => window.electronAPI.toggleAlwaysOnTop(),
-  b: () => settingsPanel.classList.toggle("visible"),
+  b: () => {
+    panelOpen = !panelOpen;
+    updatePanelVisibility();
+  },
   " ": () => {
     setAutoCycle(!state.autoCycle);
     saveSettings();

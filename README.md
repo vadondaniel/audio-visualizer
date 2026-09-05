@@ -51,19 +51,25 @@ The 5 visual styles are: **bars**, **radial spectrum**, **waveform**,
 
 ## Settings panel
 
-Click the gear icon (top-right) or press `B` to open it:
+Click the gear icon (top-right) or press `B` to open it. Like the control
+hint overlay in the corner, the gear icon itself fades out when the mouse
+sits idle, and the panel (if open) fades with it — move the mouse to bring
+both back.
 
 - **Visual** / **Color theme** — dropdowns, same as `1`-`5` and `C`, for
   when a mouse is easier than remembering keys.
-- **Background color** / **image** — pick a solid color or an image file
-  (cover-fit automatically).
+- **Background** — a Solid color / Image switch. Picking an image
+  switches to it automatically; switching back to Solid color keeps the
+  image remembered so you can flip back without re-picking the file.
 - **Brightness** / **Blur** — tune the background so it doesn't compete
   with the visuals; these only affect the background layer, never the
   bars/particles/etc. themselves.
 
-Everything above is saved locally and restored automatically next time you
-launch the app — it reopens the way you left it instead of resetting to
-defaults.
+Everything above — including the background image itself — is saved
+locally and restored next time you launch the app. Images are automatically
+downscaled/compressed on upload so a full-resolution photo doesn't blow
+past the browser storage quota (which was silently failing to save large
+images before).
 
 ## 4. (Optional) Turn it into a real .exe
 

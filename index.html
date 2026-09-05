@@ -40,6 +40,7 @@
 
         /* Layout */
         --edge-gap: 18px; /* consistent inset from the screen edge for all floating UI */
+        --bg-overscan: 60px; /* #bgLayer overshoot so blur() edges land offscreen, see below */
 
         /* Radius scale */
         --radius-sm: 6px;
@@ -79,7 +80,15 @@
       }
       #bgLayer {
         position: absolute;
-        inset: 0;
+        /* Larger than the viewport on every side (not inset:0) — CSS
+           blur() treats an element's edge as if surrounded by
+           transparent pixels, which at inset:0 pulls in the black page
+           background as a dark ring right where you can see it. Pushing
+           the layer's edges past the viewport moves that ring offscreen. */
+        top: calc(-1 * var(--bg-overscan));
+        left: calc(-1 * var(--bg-overscan));
+        right: calc(-1 * var(--bg-overscan));
+        bottom: calc(-1 * var(--bg-overscan));
         z-index: var(--z-bg);
         /* Default background color/image — overridden live from the
            settings panel (gear icon) and remembered between launches. */
@@ -198,7 +207,15 @@
         color: var(--text);
         font-size: var(--fs-md);
         cursor: pointer;
-        transition: background var(--transition-fast);
+        /* Same fade-with-inactivity behavior as #hud, so the gear icon
+           doesn't just sit there permanently while #hud fades away. */
+        opacity: 0;
+        transition:
+          background var(--transition-fast),
+          opacity var(--transition-slow);
+      }
+      #settingsBtn.visible {
+        opacity: 1;
       }
       #settingsBtn:hover {
         background: rgba(var(--accent-rgb), 0.5);
@@ -328,11 +345,20 @@
       <hr />
 
       <div>
-        <label for="bgColorInput">Background color</label>
+        <label for="bgTypeSelect">Background</label>
+        <select id="bgTypeSelect">
+          <option value="color">Solid color</option>
+          <option value="image">Image</option>
+        </select>
+      </div>
+      <div id="bgColorRow">
+        <label for="bgColorInput">Color</label>
         <input type="color" id="bgColorInput" value="#0f0f1a" />
       </div>
-      <div>
-        <label for="bgImageInput">Background image</label>
+      <div id="bgImageRow">
+        <label for="bgImageInput"
+          >Image <span class="val" id="bgImageName">none chosen</span></label
+        >
         <input type="file" id="bgImageInput" accept="image/*" />
         <button id="clearBgImageBtn">Clear image</button>
       </div>
