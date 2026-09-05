@@ -4,6 +4,9 @@ let audioStream;
 let audioTrack;
 let analyser, freqData, timeData, bufferLength;
 let audioRecoveryPromise = null;
+let audioRecoveryTimer = null;
+let audioRecoveryAttempt = 0;
+let audioEventCleanup = [];
 
 let audioClockMs = 0;
 let bassHistory = [];
@@ -15,13 +18,22 @@ let beatJustHit = false;
 
 // ---------- audio capture ----------
 async function initAudio() {
-  const stream = await navigator.mediaDevices.getDisplayMedia({
-    video: true,
-    audio: true,
-  });
+  clearTimeout(audioRecoveryTimer);
+  audioRecoveryTimer = null;
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,
+      audio: true,
+    });
+  } catch (err) {
+    throw new Error(formatAudioCaptureError(err));
+  }
 
   const audioTracks = stream.getAudioTracks();
   if (audioTracks.length === 0) {
+    stream.getTracks().forEach((track) => track.stop());
     throw new Error(
       "No system audio track was returned. Make sure something is actually playing."
     );
@@ -29,31 +41,89 @@ async function initAudio() {
 
   stream.getVideoTracks().forEach((t) => t.stop());
 
-  audioStream = new MediaStream(audioTracks);
-  audioTrack = audioTracks[0];
-  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaStreamSource(audioStream);
+  try {
+    audioStream = new MediaStream(audioTracks);
+    audioTrack = audioTracks[0];
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(audioStream);
 
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.82;
-  source.connect(analyser);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.82;
+    source.connect(analyser);
 
-  bufferLength = analyser.frequencyBinCount;
-  freqData = new Uint8Array(bufferLength);
-  timeData = new Uint8Array(bufferLength);
+    bufferLength = analyser.frequencyBinCount;
+    freqData = new Uint8Array(bufferLength);
+    timeData = new Uint8Array(bufferLength);
 
-  const recover = () => recoverAudioCapture();
-  audioTrack.addEventListener("unmute", recover);
-  audioTrack.addEventListener("ended", recover);
-  audioCtx.addEventListener("statechange", () => {
-    if (audioCtx && audioCtx.state === "running") return;
+    const track = audioTrack;
+    const context = audioCtx;
+    const recover = () => {
+      if (audioTrack === track && audioCtx === context) recoverAudioCapture();
+    };
+    const onStateChange = () => {
+      if (audioCtx !== context || context.state === "running") return;
+      recoverAudioCapture();
+    };
+    track.addEventListener("ended", recover);
+    context.addEventListener("statechange", onStateChange);
+    audioEventCleanup = [
+      () => track.removeEventListener("ended", recover),
+      () => context.removeEventListener("statechange", onStateChange),
+    ];
+
+    // The stream can become inactive without the track emitting `ended`.
+    audioStream.addEventListener("inactive", recover);
+    audioEventCleanup.push(() =>
+      audioStream.removeEventListener("inactive", recover)
+    );
+
+    // Chromium can leave a Web Audio context suspended after a long period of
+    // silence. Explicitly resume it once the capture has been established.
+    await context.resume();
+    if (context.state !== "running") {
+      throw new Error("The audio engine did not start.");
+    }
+    audioRecoveryAttempt = 0;
+  } catch (err) {
+    cleanupAudioCapture();
+    throw err;
+  }
+}
+
+function formatAudioCaptureError(err) {
+  if (!err || !err.name) return err?.message || "Audio capture failed.";
+  if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+    return "Audio capture was blocked. Allow capture when prompted, then try again.";
+  }
+  if (err.name === "NotFoundError" || err.name === "NotReadableError") {
+    return "Windows could not provide a system-audio source. Make sure a playback device is available.";
+  }
+  return err.message || "Audio capture failed.";
+}
+
+function cleanupAudioCapture() {
+  audioEventCleanup.forEach((cleanup) => cleanup());
+  audioEventCleanup = [];
+  if (audioStream) audioStream.getTracks().forEach((track) => track.stop());
+  if (audioCtx && audioCtx.state !== "closed") audioCtx.close().catch(() => {});
+  audioStream = null;
+  audioTrack = null;
+  audioCtx = null;
+  analyser = null;
+  freqData = null;
+  timeData = null;
+  bufferLength = 0;
+}
+
+function scheduleAudioRecovery() {
+  if (audioRecoveryTimer) return;
+  const delayMs = Math.min(10000, 500 * 2 ** audioRecoveryAttempt);
+  audioRecoveryAttempt += 1;
+  audioRecoveryTimer = setTimeout(() => {
+    audioRecoveryTimer = null;
     recoverAudioCapture();
-  });
-
-  // Chromium can leave a Web Audio context suspended after a long period of
-  // silence. Explicitly resume it once the capture has been established.
-  await audioCtx.resume();
+  }, delayMs);
 }
 
 async function recoverAudioCapture() {
@@ -61,33 +131,45 @@ async function recoverAudioCapture() {
 
   audioRecoveryPromise = (async () => {
     const trackHasEnded = !audioTrack || audioTrack.readyState === "ended";
-    if (!trackHasEnded && audioCtx && audioCtx.state === "suspended") {
+    const streamIsInactive = !audioStream || audioStream.active === false;
+    if (
+      !trackHasEnded &&
+      !streamIsInactive &&
+      audioCtx &&
+      (audioCtx.state === "suspended" || audioCtx.state === "interrupted")
+    ) {
       try {
         await audioCtx.resume();
-        if (audioCtx.state === "running") return;
+        if (audioCtx.state === "running") {
+          audioRecoveryAttempt = 0;
+          return;
+        }
       } catch (err) {
         console.warn("Could not resume audio capture", err);
       }
     }
 
-    if (trackHasEnded || !audioCtx || audioCtx.state === "closed") {
-      const previousStream = audioStream;
-      const previousContext = audioCtx;
-      analyser = null;
-      audioStream = null;
-      audioTrack = null;
-      if (previousStream)
-        previousStream.getTracks().forEach((track) => track.stop());
-      if (previousContext && previousContext.state !== "closed") {
-        previousContext.close().catch(() => {});
-      }
-
+    if (
+      trackHasEnded ||
+      streamIsInactive ||
+      !audioCtx ||
+      audioCtx.state === "closed"
+    ) {
+      cleanupAudioCapture();
       try {
         await initAudio();
+        return;
       } catch (err) {
-        console.error("Could not recover audio capture", err);
+        console.warn(
+          "Could not recover audio capture:",
+          formatAudioCaptureError(err)
+        );
       }
     }
+
+    // Keep trying with exponential backoff instead of retrying on every frame
+    // or giving up after a single transient Windows/Chromium failure.
+    scheduleAudioRecovery();
   })().finally(() => {
     audioRecoveryPromise = null;
   });
