@@ -27,6 +27,7 @@
       "main.js",
       "preload.js",
       "ipc-channels.js",
+      "window-state.js",
       "index.html",
       "style.css",
       "audio-math.js",

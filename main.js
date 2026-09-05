@@ -8,6 +8,7 @@ const {
 } = require("electron");
 const path = require("path");
 const IPC = require("./ipc-channels");
+const { toggleAlwaysOnTop } = require("./window-state");
 
 let mainWindow;
 
@@ -86,7 +87,7 @@ ipcMain.on(IPC.TOGGLE_FULLSCREEN, () => {
 
 ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
   if (!mainWindow) return;
-  mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop());
+  toggleAlwaysOnTop(mainWindow);
 });
 
 ipcMain.on(IPC.QUIT_APP, () => {
