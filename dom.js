@@ -30,6 +30,7 @@ const kaleidoClipRow = document.getElementById("kaleidoClipRow");
 const kaleidoClipCheckbox = document.getElementById("kaleidoClipCheckbox");
 const sensitivitySlider = document.getElementById("sensitivitySlider");
 const sensitivityVal = document.getElementById("sensitivityVal");
+const valueHandlingSelect = document.getElementById("valueHandlingSelect");
 const glowSlider = document.getElementById("glowSlider");
 const glowVal = document.getElementById("glowVal");
 const trailsCheckbox = document.getElementById("trailsCheckbox");

@@ -10,6 +10,7 @@ const {
   computeHue,
   detectBeat,
   mergeSettings,
+  applyValueHandling,
 } = AudioMath;
 
 // ---------- visual modes & themes ----------

@@ -158,8 +158,31 @@
       state.reactiveVignette = saved.reactiveVignette;
     if (typeof saved.crtFilter === "boolean") state.crtFilter = saved.crtFilter;
     if (typeof saved.beatFlash === "boolean") state.beatFlash = saved.beatFlash;
+    if (
+      saved.valueHandling === "exponential" ||
+      saved.valueHandling === "logarithmic" ||
+      saved.valueHandling === "linear"
+    ) {
+      state.valueHandling = saved.valueHandling;
+    }
 
     return state;
+  }
+
+  // Applies the chosen audio scaling curve to a normalized 0..1 value.
+  // - "exponential": sharpens peaks, compresses quiet floor (super punchy)
+  // - "linear": direct 1:1 proportional response
+  // - "logarithmic": perceptual decibel-style curve (amplifies quiet details, smooths peaks)
+  function applyValueHandling(value, curve = "exponential") {
+    const clamped = Math.max(0, Math.min(1, value));
+    if (curve === "linear") {
+      return clamped;
+    }
+    if (curve === "logarithmic") {
+      return Math.log10(1 + 9 * clamped);
+    }
+    // Default: exponential (punchy)
+    return Math.pow(clamped, 2.5);
   }
 
   return {
@@ -169,5 +192,6 @@
     computeHue,
     detectBeat,
     mergeSettings,
+    applyValueHandling,
   };
 });

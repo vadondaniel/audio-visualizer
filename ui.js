@@ -67,6 +67,13 @@ sensitivitySlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+if (valueHandlingSelect) {
+  valueHandlingSelect.addEventListener("change", (e) => {
+    state.valueHandling = e.target.value;
+    saveSettings();
+  });
+}
+
 glowSlider.addEventListener("input", (e) => {
   state.glowIntensity = parseFloat(e.target.value);
   updateSliderLabels();

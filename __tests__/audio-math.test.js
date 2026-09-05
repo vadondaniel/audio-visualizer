@@ -5,6 +5,7 @@ const {
   computeHue,
   detectBeat,
   mergeSettings,
+  applyValueHandling,
 } = require("../audio-math");
 const { formatAudioCaptureError } = require("../audio");
 
@@ -407,6 +408,23 @@ describe("mergeSettings", () => {
     expect(merged.glowIntensity).toBe(2.5);
   });
 
+  test("accepts valid valueHandling modes: exponential, logarithmic, linear", () => {
+    expect(
+      mergeSettings(defaults, { valueHandling: "logarithmic" }, 8, 7)
+        .valueHandling
+    ).toBe("logarithmic");
+    expect(
+      mergeSettings(defaults, { valueHandling: "linear" }, 8, 7).valueHandling
+    ).toBe("linear");
+    expect(
+      mergeSettings(defaults, { valueHandling: "exponential" }, 8, 7)
+        .valueHandling
+    ).toBe("exponential");
+    expect(
+      mergeSettings(defaults, { valueHandling: "cubic" }, 8, 7).valueHandling
+    ).toBe(defaults.valueHandling);
+  });
+
   test("does not mutate the defaults object while merging", () => {
     const saved = { mode: 3, smoothingEnabled: false };
     const result = mergeSettings(defaults, saved, 8, 7);
@@ -414,5 +432,30 @@ describe("mergeSettings", () => {
     expect(result).not.toBe(defaults);
     expect(defaults.mode).toBe(0);
     expect(defaults.smoothingEnabled).toBe(true);
+  });
+});
+
+describe("applyValueHandling", () => {
+  test("linear returns clamped value directly", () => {
+    expect(applyValueHandling(0.5, "linear")).toBe(0.5);
+    expect(applyValueHandling(1.5, "linear")).toBe(1.0);
+    expect(applyValueHandling(-0.2, "linear")).toBe(0.0);
+  });
+
+  test("logarithmic expands lower values and compresses peaks", () => {
+    expect(applyValueHandling(0.1, "logarithmic")).toBeCloseTo(0.2787, 3);
+    expect(applyValueHandling(0, "logarithmic")).toBe(0);
+    expect(applyValueHandling(1, "logarithmic")).toBe(1);
+  });
+
+  test("exponential suppresses noise floor and emphasizes peaks", () => {
+    expect(applyValueHandling(0.5, "exponential")).toBeCloseTo(0.1768, 3);
+    expect(applyValueHandling(0, "exponential")).toBe(0);
+    expect(applyValueHandling(1, "exponential")).toBe(1);
+  });
+
+  test("defaults to exponential when mode is omitted or unknown", () => {
+    expect(applyValueHandling(0.5)).toBeCloseTo(0.1768, 3);
+    expect(applyValueHandling(0.5, "unknown")).toBeCloseTo(0.1768, 3);
   });
 });

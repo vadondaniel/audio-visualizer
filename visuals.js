@@ -122,7 +122,10 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
   const centerY = canvas.height / 2;
 
   for (let i = 0; i < barCount; i++) {
-    const targetV = Math.pow(freqData[i * step] / 255, 0.82);
+    const targetV = applyValueHandling(
+      freqData[i * step] / 255,
+      state.valueHandling
+    );
     smoothedBars[i] = smoothTowards(smoothedBars[i], targetV, remaining);
     const v = smoothedBars[i];
 
@@ -175,7 +178,10 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
           ? i / halfCount
           : (barCount - i - 1) / halfCount;
     const idx = Math.floor(normalized * bufferLength * 0.5);
-    const targetV = Math.pow(freqData[idx] / 255, 0.82);
+    const targetV = applyValueHandling(
+      freqData[idx] / 255,
+      state.valueHandling
+    );
     smoothedRadial[i] = smoothTowards(smoothedRadial[i], targetV, remaining);
     const v = smoothedRadial[i];
 
@@ -374,7 +380,10 @@ function spawnBeatRing(bass) {
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const dt = elapsedMs / FRAME_MS;
 
-  const rawEnergy = bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2;
+  const rawEnergy = applyValueHandling(
+    bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2,
+    state.valueHandling
+  );
 
   energyHistory.push({ value: rawEnergy, t: audioClockMs });
   while (
@@ -493,7 +502,8 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
         KALEIDO_BAND_EDGES[i + 1]
       );
       const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
-      const rawV = Math.pow((raw / 255) * tilt, 0.7);
+      const handled = applyValueHandling(raw / 255, state.valueHandling);
+      const rawV = Math.pow(handled * tilt, 0.7);
       const targetV = state.kaleidoClipEnabled ? Math.min(1, rawV) : rawV;
       smoothedKaleido[i] = smoothTowards(
         smoothedKaleido[i],
@@ -577,7 +587,10 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
     : 0;
 
-  const rawEnergy = bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15;
+  const rawEnergy = applyValueHandling(
+    bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15,
+    state.valueHandling
+  );
   smoothedTunnelEnergy = smoothTowards(
     smoothedTunnelEnergy,
     rawEnergy,
@@ -744,7 +757,9 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
           ? seg / (TUNNEL_SEGMENTS / 2)
           : (TUNNEL_SEGMENTS - seg) / (TUNNEL_SEGMENTS / 2);
       const binIdx = Math.floor(normSeg * (bufferLength * 0.38));
-      const rawAmp = Math.pow(freqData[binIdx] / 255, 0.82);
+      const rawAmp = Math.pow(
+        applyValueHandling(freqData[binIdx] / 255, state.valueHandling), 0.82
+      );
 
       tunnelGrid[r][seg] = smoothTowards(tunnelGrid[r][seg], rawAmp, remaining);
       const v = tunnelGrid[r][seg];
@@ -926,7 +941,9 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
   for (let b = 0; b < WAVES_BANDS; b++) {
     const loFrac = Math.pow(b / WAVES_BANDS, 2.0) * 0.72 + 0.005;
     const hiFrac = Math.pow((b + 1) / WAVES_BANDS, 2.0) * 0.72 + 0.01;
-    const rawVal = Math.pow(bandAverage(freqData, loFrac, hiFrac) / 255, 0.85);
+    const rawVal = Math.pow(
+      applyValueHandling(bandAverage(freqData, loFrac, hiFrac) / 255, state.valueHandling), 0.85
+    );
     wavesSmoothedBands[b] = smoothTowards(
       wavesSmoothedBands[b],
       rawVal,
@@ -1205,8 +1222,9 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
     const loFrac = Math.pow(b / AURORA_BANDS, 2.0) * 0.72 + 0.005;
     const hiFrac = Math.pow((b + 1) / AURORA_BANDS, 2.0) * 0.72 + 0.012;
     const rawVal =
-      Math.pow(bandAverage(freqData, loFrac, hiFrac) / 255, 0.82) *
-      state.sensitivity;
+      Math.pow(
+        applyValueHandling(bandAverage(freqData, loFrac, hiFrac) / 255, state.valueHandling), 0.82
+      ) * state.sensitivity;
     auroraSmoothedBands[b] = smoothTowards(
       auroraSmoothedBands[b],
       Math.min(1, rawVal),
@@ -1226,9 +1244,9 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
   }
 
   // Macroscopic intensity: drives dramatic curtain height expansion and ionization
-  const rawIntensity = Math.min(
-    1,
-    bassLevel * 0.45 + midLevel * 0.35 + trebleLevel * 0.2
+  const rawIntensity = applyValueHandling(
+    Math.min(1, bassLevel * 0.45 + midLevel * 0.35 + trebleLevel * 0.2),
+    state.valueHandling
   );
   auroraSmoothedIntensity = smoothTowards(
     auroraSmoothedIntensity,
@@ -1641,7 +1659,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     let punch = 0;
     if (rawVal > threshold) {
       const norm = (rawVal - threshold) / (1 - threshold);
-      punch = Math.pow(norm, 2.6) * state.sensitivity;
+      punch = applyValueHandling(norm, state.valueHandling) * state.sensitivity;
     }
 
     rawTargets[i] = punch * dampen;
@@ -1885,21 +1903,25 @@ function loop(timestamp = performance.now()) {
   const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
   const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
   const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
+  const rawBass = normalizeEnergy(
+    bass,
+    AUDIO_TUNING.particleFloor,
+    AUDIO_TUNING.particleRange
+  );
+  const rawMid = normalizeEnergy(mid, 15, 165);
+  const rawTreble = normalizeEnergy(treble, 12, 155);
+
   const bassLevel = Math.min(
     1,
-    normalizeEnergy(
-      bass,
-      AUDIO_TUNING.particleFloor,
-      AUDIO_TUNING.particleRange
-    ) * state.sensitivity
+    applyValueHandling(rawBass, state.valueHandling) * state.sensitivity
   );
   const midLevel = Math.min(
     1,
-    normalizeEnergy(mid, 15, 165) * state.sensitivity
+    applyValueHandling(rawMid, state.valueHandling) * state.sensitivity
   );
   const trebleLevel = Math.min(
     1,
-    normalizeEnergy(treble, 12, 155) * state.sensitivity
+    applyValueHandling(rawTreble, state.valueHandling) * state.sensitivity
   );
   updateBeat(bass, elapsedMs, dtSec);
 

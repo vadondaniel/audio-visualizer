@@ -21,6 +21,7 @@ const state = {
   barsAlignment: "bottom", // "bottom" | "center"
   waveformStyle: "line", // "line" | "filled"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
+  valueHandling: "exponential", // "exponential" | "logarithmic" | "linear"
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
   trailsEnabled: true,
   trailDuration: TRAIL_DURATION_MS,
@@ -48,6 +49,7 @@ const PERSISTED_KEYS = [
   "barsAlignment",
   "waveformStyle",
   "sensitivity",
+  "valueHandling",
   "glowIntensity",
   "trailsEnabled",
   "trailDuration",
@@ -105,6 +107,8 @@ function loadSettings() {
   barsAlignmentSelect.value = state.barsAlignment;
   waveformStyleSelect.value = state.waveformStyle;
   sensitivitySlider.value = state.sensitivity;
+  if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
+    valueHandlingSelect.value = state.valueHandling;
   glowSlider.value = state.glowIntensity;
   trailsCheckbox.checked = state.trailsEnabled;
   trailDurationSlider.value = state.trailDuration;
