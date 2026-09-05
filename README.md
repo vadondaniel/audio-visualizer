@@ -46,7 +46,7 @@ drive the visuals.
 | `Space` | Toggle auto-cycle through visual styles |
 | `F`     | Toggle fullscreen                       |
 | `T`     | Toggle always-on-top                    |
-| `B`     | Toggle settings panel                   |
+| `S`     | Toggle settings panel                   |
 | `Esc`   | Quit                                    |
 
 Move your mouse to bring back the control hint overlay; it fades away on
@@ -58,7 +58,7 @@ The 9 visual styles are: **bars**, **radial spectrum**, **waveform**,
 
 ## Settings panel
 
-Click the gear icon (top-right) or press `B` to open it. Like the control
+Click the gear icon (top-right) or press `S` to open it. Like the control
 hint overlay, the gear icon fades out when your mouse is idle, and the
 panel fades with it — just move the mouse to bring both back.
 

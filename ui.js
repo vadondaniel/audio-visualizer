@@ -33,7 +33,7 @@ settingsBtn.addEventListener("click", (e) => {
 });
 
 // Click-outside-to-dismiss: only cares about closing, never opening —
-// opening is settingsBtn/"B"'s job above.
+// opening is settingsBtn/"S"'s job above.
 window.addEventListener("click", (e) => {
   if (!panelOpen) return;
   if (settingsPanel.contains(e.target)) return;
@@ -267,7 +267,7 @@ const KEY_ACTIONS = {
   },
   f: () => window.electronAPI.toggleFullscreen(),
   t: () => window.electronAPI.toggleAlwaysOnTop(),
-  b: () => {
+  s: () => {
     panelOpen = !panelOpen;
     updatePanelVisibility();
   },
