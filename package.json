@@ -1,6 +1,6 @@
 {
   "name": "audio-visualizer",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
   "scripts": {
@@ -20,7 +20,8 @@
     "appId": "com.ceavan.audiovisualizer",
     "productName": "Audio Visualizer",
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "icon.ico"
     },
     "files": [
       "main.js",
@@ -35,7 +36,9 @@
       "background.js",
       "audio.js",
       "visuals.js",
-      "ui.js"
+      "ui.js",
+      "icon.png",
+      "icon.ico"
     ]
   }
 }
