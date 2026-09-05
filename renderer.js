@@ -41,26 +41,35 @@ const state = {
   bgImageDataUrl: null,
 };
 
-const FRAME_MS = 1000 / 60;
-
 const VISUAL_TUNING = {
   bars: {
     baseYFrac: 0.75,
     heightScale: 0.6,
-    releaseRemaining: 0.9,
+    releasePerSec: 6.3,
   },
   radial: {
     baseRFrac: 0.16,
     lengthScale: 0.32,
-    releaseRemaining: 0.85,
+    releasePerSec: 9.75,
   },
   kaleidoscope: {
     maxRFrac: 0.46,
     coreRFrac: 0.035,
-    releaseRemaining: 0.78,
+    releasePerSec: 14.9,
+    spinPerSec: 0.072,
+    spinTreblePerSec: 0.18,
+    spinBeatPerSec: 0.36,
+    flashDecayPerSec: 7.2,
   },
   particles: {
     cap: 1400,
+  },
+  hueCycle: {
+    baseDegPerSec: 18,
+    midDegPerSecPerUnit: 0.6,
+  },
+  trail: {
+    fadePerSec: 42.8,
   },
 };
 
@@ -287,8 +296,8 @@ const TRAIL_TIMEOUT_MS = 15000;
 // ---------- draw modes ----------
 function clearFrame(elapsedMs) {
   trailAge += elapsedMs;
-  const frameEquivalent = elapsedMs / FRAME_MS;
-  const remainingAlpha = Math.pow(0.49, frameEquivalent);
+  const dtSec = elapsedMs / 1000;
+  const remainingAlpha = Math.exp(-VISUAL_TUNING.trail.fadePerSec * dtSec);
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalCompositeOperation = "destination-out";
@@ -305,13 +314,13 @@ function clearFrame(elapsedMs) {
 
 const smoothedBars = new Array(96).fill(0);
 
-function drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent) {
-  const { baseYFrac, heightScale, releaseRemaining } = VISUAL_TUNING.bars;
+function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
+  const { baseYFrac, heightScale, releasePerSec } = VISUAL_TUNING.bars;
   const barCount = 96;
   const step = Math.max(1, Math.floor((bufferLength * 0.69) / barCount));
   const w = canvas.width / barCount;
   const baseY = canvas.height * baseYFrac;
-  const remaining = Math.pow(releaseRemaining, frameEquivalent);
+  const remaining = Math.exp(-releasePerSec * dtSec);
 
   for (let i = 0; i < barCount; i++) {
     const targetV = Math.pow(freqData[i * step] / 255, 0.82);
@@ -337,8 +346,8 @@ function drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent) {
 
 const smoothedRadial = new Array(180).fill(0);
 
-function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
-  const { baseRFrac, lengthScale, releaseRemaining } = VISUAL_TUNING.radial;
+function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
+  const { baseRFrac, lengthScale, releasePerSec } = VISUAL_TUNING.radial;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const baseR =
@@ -347,7 +356,7 @@ function drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent) {
     (1 + bassLevel * 0.2 + beatPulse * 0.25);
   const barCount = 180;
   const halfCount = barCount / 2;
-  const remaining = Math.pow(releaseRemaining, frameEquivalent);
+  const remaining = Math.exp(-releasePerSec * dtSec);
 
   ctx.lineCap = "round";
 
@@ -504,6 +513,8 @@ function spawnBeatRing(bass) {
   }
 }
 
+const FRAME_MS = 1000 / 60;
+
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const dt = elapsedMs / FRAME_MS;
 
@@ -599,8 +610,16 @@ const KALEIDO_BAND_EDGES = (() => {
   return edges;
 })();
 
-function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
-  const { maxRFrac, coreRFrac, releaseRemaining } = VISUAL_TUNING.kaleidoscope;
+function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
+  const {
+    maxRFrac,
+    coreRFrac,
+    releasePerSec,
+    spinPerSec,
+    spinTreblePerSec,
+    spinBeatPerSec,
+    flashDecayPerSec,
+  } = VISUAL_TUNING.kaleidoscope;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const segments = 8;
@@ -608,11 +627,12 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent) {
   const maxR = Math.min(canvas.width, canvas.height) * maxRFrac;
 
   kaleidoRotation +=
-    (0.0012 + trebleLevel * 0.003 + beatPulse * 0.006) * frameEquivalent;
-  kaleidoFlash = Math.max(0, kaleidoFlash - 0.12 * frameEquivalent);
+    (spinPerSec + trebleLevel * spinTreblePerSec + beatPulse * spinBeatPerSec) *
+    dtSec;
+  kaleidoFlash = Math.max(0, kaleidoFlash - flashDecayPerSec * dtSec);
   if (beatPulse > 0.75) kaleidoFlash = 1;
 
-  const remaining = Math.pow(releaseRemaining, frameEquivalent);
+  const remaining = Math.exp(-releasePerSec * dtSec);
 
   for (let s = 0; s < segments; s++) {
     ctx.save();
@@ -701,7 +721,6 @@ function loop(timestamp = performance.now()) {
   if (lastFrameTime === 0) lastFrameTime = timestamp;
   const elapsedMs = Math.min(100, Math.max(0, timestamp - lastFrameTime));
   lastFrameTime = timestamp;
-  const frameEquivalent = elapsedMs / FRAME_MS;
   const dtSec = elapsedMs / 1000;
 
   analyser.getByteFrequencyData(freqData);
@@ -720,17 +739,19 @@ function loop(timestamp = performance.now()) {
   updateBeat(bass, elapsedMs, dtSec);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
+    const { baseDegPerSec, midDegPerSecPerUnit } = VISUAL_TUNING.hueCycle;
     state.hueShift =
-      (state.hueShift + (0.3 + mid * 0.01) * frameEquivalent) % 360;
+      (state.hueShift + (baseDegPerSec + mid * midDegPerSecPerUnit) * dtSec) %
+      360;
   }
 
   clearFrame(elapsedMs);
   switch (MODES[state.mode]) {
     case "bars":
-      drawBars(bassLevel, midLevel, trebleLevel, frameEquivalent);
+      drawBars(bassLevel, midLevel, trebleLevel, dtSec);
       break;
     case "radial":
-      drawRadial(bassLevel, midLevel, trebleLevel, frameEquivalent);
+      drawRadial(bassLevel, midLevel, trebleLevel, dtSec);
       break;
     case "waveform":
       drawWaveform(bassLevel, midLevel, trebleLevel);
@@ -739,7 +760,7 @@ function loop(timestamp = performance.now()) {
       drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs);
       break;
     case "kaleidoscope":
-      drawKaleidoscope(bassLevel, midLevel, trebleLevel, frameEquivalent);
+      drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec);
       break;
   }
 }
