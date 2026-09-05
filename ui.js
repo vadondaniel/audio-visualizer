@@ -87,6 +87,13 @@ trailDurationSlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+wakeLockCheckbox.addEventListener("change", (e) => {
+  state.wakeLockEnabled = e.target.checked;
+  if (state.wakeLockEnabled) requestWakeLock();
+  else releaseWakeLock();
+  saveSettings();
+});
+
 function updateTrailDurationVisibility() {
   trailDurationRow.style.display = state.trailsEnabled ? "" : "none";
 }
@@ -265,6 +272,7 @@ startBtn.addEventListener("click", async () => {
   errorMsg.style.display = "none";
   try {
     await initAudio();
+    requestWakeLock();
     startOverlay.style.display = "none";
     flashHud();
     loop();

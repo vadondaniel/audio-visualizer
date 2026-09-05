@@ -152,6 +152,8 @@
       saved.trailDuration <= 600
     )
       state.trailDuration = saved.trailDuration;
+    if (typeof saved.wakeLockEnabled === "boolean")
+      state.wakeLockEnabled = saved.wakeLockEnabled;
     if (typeof saved.reactiveVignette === "boolean")
       state.reactiveVignette = saved.reactiveVignette;
     if (typeof saved.crtFilter === "boolean") state.crtFilter = saved.crtFilter;

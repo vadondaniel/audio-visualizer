@@ -241,6 +241,7 @@ describe("mergeSettings", () => {
     kaleidoClipEnabled: true,
     trailsEnabled: true,
     trailDuration: 220,
+    wakeLockEnabled: false,
   };
 
   test("falls back to defaults when nothing was saved", () => {
@@ -263,6 +264,7 @@ describe("mergeSettings", () => {
       kaleidoClipEnabled: false,
       trailsEnabled: false,
       trailDuration: 350,
+      wakeLockEnabled: false,
     };
     expect(mergeSettings(defaults, saved, 5, 7)).toEqual(saved);
   });
@@ -352,6 +354,12 @@ describe("mergeSettings", () => {
     expect(
       mergeSettings(defaults, { trailDuration: 1000 }, 8, 7).trailDuration
     ).toBe(defaults.trailDuration);
+  });
+
+  test("respects an explicit wake-lock preference", () => {
+    expect(
+      mergeSettings(defaults, { wakeLockEnabled: true }, 8, 7).wakeLockEnabled
+    ).toBe(true);
   });
 
   test("does not restore non-finite numeric values from localStorage", () => {

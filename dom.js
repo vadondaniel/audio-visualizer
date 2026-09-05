@@ -36,6 +36,7 @@ const trailsCheckbox = document.getElementById("trailsCheckbox");
 const trailDurationRow = document.getElementById("trailDurationRow");
 const trailDurationSlider = document.getElementById("trailDurationSlider");
 const trailDurationVal = document.getElementById("trailDurationVal");
+const wakeLockCheckbox = document.getElementById("wakeLockCheckbox");
 
 // Background controls
 const bgLayer = document.getElementById("bgLayer");

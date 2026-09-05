@@ -36,6 +36,7 @@
       "dom.js",
       "background.js",
       "audio.js",
+      "wake-lock.js",
       "visuals.js",
       "ui.js",
       "icon.png",
