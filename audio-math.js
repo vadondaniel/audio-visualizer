@@ -133,6 +133,11 @@
     if (saved.waveformStyle === "line" || saved.waveformStyle === "filled")
       state.waveformStyle = saved.waveformStyle;
     if (
+      saved.cascadeFrequencyOrder === "bass-to-treble" ||
+      saved.cascadeFrequencyOrder === "treble-to-bass"
+    )
+      state.cascadeFrequencyOrder = saved.cascadeFrequencyOrder;
+    if (
       Number.isFinite(saved.sensitivity) &&
       saved.sensitivity >= 0.2 &&
       saved.sensitivity <= 3.0

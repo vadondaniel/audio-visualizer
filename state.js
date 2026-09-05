@@ -20,6 +20,7 @@ const state = {
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
   barsAlignment: "bottom", // "bottom" | "center"
   waveformStyle: "line", // "line" | "filled"
+  cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
   valueHandling: "exponential", // "exponential" | "logarithmic" | "linear"
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
@@ -48,6 +49,7 @@ const PERSISTED_KEYS = [
   "kaleidoClipEnabled",
   "barsAlignment",
   "waveformStyle",
+  "cascadeFrequencyOrder",
   "sensitivity",
   "valueHandling",
   "glowIntensity",
@@ -106,6 +108,8 @@ function loadSettings() {
   kaleidoClipCheckbox.checked = state.kaleidoClipEnabled;
   barsAlignmentSelect.value = state.barsAlignment;
   waveformStyleSelect.value = state.waveformStyle;
+  cascadeFrequencyCheckbox.checked =
+    state.cascadeFrequencyOrder === "treble-to-bass";
   sensitivitySlider.value = state.sensitivity;
   if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
     valueHandlingSelect.value = state.valueHandling;

@@ -67,6 +67,13 @@ waveformStyleSelect.addEventListener("change", (e) => {
   saveSettings();
 });
 
+cascadeFrequencyCheckbox.addEventListener("change", (e) => {
+  state.cascadeFrequencyOrder = e.target.checked
+    ? "treble-to-bass"
+    : "bass-to-treble";
+  saveSettings();
+});
+
 radialMirroredCheckbox.addEventListener("change", (e) => {
   state.radialMode = e.target.checked ? "mirrored" : "full";
   saveSettings();

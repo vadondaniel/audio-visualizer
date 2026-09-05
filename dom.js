@@ -20,6 +20,10 @@ const barsAlignmentRow = document.getElementById("barsAlignmentRow");
 const barsAlignmentSelect = document.getElementById("barsAlignmentSelect");
 const waveformStyleRow = document.getElementById("waveformStyleRow");
 const waveformStyleSelect = document.getElementById("waveformStyleSelect");
+const cascadeFrequencyRow = document.getElementById("cascadeFrequencyRow");
+const cascadeFrequencyCheckbox = document.getElementById(
+  "cascadeFrequencyCheckbox"
+);
 const smoothingRow = document.getElementById("smoothingRow");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");

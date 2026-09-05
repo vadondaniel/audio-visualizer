@@ -374,6 +374,7 @@ function updateVisualOptionRows() {
   radialModeRow.style.display = currentMode === "radial" ? "" : "none";
   waveformStyleRow.style.display = currentMode === "waveform" ? "" : "none";
   kaleidoClipRow.style.display = currentMode === "kaleidoscope" ? "" : "none";
+  cascadeFrequencyRow.style.display = currentMode === "cascade" ? "" : "none";
   smoothingRow.style.display =
     currentMode === "particles" || currentMode === "waveform" ? "none" : "";
 }

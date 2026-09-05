@@ -1658,9 +1658,11 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     }
 
     // Map active wing range (0.12 to 0.82) across the full musical frequency spectrum
-    // (sub-bass kicks at upper flank, treble at lower flank)
+    // (sub-bass kicks at upper flank, treble at lower flank by default)
     const uActive = Math.max(0, Math.min(1, (u - 0.12) / (0.82 - 0.12)));
-    const binIdx = Math.round(minBin * Math.pow(maxBin / minBin, uActive));
+    const frequencyT =
+      state.cascadeFrequencyOrder === "treble-to-bass" ? 1 - uActive : uActive;
+    const binIdx = Math.round(minBin * Math.pow(maxBin / minBin, frequencyT));
     const rawVal = freqData[Math.min(bufferLength - 1, binIdx)] / 255;
 
     // High threshold floor: below threshold is strictly 0 (barely any peaks!)
