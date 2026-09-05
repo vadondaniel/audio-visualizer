@@ -243,7 +243,7 @@ describe("mergeSettings", () => {
       sensitivity: 1.5,
       glowIntensity: 0.8,
     };
-    const merged = mergeSettings(defaults, saved, 7, 7);
+    const merged = mergeSettings(defaults, saved, 8, 7);
     expect(merged.barsAlignment).toBe("center");
     expect(merged.waveformStyle).toBe("filled");
     expect(merged.sensitivity).toBe(1.5);

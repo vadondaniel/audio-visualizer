@@ -30,6 +30,7 @@ const MODES = [
   "particles",
   "kaleidoscope",
   "tunnel",
+  "waves",
   "aurora",
 ];
 
@@ -62,10 +63,10 @@ const VISUAL_TUNING = {
     twistPerSec: 0.35,
     releasePerSec: 8.5,
   },
+  waves: {
+    releasePerSec: 6.5,
+  },
   aurora: {
-    layers: 4,
-    points: 40,
-    speed: 0.8,
     releasePerSec: 6.5,
   },
   particles: {
