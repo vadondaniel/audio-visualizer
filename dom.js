@@ -33,6 +33,8 @@ const glowVal = document.getElementById("glowVal");
 
 // Background controls
 const bgLayer = document.getElementById("bgLayer");
+const bgCanvas = document.getElementById("bgCanvas");
+const bgCtx = bgCanvas ? bgCanvas.getContext("2d") : null;
 const bgTypeSelect = document.getElementById("bgTypeSelect");
 const bgColorRow = document.getElementById("bgColorRow");
 const bgImageRow = document.getElementById("bgImageRow");
@@ -47,6 +49,14 @@ const blurRow = document.getElementById("blurRow");
 const blurSlider = document.getElementById("blurSlider");
 const blurVal = document.getElementById("blurVal");
 
+// Post-Processing & FX overlay
+const fxOverlay = document.getElementById("fxOverlay");
+const reactiveVignetteCheckbox = document.getElementById(
+  "reactiveVignetteCheckbox"
+);
+const crtFilterCheckbox = document.getElementById("crtFilterCheckbox");
+const beatFlashCheckbox = document.getElementById("beatFlashCheckbox");
+
 // Hotkeys modal
 const hotkeysBtn = document.getElementById("hotkeysBtn");
 const hotkeysOverlay = document.getElementById("hotkeysOverlay");
@@ -56,6 +66,10 @@ const hotkeysCloseBtn = document.getElementById("hotkeysCloseBtn");
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  if (bgCanvas) {
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+  }
 }
 window.addEventListener("resize", resize);
 resize();

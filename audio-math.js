@@ -92,8 +92,8 @@
     const state = Object.assign({}, defaults);
     if (!saved || typeof saved !== "object") return state;
 
-    if (saved.bgType === "color" || saved.bgType === "image")
-      state.bgType = saved.bgType;
+    const validBgTypes = ["color", "image", "nebula", "stars", "grid"];
+    if (validBgTypes.includes(saved.bgType)) state.bgType = saved.bgType;
     if (saved.bgColor) state.bgColor = saved.bgColor;
     if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
     if (saved.bgImageName) state.bgImageName = saved.bgImageName;
@@ -135,6 +135,10 @@
       saved.glowIntensity <= 2.5
     )
       state.glowIntensity = saved.glowIntensity;
+    if (typeof saved.reactiveVignette === "boolean")
+      state.reactiveVignette = saved.reactiveVignette;
+    if (typeof saved.crtFilter === "boolean") state.crtFilter = saved.crtFilter;
+    if (typeof saved.beatFlash === "boolean") state.beatFlash = saved.beatFlash;
 
     return state;
   }

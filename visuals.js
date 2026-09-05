@@ -1442,6 +1442,20 @@ function loop(timestamp = performance.now()) {
   }
 
   clearFrame(elapsedMs);
+
+  if (typeof renderProceduralBackground === "function") {
+    renderProceduralBackground(
+      dtSec,
+      bassLevel,
+      midLevel,
+      trebleLevel,
+      beatPulse
+    );
+  }
+  if (typeof updateFxLive === "function") {
+    updateFxLive(bassLevel, midLevel, trebleLevel, beatPulse);
+  }
+
   switch (MODES[state.mode]) {
     case "bars":
       drawBars(bassLevel, midLevel, trebleLevel, dtSec);

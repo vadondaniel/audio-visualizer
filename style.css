@@ -142,6 +142,66 @@ body {
   display: block;
 }
 
+#bgCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---------- post-processing & FX overlay ---------- */
+#fxOverlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 4;
+  overflow: hidden;
+}
+
+/* Reactive Edge Vignette */
+#fxOverlay.has-vignette {
+  box-shadow:
+    inset 0 0 calc(60px + var(--vignette-pulse, 0px))
+      rgba(0, 0, 0, var(--vignette-alpha, 0.55)),
+    inset 0 0 calc(25px + var(--vignette-pulse, 0px) * 0.6)
+      var(--vignette-glow, transparent);
+}
+
+/* Beat Strobe Flash */
+#fxOverlay.has-flash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--flash-color, rgba(255, 255, 255, 0.35)) 0%,
+    transparent 70%
+  );
+  opacity: var(--flash-alpha, 0);
+  pointer-events: none;
+}
+
+/* Retro CRT & Scanlines Filter */
+#fxOverlay.has-crt::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.26) 50%),
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03),
+      rgba(0, 255, 0, 0.015),
+      rgba(0, 0, 255, 0.03)
+    );
+  background-size:
+    100% 3px,
+    6px 100%;
+  pointer-events: none;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.75);
+}
+
 /* ---------- start overlay ---------- */
 #startOverlay {
   position: absolute;

@@ -8,8 +8,11 @@
   </head>
 
   <body>
-    <div id="bgLayer"></div>
+    <div id="bgLayer">
+      <canvas id="bgCanvas"></canvas>
+    </div>
     <canvas id="canvas"></canvas>
+    <div id="fxOverlay"></div>
 
     <div id="startOverlay">
       <h1>A U D I O &nbsp; V I S U A L I Z E R</h1>
@@ -244,7 +247,10 @@
           <label for="bgTypeSelect">Type</label>
           <select id="bgTypeSelect">
             <option value="color">Solid color</option>
-            <option value="image">Image</option>
+            <option value="nebula">Cosmic Nebula</option>
+            <option value="stars">Warp Starfield</option>
+            <option value="grid">Synthwave Grid</option>
+            <option value="image">Custom Image</option>
           </select>
         </div>
         <div id="bgColorRow" class="field">
@@ -285,6 +291,38 @@
             step="1"
             value="0"
           />
+        </div>
+      </div>
+
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            />
+          </svg>
+          Effects & Post-Processing
+        </div>
+        <div class="toggleRow">
+          <label for="reactiveVignetteCheckbox">Reactive Edge Vignette</label>
+          <input type="checkbox" id="reactiveVignetteCheckbox" checked />
+        </div>
+        <div class="toggleRow">
+          <label for="crtFilterCheckbox">Retro CRT & Scanlines</label>
+          <input type="checkbox" id="crtFilterCheckbox" />
+        </div>
+        <div class="toggleRow">
+          <label for="beatFlashCheckbox">Beat Flash & Flares</label>
+          <input type="checkbox" id="beatFlashCheckbox" checked />
         </div>
       </div>
 

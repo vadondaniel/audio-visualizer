@@ -125,6 +125,24 @@ blurSlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+reactiveVignetteCheckbox.addEventListener("change", (e) => {
+  state.reactiveVignette = e.target.checked;
+  applyFxOverlay();
+  saveSettings();
+});
+
+crtFilterCheckbox.addEventListener("change", (e) => {
+  state.crtFilter = e.target.checked;
+  applyFxOverlay();
+  saveSettings();
+});
+
+beatFlashCheckbox.addEventListener("change", (e) => {
+  state.beatFlash = e.target.checked;
+  applyFxOverlay();
+  saveSettings();
+});
+
 // Initialize settings from localStorage into UI and state
 loadSettings();
 

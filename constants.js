@@ -79,6 +79,16 @@ const VISUAL_TUNING = {
   trail: {
     fadePerSec: 42.8,
   },
+  backgrounds: {
+    nebulaClouds: 8,
+    starsCount: 180,
+    gridSpeed: 0.65,
+  },
+  fx: {
+    vignetteMin: 0.25,
+    vignetteMax: 0.85,
+    beatFlashMax: 0.35,
+  },
 };
 
 // ---------- audio tuning ----------

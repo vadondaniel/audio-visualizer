@@ -249,4 +249,28 @@ describe("mergeSettings", () => {
     expect(merged.sensitivity).toBe(1.5);
     expect(merged.glowIntensity).toBe(0.8);
   });
+
+  test("accepts new procedural bgTypes: nebula, stars, grid", () => {
+    expect(mergeSettings(defaults, { bgType: "nebula" }, 8, 7).bgType).toBe(
+      "nebula"
+    );
+    expect(mergeSettings(defaults, { bgType: "stars" }, 8, 7).bgType).toBe(
+      "stars"
+    );
+    expect(mergeSettings(defaults, { bgType: "grid" }, 8, 7).bgType).toBe(
+      "grid"
+    );
+  });
+
+  test("accepts post-processing FX flags: reactiveVignette, crtFilter, beatFlash", () => {
+    const saved = {
+      reactiveVignette: false,
+      crtFilter: true,
+      beatFlash: false,
+    };
+    const merged = mergeSettings(defaults, saved, 8, 7);
+    expect(merged.reactiveVignette).toBe(false);
+    expect(merged.crtFilter).toBe(true);
+    expect(merged.beatFlash).toBe(false);
+  });
 });
