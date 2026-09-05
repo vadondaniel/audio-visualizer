@@ -399,7 +399,11 @@ blurSlider.addEventListener("input", (e) => {
 loadSettings();
 
 // ---------- audio ----------
+let audioCtx;
+let audioStream;
+let audioTrack;
 let analyser, freqData, timeData, bufferLength;
+let audioRecoveryPromise = null;
 
 let audioClockMs = 0;
 
@@ -437,8 +441,9 @@ async function initAudio() {
 
   stream.getVideoTracks().forEach((t) => t.stop());
 
-  const audioStream = new MediaStream(audioTracks);
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  audioStream = new MediaStream(audioTracks);
+  audioTrack = audioTracks[0];
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   const source = audioCtx.createMediaStreamSource(audioStream);
 
   analyser = audioCtx.createAnalyser();
@@ -449,6 +454,57 @@ async function initAudio() {
   bufferLength = analyser.frequencyBinCount;
   freqData = new Uint8Array(bufferLength);
   timeData = new Uint8Array(bufferLength);
+
+  const recover = () => recoverAudioCapture();
+  audioTrack.addEventListener("unmute", recover);
+  audioTrack.addEventListener("ended", recover);
+  audioCtx.addEventListener("statechange", () => {
+    if (audioCtx && audioCtx.state === "running") return;
+    recoverAudioCapture();
+  });
+
+  // Chromium can leave a Web Audio context suspended after a long period of
+  // silence. Explicitly resume it once the capture has been established.
+  await audioCtx.resume();
+}
+
+async function recoverAudioCapture() {
+  if (audioRecoveryPromise) return audioRecoveryPromise;
+
+  audioRecoveryPromise = (async () => {
+    const trackHasEnded = !audioTrack || audioTrack.readyState === "ended";
+    if (!trackHasEnded && audioCtx && audioCtx.state === "suspended") {
+      try {
+        await audioCtx.resume();
+        if (audioCtx.state === "running") return;
+      } catch (err) {
+        console.warn("Could not resume audio capture", err);
+      }
+    }
+
+    if (trackHasEnded || !audioCtx || audioCtx.state === "closed") {
+      const previousStream = audioStream;
+      const previousContext = audioCtx;
+      analyser = null;
+      audioStream = null;
+      audioTrack = null;
+      if (previousStream)
+        previousStream.getTracks().forEach((track) => track.stop());
+      if (previousContext && previousContext.state !== "closed") {
+        previousContext.close().catch(() => {});
+      }
+
+      try {
+        await initAudio();
+      } catch (err) {
+        console.error("Could not recover audio capture", err);
+      }
+    }
+  })().finally(() => {
+    audioRecoveryPromise = null;
+  });
+
+  return audioRecoveryPromise;
 }
 
 // ---------- helpers ----------
@@ -931,6 +987,13 @@ let lastFrameTime = 0;
 function loop(timestamp = performance.now()) {
   requestAnimationFrame(loop);
   if (!analyser) return;
+
+  // AudioContext suspension is easy to miss because requestAnimationFrame
+  // continues running and the analyser simply returns silence.
+  if (audioCtx && audioCtx.state !== "running") {
+    recoverAudioCapture();
+    return;
+  }
 
   if (lastFrameTime === 0) lastFrameTime = timestamp;
   const elapsedMs = Math.min(100, Math.max(0, timestamp - lastFrameTime));
