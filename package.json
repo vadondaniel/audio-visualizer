@@ -6,12 +6,15 @@
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win portable",
-    "test": "jest"
+    "test": "jest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "electron": "^44.2.0",
     "electron-builder": "^26.15.3",
-    "jest": "^29.7.0"
+    "jest": "^29.7.0",
+    "prettier": "^3.9.6"
   },
   "build": {
     "appId": "com.ceavan.audiovisualizer",
@@ -32,8 +35,7 @@
       "background.js",
       "audio.js",
       "visuals.js",
-      "ui.js",
-      "renderer.js"
+      "ui.js"
     ]
   }
 }

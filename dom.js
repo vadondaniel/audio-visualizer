@@ -17,7 +17,7 @@ const themeSelect = document.getElementById("themeSelect");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");
 const radialMirroredCheckbox = document.getElementById(
-  "radialMirroredCheckbox",
+  "radialMirroredCheckbox"
 );
 const kaleidoClipRow = document.getElementById("kaleidoClipRow");
 const kaleidoClipCheckbox = document.getElementById("kaleidoClipCheckbox");

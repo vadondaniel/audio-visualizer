@@ -72,7 +72,7 @@ function loadSettings() {
   }
   Object.assign(
     state,
-    mergeSettings(state, saved, MODES.length, THEMES.length),
+    mergeSettings(state, saved, MODES.length, THEMES.length)
   );
   if (state.autoCycle) setAutoCycle(true);
 

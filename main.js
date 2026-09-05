@@ -64,7 +64,7 @@ function createWindow() {
           callback({});
         });
     },
-    { useSystemPicker: false },
+    { useSystemPicker: false }
   );
 }
 

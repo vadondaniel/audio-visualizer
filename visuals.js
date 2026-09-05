@@ -205,7 +205,7 @@ function spawnBandParticle(band, energyRatio) {
       size:
         (1.5 + Math.random() * 3.5) * band.sizeMul * (0.8 + energyRatio * 0.6),
       hueOffset: band.hueT + (Math.random() - 0.5) * 0.06,
-    }),
+    })
   );
 }
 
@@ -227,7 +227,7 @@ function spawnBeatRing(bass) {
         size: 3.5,
         hueOffset: 0.0,
         twinkleSpeed: 0.12,
-      }),
+      })
     );
   }
 }
@@ -351,7 +351,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
       const raw = bandAverage(
         freqData,
         KALEIDO_BAND_EDGES[i],
-        KALEIDO_BAND_EDGES[i + 1],
+        KALEIDO_BAND_EDGES[i + 1]
       );
       const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
       const rawV = Math.pow((raw / 255) * tilt, 0.7);
@@ -359,7 +359,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
       smoothedKaleido[i] = smoothTowards(
         smoothedKaleido[i],
         targetV,
-        remaining,
+        remaining
       );
       const v = smoothedKaleido[i];
       if (v < 0.03) continue;
@@ -441,7 +441,7 @@ function loop(timestamp = performance.now()) {
   const bassLevel = normalizeEnergy(
     bass,
     AUDIO_TUNING.particleFloor,
-    AUDIO_TUNING.particleRange,
+    AUDIO_TUNING.particleRange
   );
   const midLevel = normalizeEnergy(mid, 18, 180);
   const trebleLevel = normalizeEnergy(treble, 14, 170);

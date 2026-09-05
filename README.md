@@ -39,15 +39,15 @@ drive the visuals.
 
 ## Controls
 
-| Key       | Action                                   |
-|-----------|------------------------------------------|
-| `1`-`5`   | Switch visual style                      |
-| `C`       | Cycle color theme                        |
-| `Space`   | Toggle auto-cycle through visual styles  |
-| `F`       | Toggle fullscreen                        |
-| `T`       | Toggle always-on-top                     |
-| `B`       | Toggle background panel                  |
-| `Esc`     | Quit                                     |
+| Key     | Action                                  |
+| ------- | --------------------------------------- |
+| `1`-`5` | Switch visual style                     |
+| `C`     | Cycle color theme                       |
+| `Space` | Toggle auto-cycle through visual styles |
+| `F`     | Toggle fullscreen                       |
+| `T`     | Toggle always-on-top                    |
+| `B`     | Toggle background panel                 |
+| `Esc`   | Quit                                    |
 
 Move your mouse to bring back the control hint overlay; it fades away on
 its own after a moment.

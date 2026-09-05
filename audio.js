@@ -23,7 +23,7 @@ async function initAudio() {
   const audioTracks = stream.getAudioTracks();
   if (audioTracks.length === 0) {
     throw new Error(
-      "No system audio track was returned. Make sure something is actually playing.",
+      "No system audio track was returned. Make sure something is actually playing."
     );
   }
 
