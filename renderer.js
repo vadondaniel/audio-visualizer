@@ -253,9 +253,19 @@ function updatePanelVisibility() {
   settingsPanel.classList.toggle("visible", panelOpen && hudActive);
 }
 
-settingsBtn.addEventListener("click", () => {
+settingsBtn.addEventListener("click", (e) => {
   panelOpen = !panelOpen;
   flashHud();
+  updatePanelVisibility();
+  e.stopPropagation(); // don't let the same click immediately close it below
+});
+
+// Click-outside-to-dismiss: only cares about closing, never opening —
+// opening is settingsBtn/"B"'s job above.
+window.addEventListener("click", (e) => {
+  if (!panelOpen) return;
+  if (settingsPanel.contains(e.target)) return;
+  panelOpen = false;
   updatePanelVisibility();
 });
 

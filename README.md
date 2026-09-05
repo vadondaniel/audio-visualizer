@@ -90,6 +90,11 @@ folder. First run will download some extra tooling.
 - **Silent/laggy visuals**: some apps route audio in ways loopback capture
   can miss (rare). Try playing through a browser tab or your default media
   player first to confirm it works, then troubleshoot the specific app.
+- **`F`/`T`/`Esc` doing nothing**: this was a real bug, now fixed — Electron
+  defaults `sandbox: true` since v20, which silently breaks a sandboxed
+  preload script's `require()` of a local file (`ipc-channels.js`). If
+  you're merging this into a fork, make sure `main.js`'s `webPreferences`
+  keeps `sandbox: false`.
 - Everything runs locally — no data leaves your machine, no accounts needed.
 - Tested against the Electron version pinned in `package.json` (currently
   44.x). Loopback audio capture requires Electron ~29+, so older pins won't

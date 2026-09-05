@@ -251,6 +251,14 @@
       #settingsPanel label .val {
         opacity: 0.6;
         font-variant-numeric: tabular-nums;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+        margin-left: 8px;
+      }
+      #settingsPanel label span:first-child {
+        flex-shrink: 0;
       }
       #settingsPanel hr {
         border: none;
@@ -357,14 +365,16 @@
       </div>
       <div id="bgImageRow">
         <label for="bgImageInput"
-          >Image <span class="val" id="bgImageName">none chosen</span></label
+          ><span>Image</span
+          ><span class="val" id="bgImageName">none chosen</span></label
         >
         <input type="file" id="bgImageInput" accept="image/*" />
         <button id="clearBgImageBtn">Clear image</button>
       </div>
       <div>
         <label for="brightnessSlider"
-          >Brightness <span class="val" id="brightnessVal">100%</span></label
+          ><span>Brightness</span
+          ><span class="val" id="brightnessVal">100%</span></label
         >
         <input
           type="range"
@@ -377,7 +387,7 @@
       </div>
       <div>
         <label for="blurSlider"
-          >Blur <span class="val" id="blurVal">0px</span></label
+          ><span>Blur</span><span class="val" id="blurVal">0px</span></label
         >
         <input
           type="range"

@@ -27,6 +27,16 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      // Electron defaults this to true since v20. Sandboxed preload scripts
+      // only get a small allowlist of require()-able built-ins — a local
+      // relative-path module like "./ipc-channels" isn't one of them, so it
+      // silently fails, contextBridge.exposeInMainWorld never runs, and
+      // window.electronAPI ends up undefined in the renderer (breaking
+      // fullscreen/always-on-top/quit with no visible error). contextIsolation
+      // + nodeIntegration:false already give the renderer proper isolation,
+      // so turning sandbox off here doesn't weaken that — it just lets the
+      // preload script's own require() calls resolve normally.
+      sandbox: false,
     },
   });
 
