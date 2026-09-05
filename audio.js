@@ -106,7 +106,12 @@ function formatAudioCaptureError(err) {
 // constructing browser media devices. The renderer still uses this function
 // exactly as before when this file is loaded as a plain script.
 if (typeof module === "object" && module.exports) {
-  module.exports = { formatAudioCaptureError, initAudio, cleanupAudioCapture };
+  module.exports = {
+    formatAudioCaptureError,
+    initAudio,
+    cleanupAudioCapture,
+    recoverAudioCapture,
+  };
 }
 
 function cleanupAudioCapture() {

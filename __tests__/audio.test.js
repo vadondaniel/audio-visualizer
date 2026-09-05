@@ -1,4 +1,8 @@
-const { initAudio, cleanupAudioCapture } = require("../audio");
+const {
+  initAudio,
+  cleanupAudioCapture,
+  recoverAudioCapture,
+} = require("../audio");
 
 describe("initAudio", () => {
   const originalNavigator = global.navigator;
@@ -66,7 +70,9 @@ describe("initAudio", () => {
       createAnalyser: jest.fn(() => analyser),
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
-      resume: jest.fn().mockResolvedValue(undefined),
+      resume: jest.fn().mockImplementation(async () => {
+        context.state = "running";
+      }),
       close: jest.fn().mockResolvedValue(undefined),
     };
     const stream = {
@@ -103,5 +109,51 @@ describe("initAudio", () => {
     expect(analyser.smoothingTimeConstant).toBe(0.82);
     expect(source.connect).toHaveBeenCalledWith(analyser);
     expect(context.resume).toHaveBeenCalledTimes(1);
+
+    context.state = "suspended";
+    await expect(recoverAudioCapture()).resolves.toBeUndefined();
+    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(1);
+  });
+
+  test("cleans up when the audio engine cannot reach the running state", async () => {
+    const audioTrack = {
+      readyState: "live",
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      stop: jest.fn(),
+    };
+    const videoTrack = { stop: jest.fn() };
+    const context = {
+      state: "suspended",
+      createMediaStreamSource: jest.fn(() => ({ connect: jest.fn() })),
+      createAnalyser: jest.fn(() => ({ frequencyBinCount: 64 })),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      resume: jest.fn().mockResolvedValue(undefined),
+      close: jest.fn().mockResolvedValue(undefined),
+    };
+    const stream = {
+      getAudioTracks: () => [audioTrack],
+      getVideoTracks: () => [videoTrack],
+    };
+
+    global.navigator = {
+      mediaDevices: {
+        getDisplayMedia: jest.fn().mockResolvedValue(stream),
+      },
+    };
+    global.MediaStream = jest.fn(() => ({
+      getTracks: () => [audioTrack],
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    global.window = { AudioContext: jest.fn(() => context) };
+
+    await expect(initAudio()).rejects.toThrow(
+      "The audio engine did not start."
+    );
+    expect(audioTrack.stop).toHaveBeenCalledTimes(1);
+    expect(context.close).toHaveBeenCalledTimes(1);
   });
 });
