@@ -81,17 +81,19 @@ describe("initAudio", () => {
       getVideoTracks: () => [videoTrack],
       addEventListener: jest.fn(),
     };
+    const mediaStream = {
+      active: true,
+      getTracks: () => [audioTrack],
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    };
 
     global.navigator = {
       mediaDevices: {
         getDisplayMedia: jest.fn().mockResolvedValue(stream),
       },
     };
-    global.MediaStream = jest.fn(() => ({
-      getTracks: () => [audioTrack],
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-    }));
+    global.MediaStream = jest.fn(() => mediaStream);
     global.window = {
       AudioContext: jest.fn(() => context),
     };
@@ -114,6 +116,38 @@ describe("initAudio", () => {
     await expect(recoverAudioCapture()).resolves.toBeUndefined();
     expect(context.resume).toHaveBeenCalledTimes(2);
     expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(1);
+
+    let finishResume;
+    context.state = "suspended";
+    context.resume.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishResume = () => {
+            context.state = "running";
+            resolve();
+          };
+        })
+    );
+    const firstRecovery = recoverAudioCapture();
+    const secondRecovery = recoverAudioCapture();
+    finishResume();
+    await expect(firstRecovery).resolves.toBeUndefined();
+    await expect(secondRecovery).resolves.toBeUndefined();
+    expect(context.resume).toHaveBeenCalledTimes(3);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(1);
+
+    const inactiveHandler = mediaStream.addEventListener.mock.calls.find(
+      ([eventName]) => eventName === "inactive"
+    )[1];
+    mediaStream.active = false;
+    inactiveHandler();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
+
+    audioTrack.readyState = "ended";
+    await expect(recoverAudioCapture()).resolves.toBeUndefined();
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(3);
+    expect(context.close).toHaveBeenCalledTimes(2);
   });
 
   test("cleans up when the audio engine cannot reach the running state", async () => {
@@ -155,5 +189,38 @@ describe("initAudio", () => {
     );
     expect(audioTrack.stop).toHaveBeenCalledTimes(1);
     expect(context.close).toHaveBeenCalledTimes(1);
+  });
+
+  test("cleans up when audio graph construction throws", async () => {
+    const audioTrack = {
+      readyState: "live",
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      stop: jest.fn(),
+    };
+    const stream = {
+      getAudioTracks: () => [audioTrack],
+      getVideoTracks: () => [],
+    };
+    const graphError = new Error("Audio graph unavailable");
+
+    global.navigator = {
+      mediaDevices: {
+        getDisplayMedia: jest.fn().mockResolvedValue(stream),
+      },
+    };
+    global.MediaStream = jest.fn(() => ({
+      getTracks: () => [audioTrack],
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    }));
+    global.window = {
+      AudioContext: jest.fn(() => {
+        throw graphError;
+      }),
+    };
+
+    await expect(initAudio()).rejects.toBe(graphError);
+    expect(audioTrack.stop).toHaveBeenCalledTimes(1);
   });
 });
