@@ -184,39 +184,15 @@ function updateBgRowsVisibility() {
   bgImageName.textContent = state.bgImageName || "none chosen";
 }
 
-// Background images are stored as data URLs in localStorage, which has a
-// ~5-10MB quota shared across everything else we save. A phone photo
-// easily blows past that on its own, so the save silently failed and the
-// image never survived a restart. Downscaling to a sane max resolution
-// and re-encoding as JPEG keeps it well under quota — the background is
-// cover-fit and blurred/dimmed anyway, so full original resolution buys
-// nothing visible.
-const BG_IMAGE_MAX_DIMENSION = 1920;
-const BG_IMAGE_JPEG_QUALITY = 0.82;
-
-function resizeImageFile(file) {
+// Reads the file exactly as chosen — no re-encoding. Redrawing onto a
+// canvas (an earlier version of this did that, to shrink file size) would
+// flatten an animated GIF/WEBP to one static frame, so it's off the table.
+function readImageFile(file) {
   return new Promise((resolve, reject) => {
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const scale = Math.min(
-        1,
-        BG_IMAGE_MAX_DIMENSION / Math.max(img.width, img.height),
-      );
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const off = document.createElement("canvas");
-      off.width = w;
-      off.height = h;
-      off.getContext("2d").drawImage(img, 0, 0, w, h);
-      resolve(off.toDataURL("image/jpeg", BG_IMAGE_JPEG_QUALITY));
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      reject(new Error("Could not read that image file"));
-    };
-    img.src = objectUrl;
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read that image file"));
+    reader.readAsDataURL(file);
   });
 }
 
@@ -361,7 +337,7 @@ bgImageInput.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   try {
-    state.bgImageDataUrl = await resizeImageFile(file);
+    state.bgImageDataUrl = await readImageFile(file);
     state.bgImageName = file.name;
     state.bgType = "image";
     updateBgRowsVisibility();
