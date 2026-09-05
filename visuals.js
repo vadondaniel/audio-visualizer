@@ -1900,6 +1900,10 @@ function loop(timestamp = performance.now()) {
   analyser.getByteFrequencyData(freqData);
   analyser.getByteTimeDomainData(timeData);
 
+  // Detect zombie capture streams that return all-zero data after a
+  // device change that Chromium didn't report via track/stream events.
+  checkSilence();
+
   const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
   const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
   const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)

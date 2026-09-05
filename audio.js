@@ -8,6 +8,17 @@ let audioRecoveryTimer = null;
 let audioRecoveryAttempt = 0;
 let audioEventCleanup = [];
 
+// Zombie-stream detection: counts consecutive silent frames while
+// AudioContext claims to be "running".  After ~2 s at 60 fps the
+// capture is torn down and re-established.
+let consecutiveSilentFrames = 0;
+const SILENT_FRAMES_THRESHOLD = 120;
+
+// Device-change debounce: Windows fires multiple devicechange events
+// in quick succession when a device is plugged/unplugged. We wait
+// for the dust to settle before triggering recovery.
+let deviceChangeTimer = null;
+
 let audioClockMs = 0;
 let bassHistory = [];
 
@@ -78,6 +89,25 @@ async function initAudio() {
       audioStream.removeEventListener("inactive", recover)
     );
 
+    // When the output device changes (headphone plug/unplug, Bluetooth
+    // connect/disconnect) the WASAPI loopback stream can silently die.
+    // Listen for the system event and trigger recovery after a short
+    // debounce so Windows has time to settle the new device.
+    const onDeviceChange = () => {
+      clearTimeout(deviceChangeTimer);
+      deviceChangeTimer = setTimeout(() => {
+        deviceChangeTimer = null;
+        if (audioTrack === track && audioCtx === context) {
+          console.info("Output device changed — recovering audio capture…");
+          recoverAudioCapture();
+        }
+      }, 800);
+    };
+    navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
+    audioEventCleanup.push(() =>
+      navigator.mediaDevices.removeEventListener("devicechange", onDeviceChange)
+    );
+
     // Chromium can leave a Web Audio context suspended after a long period of
     // silence. Explicitly resume it once the capture has been established.
     await context.resume();
@@ -85,6 +115,7 @@ async function initAudio() {
       throw new Error("The audio engine did not start.");
     }
     audioRecoveryAttempt = 0;
+    consecutiveSilentFrames = 0;
   } catch (err) {
     cleanupAudioCapture();
     throw err;
@@ -111,12 +142,15 @@ if (typeof module === "object" && module.exports) {
     initAudio,
     cleanupAudioCapture,
     recoverAudioCapture,
+    checkSilence,
   };
 }
 
 function cleanupAudioCapture() {
   audioEventCleanup.forEach((cleanup) => cleanup());
   audioEventCleanup = [];
+  clearTimeout(deviceChangeTimer);
+  deviceChangeTimer = null;
   if (audioStream) audioStream.getTracks().forEach((track) => track.stop());
   if (audioCtx && audioCtx.state !== "closed") audioCtx.close().catch(() => {});
   audioStream = null;
@@ -126,7 +160,43 @@ function cleanupAudioCapture() {
   freqData = null;
   timeData = null;
   bufferLength = 0;
+  consecutiveSilentFrames = 0;
 }
+
+// Called every frame from the render loop. Detects "zombie" streams
+// where the WASAPI loopback capture has silently died (no ended/inactive
+// events fired) and the analyser returns all-zero data indefinitely.
+function checkSilence() {
+  if (!analyser || !freqData || !audioCtx || audioCtx.state !== "running") {
+    consecutiveSilentFrames = 0;
+    return;
+  }
+
+  // Quick scan: if *any* frequency bin is non-zero the stream is alive.
+  let isSilent = true;
+  for (let i = 0; i < freqData.length; i++) {
+    if (freqData[i] > 0) {
+      isSilent = false;
+      break;
+    }
+  }
+
+  if (isSilent) {
+    consecutiveSilentFrames++;
+    if (consecutiveSilentFrames >= SILENT_FRAMES_THRESHOLD) {
+      console.info(
+        "Detected zombie audio stream (silent for",
+        consecutiveSilentFrames,
+        "frames) — recovering…"
+      );
+      consecutiveSilentFrames = 0;
+      recoverAudioCapture();
+    }
+  } else {
+    consecutiveSilentFrames = 0;
+  }
+}
+
 
 function scheduleAudioRecovery() {
   if (audioRecoveryTimer) return;

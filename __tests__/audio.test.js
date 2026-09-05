@@ -91,6 +91,8 @@ describe("initAudio", () => {
     global.navigator = {
       mediaDevices: {
         getDisplayMedia: jest.fn().mockResolvedValue(stream),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
       },
     };
     global.MediaStream = jest.fn(() => mediaStream);
@@ -175,6 +177,8 @@ describe("initAudio", () => {
     global.navigator = {
       mediaDevices: {
         getDisplayMedia: jest.fn().mockResolvedValue(stream),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
       },
     };
     global.MediaStream = jest.fn(() => ({
@@ -207,6 +211,8 @@ describe("initAudio", () => {
     global.navigator = {
       mediaDevices: {
         getDisplayMedia: jest.fn().mockResolvedValue(stream),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
       },
     };
     global.MediaStream = jest.fn(() => ({
