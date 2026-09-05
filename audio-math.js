@@ -97,9 +97,18 @@
     if (saved.bgColor) state.bgColor = saved.bgColor;
     if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
     if (saved.bgImageName) state.bgImageName = saved.bgImageName;
-    if (Number.isFinite(saved.bgBrightness))
+    if (
+      Number.isFinite(saved.bgBrightness) &&
+      saved.bgBrightness >= 0.2 &&
+      saved.bgBrightness <= 1.6
+    )
       state.bgBrightness = saved.bgBrightness;
-    if (Number.isFinite(saved.bgBlur)) state.bgBlur = saved.bgBlur;
+    if (
+      Number.isFinite(saved.bgBlur) &&
+      saved.bgBlur >= 0 &&
+      saved.bgBlur <= 20
+    )
+      state.bgBlur = saved.bgBlur;
     if (
       typeof saved.mode === "number" &&
       saved.mode >= 0 &&

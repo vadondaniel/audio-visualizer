@@ -313,6 +313,36 @@ describe("mergeSettings", () => {
     expect(merged.glowIntensity).toBe(defaults.glowIntensity);
   });
 
+  test("rejects persisted values outside the corresponding control ranges", () => {
+    const saved = {
+      bgBrightness: 100,
+      bgBlur: -1,
+      sensitivity: 3.1,
+      glowIntensity: -0.1,
+    };
+    const merged = mergeSettings(defaults, saved, 8, 7);
+
+    expect(merged.bgBrightness).toBe(defaults.bgBrightness);
+    expect(merged.bgBlur).toBe(defaults.bgBlur);
+    expect(merged.sensitivity).toBe(defaults.sensitivity);
+    expect(merged.glowIntensity).toBe(defaults.glowIntensity);
+  });
+
+  test("accepts persisted values on the control boundaries", () => {
+    const saved = {
+      bgBrightness: 0.2,
+      bgBlur: 20,
+      sensitivity: 0.2,
+      glowIntensity: 2.5,
+    };
+    const merged = mergeSettings(defaults, saved, 8, 7);
+
+    expect(merged.bgBrightness).toBe(0.2);
+    expect(merged.bgBlur).toBe(20);
+    expect(merged.sensitivity).toBe(0.2);
+    expect(merged.glowIntensity).toBe(2.5);
+  });
+
   test("does not mutate the defaults object while merging", () => {
     const saved = { mode: 3, smoothingEnabled: false };
     const result = mergeSettings(defaults, saved, 8, 7);
