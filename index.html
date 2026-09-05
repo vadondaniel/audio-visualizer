@@ -16,50 +16,70 @@
            the markup below and as state.bgColor's default in renderer.js —
            keep all three in sync if it ever changes. */
         --bg-default: #0f0f1a;
-        --backdrop-start: #12001f;
-        --backdrop-end: #000;
-        --accent-rgb: 255, 95, 216;
+        --backdrop-start: #180027;
+        --backdrop-end: #020204;
+
+        --accent-rgb: 255, 79, 216;
         --accent: rgb(var(--accent-rgb));
-        --accent-secondary: #5fc9ff;
-        --text-rgb: 255, 255, 255;
-        --text: rgb(var(--text-rgb));
+        --accent-2-rgb: 79, 215, 255;
+        --accent-2: rgb(var(--accent-2-rgb));
+        --accent-gradient: linear-gradient(
+          135deg,
+          var(--accent) 0%,
+          var(--accent-2) 100%
+        );
         --danger: #ff6b6b;
 
-        /* Surfaces & borders — two translucency levels used consistently
-           instead of one-off rgba() literals per element. */
-        --surface-overlay: rgba(
-          0,
-          0,
-          0,
-          0.45
-        ); /* floating chips: hud, settingsBtn */
-        --surface-panel: rgba(10, 10, 14, 0.85); /* settingsPanel */
-        --surface-input: rgba(var(--text-rgb), 0.08); /* select boxes */
-        --border-subtle: rgba(var(--text-rgb), 0.1);
-        --border-medium: rgba(var(--text-rgb), 0.25);
+        /* Ink (text) scale — one white, three opacities instead of one-off
+           gray literals per element. */
+        --ink-rgb: 245, 246, 250;
+        --ink: rgb(var(--ink-rgb));
+        --ink-dim: rgba(var(--ink-rgb), 0.6);
+        --ink-faint: rgba(var(--ink-rgb), 0.36);
+
+        /* Glass material — the one surface language every floating element
+           shares: translucent fill + blur + a hairline border. Two
+           strengths cover "small chip" vs "panel". */
+        --glass-fill: rgba(14, 14, 20, 0.55);
+        --glass-fill-strong: rgba(11, 11, 16, 0.82);
+        --glass-blur: blur(20px) saturate(160%);
+        --hairline: rgba(var(--ink-rgb), 0.09);
+        --hairline-strong: rgba(var(--ink-rgb), 0.16);
+        --surface-input: rgba(var(--ink-rgb), 0.06);
+        --surface-input-hover: rgba(var(--ink-rgb), 0.1);
+
+        /* Type. System sans for reading, a monospace stack reserved for
+           numeric readouts and key shortcuts — gives the control surface a
+           slight instrument-panel feel without switching the whole UI. */
+        --font-sans:
+          -apple-system, "Segoe UI", "Inter", Roboto, Arial, sans-serif;
+        --font-mono:
+          ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
 
         /* Layout */
-        --edge-gap: 18px; /* consistent inset from the screen edge for all floating UI */
+        --edge-gap: 20px; /* consistent inset from the screen edge for all floating UI */
         --bg-overscan: 60px; /* #bgLayer overshoot so blur() edges land offscreen, see below */
 
         /* Radius scale */
-        --radius-sm: 6px;
-        --radius-md: 8px;
-        --radius-lg: 10px;
-        --radius-pill: 30px;
+        --radius-sm: 8px;
+        --radius-md: 12px;
+        --radius-lg: 18px;
+        --radius-pill: 999px;
 
         /* Type scale */
-        --fs-xs: 11px;
-        --fs-sm: 12px;
-        --fs-md: 16px;
-        --fs-xl: 28px;
+        --fs-2xs: 10.5px;
+        --fs-xs: 11.5px;
+        --fs-sm: 12.5px;
+        --fs-md: 15px;
+        --fs-xl: 26px;
 
         /* Line-height scale */
-        --leading-normal: 1.6;
-        --leading-loose: 1.8;
+        --leading-normal: 1.55;
+        --leading-loose: 1.75;
 
         /* Motion */
-        --transition-fast: 0.2s ease;
+        --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        --transition-med: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         --transition-slow: 0.4s ease;
 
         /* Stacking order, named instead of ad-hoc numbers per element */
@@ -70,14 +90,31 @@
         --z-overlay: 10;
       }
 
+      @media (prefers-reduced-motion: reduce) {
+        :root {
+          --transition-fast: 0s;
+          --transition-med: 0s;
+          --transition-slow: 0s;
+        }
+      }
+
       html,
       body {
         width: 100%;
         height: 100%;
         background-color: #000;
         overflow: hidden;
-        font-family: "Segoe UI", Arial, sans-serif;
+        font-family: var(--font-sans);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
       }
+
+      :focus-visible {
+        outline: 2px solid var(--accent-2);
+        outline-offset: 2px;
+        border-radius: var(--radius-sm);
+      }
+
       #bgLayer {
         position: absolute;
         /* Larger than the viewport on every side (not inset:0) — CSS
@@ -110,6 +147,7 @@
         display: block;
       }
 
+      /* ---------- start overlay ---------- */
       #startOverlay {
         position: absolute;
         inset: 0;
@@ -118,238 +156,558 @@
         align-items: center;
         justify-content: center;
         background: radial-gradient(
-          circle at center,
+          circle at 50% 42%,
           var(--backdrop-start) 0%,
-          var(--backdrop-end) 75%
+          var(--backdrop-end) 72%
         );
-        color: var(--text);
+        color: var(--ink);
         text-align: center;
         z-index: var(--z-overlay);
+        padding: 32px;
       }
       #startOverlay h1 {
         font-size: var(--fs-xl);
-        letter-spacing: 4px;
+        letter-spacing: 6px;
         font-weight: 300;
-        background: linear-gradient(
-          90deg,
-          var(--accent),
-          var(--accent-secondary)
-        );
+        background: var(--accent-gradient);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
-        margin-bottom: 24px;
+        margin-bottom: 30px;
       }
       #startBtn {
-        padding: 14px 38px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 40px;
+        font-family: inherit;
         font-size: var(--fs-md);
-        letter-spacing: 2px;
-        background: transparent;
-        color: var(--text);
-        border: 1px solid var(--accent);
+        font-weight: 500;
+        letter-spacing: 1.5px;
+        background: var(--glass-fill);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        color: var(--ink);
+        border: 1px solid rgba(var(--accent-rgb), 0.55);
         border-radius: var(--radius-pill);
         cursor: pointer;
-        transition: all var(--transition-fast);
+        transition:
+          background var(--transition-med),
+          box-shadow var(--transition-med),
+          border-color var(--transition-med),
+          transform var(--transition-fast);
       }
       #startBtn:hover {
-        background: var(--accent);
-        box-shadow: 0 0 30px var(--accent);
+        background: var(--accent-gradient);
+        border-color: transparent;
+        box-shadow: 0 0 36px rgba(var(--accent-rgb), 0.45);
+      }
+      #startBtn:active {
+        transform: scale(0.97);
       }
       #startHint {
-        margin-top: 18px;
-        font-size: var(--fs-sm);
-        opacity: 0.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 26px;
+        padding: 14px 16px;
         max-width: 420px;
+        background: var(--glass-fill);
+        border: 1px solid var(--hairline);
+        border-radius: var(--radius-md);
+        font-size: var(--fs-sm);
+        color: var(--ink-dim);
         line-height: var(--leading-normal);
+        text-align: left;
       }
+      #startHint svg {
+        flex: none;
+        margin-top: 1px;
+        color: var(--ink-faint);
+      }
+      /* Note: renderer.js toggles this element's visibility by setting
+         style.display directly to "none" / "block" (not a class), so the
+         shown state must work as a block container — the icon below is an
+         inline-flex ::before that sits before the text node instead of a
+         real flex child. */
       #errorMsg {
+        display: none;
         margin-top: 16px;
+        padding: 10px 16px;
+        background: rgba(255, 107, 107, 0.1);
+        border: 1px solid rgba(255, 107, 107, 0.3);
+        border-radius: var(--radius-md);
         font-size: var(--fs-sm);
         color: var(--danger);
         max-width: 460px;
         line-height: var(--leading-normal);
-        display: none;
+        text-align: left;
+      }
+      #errorMsg::before {
+        content: "!";
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 15px;
+        height: 15px;
+        margin-right: 8px;
+        border-radius: 50%;
+        border: 1.5px solid var(--danger);
+        font-size: 10px;
+        font-weight: 700;
+        font-family: var(--font-mono);
+        vertical-align: -2px;
       }
 
+      /* ---------- HUD (bottom-left shortcut hint) ---------- */
       #hud {
         position: absolute;
         bottom: var(--edge-gap);
         left: var(--edge-gap);
         z-index: var(--z-hud);
-        color: var(--text);
-        font-size: var(--fs-sm);
-        background: var(--surface-overlay);
-        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: var(--ink-dim);
+        font-size: var(--fs-xs);
+        background: var(--glass-fill);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--hairline);
+        padding: 12px 14px;
         border-radius: var(--radius-md);
         opacity: 0;
         transition: opacity var(--transition-slow);
         pointer-events: none;
-        line-height: var(--leading-loose);
       }
       #hud.visible {
         opacity: 1;
       }
-      #hud b {
-        opacity: 0.6;
-        font-weight: 400;
+      #hud .hudRow {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      #hud kbd {
+        font-family: var(--font-mono);
+        font-size: var(--fs-2xs);
+        color: var(--ink);
+        background: rgba(var(--ink-rgb), 0.1);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-sm);
+        padding: 2px 6px;
+        line-height: 1.5;
+      }
+      #hud span.sep {
+        color: var(--ink-faint);
       }
 
+      /* ---------- settings trigger ---------- */
       #settingsBtn {
         position: absolute;
         top: var(--edge-gap);
         right: var(--edge-gap);
         z-index: var(--z-panel);
-        width: 36px;
-        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
         border-radius: 50%;
-        border: none;
-        background: var(--surface-overlay);
-        color: var(--text);
-        font-size: var(--fs-md);
+        border: 1px solid var(--hairline);
+        background: var(--glass-fill);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        color: var(--ink);
         cursor: pointer;
+        opacity: 0;
         /* Same fade-with-inactivity behavior as #hud, so the gear icon
            doesn't just sit there permanently while #hud fades away. */
-        opacity: 0;
         transition:
           background var(--transition-fast),
+          border-color var(--transition-fast),
+          color var(--transition-fast),
+          transform var(--transition-fast),
           opacity var(--transition-slow);
       }
       #settingsBtn.visible {
         opacity: 1;
       }
       #settingsBtn:hover {
-        background: rgba(var(--accent-rgb), 0.5);
+        border-color: rgba(var(--accent-rgb), 0.5);
+        color: var(--accent-2);
+      }
+      #settingsBtn svg {
+        display: block;
+      }
+      /* Custom tooltip, styled to match the rest of the UI — a native
+         title="" attribute renders as a plain OS tooltip (light box, system
+         font) that clashes with the dark glass theme, so this is built with
+         a data attribute + ::after instead. */
+      #settingsBtn::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        top: 50%;
+        right: calc(100% + 10px);
+        transform: translateY(-50%) translateX(4px);
+        padding: 5px 10px;
+        background: var(--glass-fill-strong);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-sm);
+        color: var(--ink);
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition:
+          opacity var(--transition-fast),
+          transform var(--transition-fast);
+      }
+      #settingsBtn:hover::after {
+        opacity: 1;
+        transform: translateY(-50%) translateX(0);
       }
 
+      /* ---------- settings panel ---------- */
       #settingsPanel {
         position: absolute;
-        top: 62px;
+        top: 66px;
         right: var(--edge-gap);
         z-index: var(--z-panel);
-        width: 240px;
-        max-height: calc(100vh - 62px - var(--edge-gap) * 2);
+        width: 264px;
+        max-height: calc(100vh - 66px - var(--edge-gap) * 2);
         overflow-y: auto;
-        background: var(--surface-panel);
-        border: 1px solid var(--border-subtle);
+        background: var(--glass-fill-strong);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border: 1px solid var(--hairline);
         border-radius: var(--radius-lg);
-        padding: 16px;
-        color: var(--text);
+        padding: 0 18px 14px;
+        color: var(--ink);
         font-size: var(--fs-sm);
         display: none;
         flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
       }
       #settingsPanel.visible {
         display: flex;
       }
+      #settingsPanel::-webkit-scrollbar {
+        width: 8px;
+      }
+      #settingsPanel::-webkit-scrollbar-thumb {
+        background: var(--hairline-strong);
+        border-radius: var(--radius-pill);
+      }
+      #settingsPanel::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
       #settingsPanel .settingsHeader {
+        display: flex;
+        align-items: center;
+        gap: 8px;
         font-size: var(--fs-md);
         font-weight: 600;
-        letter-spacing: 0.3px;
-        padding-bottom: 12px;
-        margin-bottom: 4px;
-        border-bottom: 1px solid var(--border-subtle);
+        letter-spacing: 0.2px;
+        /* Bleeds past the panel's own padding to reach its edges — sitting
+           inside that padding left a narrower, square-cornered rectangle
+           that didn't line up with the panel's rounded shape. Matching
+           corner radii + its own glass blur (background: inherit only
+           copies the color, not the parent's backdrop-filter) makes this
+           read as part of the same surface instead of a box floating
+           inside it. */
+        margin: 0 -18px 4px;
+        padding: 16px 18px 14px;
+        background: var(--glass-fill-strong);
+        backdrop-filter: var(--glass-blur);
+        -webkit-backdrop-filter: var(--glass-blur);
+        border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+        border-bottom: 1px solid var(--hairline);
+        position: sticky;
+        top: 0;
       }
+      #settingsPanel .settingsHeader svg {
+        color: var(--accent-2);
+      }
+
       #settingsPanel .settingsSection {
         display: flex;
         flex-direction: column;
         gap: 14px;
-        padding: 14px 0;
+        padding: 16px 0;
       }
       #settingsPanel .settingsSection:first-of-type {
-        padding-top: 2px;
+        padding-top: 14px;
       }
       #settingsPanel .settingsSection:last-of-type {
-        padding-bottom: 2px;
+        padding-bottom: 4px;
       }
       #settingsPanel .settingsSection + .settingsSection {
-        border-top: 1px solid var(--border-subtle);
+        border-top: 1px solid var(--hairline);
       }
       #settingsPanel .settingsSectionTitle {
-        font-size: var(--fs-xs);
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: var(--fs-2xs);
         font-weight: 600;
-        letter-spacing: 1px;
-        text-transform: uppercase;
-        opacity: 0.45;
+        letter-spacing: 0.6px;
+        color: var(--ink-faint);
+      }
+      #settingsPanel .settingsSectionTitle svg {
+        flex: none;
+      }
+
+      #settingsPanel .field {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
       }
       #settingsPanel label {
         display: flex;
         justify-content: space-between;
-        opacity: 0.7;
-        margin-bottom: 6px;
+        align-items: baseline;
+        color: var(--ink-dim);
+        font-size: var(--fs-sm);
       }
       #settingsPanel label .val {
-        opacity: 0.6;
-        font-variant-numeric: tabular-nums;
+        font-family: var(--font-mono);
+        font-size: var(--fs-2xs);
+        color: var(--ink-faint);
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         min-width: 0;
-        margin-left: 8px;
+        margin-left: 10px;
       }
       #settingsPanel label span:first-child {
         flex-shrink: 0;
       }
+
+      /* color swatch */
       #settingsPanel input[type="color"] {
         width: 100%;
-        height: 30px;
-        border: none;
+        height: 34px;
+        border: 1px solid var(--hairline);
         border-radius: var(--radius-sm);
+        background: var(--surface-input);
+        cursor: pointer;
+        padding: 3px;
+      }
+      #settingsPanel input[type="color"]::-webkit-color-swatch-wrapper {
+        padding: 0;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      #settingsPanel input[type="color"]::-webkit-color-swatch {
+        border: none;
+        border-radius: 5px;
+      }
+
+      /* range sliders */
+      #settingsPanel input[type="range"] {
+        width: 100%;
+        height: 16px;
+        -webkit-appearance: none;
+        appearance: none;
         background: transparent;
         cursor: pointer;
       }
-      #settingsPanel input[type="range"] {
-        width: 100%;
+      #settingsPanel input[type="range"]::-webkit-slider-runnable-track {
+        height: 4px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-input);
       }
+      #settingsPanel input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        margin-top: -6px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--ink);
+        border: 2px solid var(--accent-2);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        transition:
+          transform var(--transition-fast),
+          box-shadow var(--transition-fast);
+      }
+      #settingsPanel input[type="range"]:hover::-webkit-slider-thumb {
+        box-shadow: 0 0 0 6px rgba(var(--accent-2-rgb), 0.16);
+      }
+      #settingsPanel input[type="range"]:active::-webkit-slider-thumb {
+        transform: scale(1.1);
+      }
+      #settingsPanel input[type="range"]::-moz-range-track {
+        height: 4px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-input);
+      }
+      #settingsPanel input[type="range"]::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--ink);
+        border: 2px solid var(--accent-2);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      }
+
+      /* file input, restyled as a compact chooser row */
       #settingsPanel input[type="file"] {
         width: 100%;
+        font-family: inherit;
         font-size: var(--fs-xs);
-        /* Same "white at reduced opacity" technique used for every other
-           muted-text element here, instead of a one-off gray literal. */
-        color: var(--text);
-        opacity: 0.8;
+        color: var(--ink-faint);
       }
+      #settingsPanel input[type="file"]::file-selector-button {
+        font-family: inherit;
+        font-size: var(--fs-xs);
+        font-weight: 500;
+        color: var(--ink);
+        background: var(--surface-input);
+        border: 1px solid var(--hairline-strong);
+        border-radius: var(--radius-sm);
+        padding: 7px 12px;
+        margin-right: 10px;
+        cursor: pointer;
+        transition: background var(--transition-fast);
+      }
+      #settingsPanel input[type="file"]::file-selector-button:hover {
+        background: var(--surface-input-hover);
+      }
+
+      /* select boxes */
       #settingsPanel select {
         width: 100%;
-        padding: 6px 8px;
+        padding: 8px 30px 8px 10px;
+        font-family: inherit;
         font-size: var(--fs-sm);
-        background: var(--surface-input);
-        color: var(--text);
-        border: 1px solid var(--border-medium);
+        background-color: var(--surface-input);
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f5f6fa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 8px center;
+        background-size: 14px;
+        color: var(--ink);
+        border: 1px solid var(--hairline-strong);
         border-radius: var(--radius-sm);
         cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
+        transition: border-color var(--transition-fast);
+      }
+      #settingsPanel select:hover {
+        border-color: rgba(var(--accent-2-rgb), 0.5);
       }
       #settingsPanel select option {
-        background: var(--bg-default);
-        color: var(--text);
+        background: #16161f;
+        color: var(--ink);
       }
+      /* The dropdown's open option list is normally drawn by the OS/browser
+         chrome, not this page, which is why it shows a plain white row and
+         a system-blue highlight no matter what "option" is styled to look
+         like above — none of that CSS reaches the actual popup. Chromium's
+         customizable-select API opts the popup itself into normal page
+         styling instead, so it can follow the same dark theme as
+         everything else here. Kept behind @supports with the existing
+         option styling above as the fallback for engines without it. */
+      @supports (appearance: base-select) {
+        #settingsPanel select {
+          appearance: base-select;
+          background-image: none;
+        }
+        #settingsPanel select::picker-icon {
+          color: var(--ink-faint);
+          transition: color var(--transition-fast);
+        }
+        #settingsPanel select:hover::picker-icon {
+          color: var(--ink);
+        }
+        #settingsPanel select::picker(select) {
+          appearance: base-select;
+          background: #16161f;
+          border: 1px solid var(--hairline-strong);
+          border-radius: var(--radius-md);
+          padding: 4px;
+          box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+        }
+        #settingsPanel select option {
+          padding: 8px 10px;
+          border-radius: var(--radius-sm);
+          background: transparent;
+        }
+        #settingsPanel select option:hover {
+          background: rgba(var(--accent-2-rgb), 0.16);
+        }
+        #settingsPanel select option:checked {
+          background: var(--accent-gradient);
+          color: #0b0b10;
+        }
+      }
+
+      /* toggle rows / switches */
       #settingsPanel .toggleRow {
         display: flex;
         justify-content: space-between;
         align-items: center;
       }
       #settingsPanel .toggleRow label {
-        margin-bottom: 0;
-        opacity: 1;
+        color: var(--ink);
       }
       #settingsPanel input[type="checkbox"] {
-        width: 18px;
-        height: 18px;
-        accent-color: var(--accent);
+        flex: none;
+        appearance: none;
+        -webkit-appearance: none;
+        position: relative;
+        width: 36px;
+        height: 21px;
+        border-radius: var(--radius-pill);
+        background: var(--surface-input);
+        border: 1px solid var(--hairline-strong);
         cursor: pointer;
+        transition:
+          background var(--transition-med),
+          border-color var(--transition-med);
       }
+      #settingsPanel input[type="checkbox"]::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: var(--ink);
+        transition: transform var(--transition-med);
+      }
+      #settingsPanel input[type="checkbox"]:checked {
+        background: var(--accent-gradient);
+        border-color: transparent;
+      }
+      #settingsPanel input[type="checkbox"]:checked::before {
+        transform: translateX(15px);
+      }
+
       #clearBgImageBtn {
-        margin-top: 6px;
+        margin-top: 2px;
         width: 100%;
-        padding: 6px 0;
+        padding: 8px 0;
+        font-family: inherit;
         font-size: var(--fs-xs);
-        background: transparent;
-        color: var(--text);
-        border: 1px solid var(--border-medium);
+        font-weight: 500;
+        background: var(--surface-input);
+        color: var(--ink-dim);
+        border: 1px solid var(--hairline-strong);
         border-radius: var(--radius-sm);
         cursor: pointer;
+        transition:
+          border-color var(--transition-fast),
+          color var(--transition-fast);
       }
       #clearBgImageBtn:hover {
-        border-color: var(--accent);
+        border-color: var(--accent-2);
+        color: var(--ink);
       }
     </style>
   </head>
@@ -361,31 +719,96 @@
       <h1>A U D I O &nbsp; V I S U A L I Z E R</h1>
       <button id="startBtn">▶ START</button>
       <div id="startHint">
-        Captures your Windows system audio (whatever is playing anywhere on your
-        PC) and reacts to it in real time. Click Start, then pick your screen in
-        the one-time system prompt if asked.
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="11" x2="12" y2="16.5" />
+          <circle cx="12" cy="7.5" r="0.6" fill="currentColor" stroke="none" />
+        </svg>
+        <span>
+          Captures your Windows system audio (whatever is playing anywhere on
+          your PC) and reacts to it in real time. Click Start, then pick your
+          screen in the one-time system prompt if asked.
+        </span>
       </div>
       <div id="errorMsg"></div>
     </div>
 
     <div id="hud">
-      <div>
-        <b>1-5</b> switch visual &nbsp; <b>C</b> color theme &nbsp;
-        <b>Space</b> auto-cycle
+      <div class="hudRow">
+        <kbd>1-5</kbd> switch visual <span class="sep">·</span>
+        <kbd>C</kbd> color theme <span class="sep">·</span>
+        <kbd>Space</kbd> auto-cycle
       </div>
-      <div>
-        <b>F</b> fullscreen &nbsp; <b>T</b> always on top &nbsp;
-        <b>B</b> background &nbsp; <b>Esc</b> quit
+      <div class="hudRow">
+        <kbd>F</kbd> fullscreen <span class="sep">·</span> <kbd>T</kbd> always
+        on top <span class="sep">·</span> <kbd>B</kbd> background
+        <span class="sep">·</span> <kbd>Esc</kbd> quit
       </div>
     </div>
 
-    <button id="settingsBtn" title="Settings">⚙</button>
+    <button id="settingsBtn" data-tooltip="Settings">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path
+          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+        />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </button>
     <div id="settingsPanel">
-      <div class="settingsHeader">Settings</div>
+      <div class="settingsHeader">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        Settings
+      </div>
 
       <div class="settingsSection">
-        <div class="settingsSectionTitle">Visual</div>
-        <div>
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="2 12 6 12 9 5 14 19 17 12 22 12" />
+          </svg>
+          Visual
+        </div>
+        <div class="field">
           <label for="modeSelect">Style</label>
           <select id="modeSelect"></select>
         </div>
@@ -397,7 +820,7 @@
           <label for="kaleidoClipCheckbox">Clip to circle</label>
           <input type="checkbox" id="kaleidoClipCheckbox" checked />
         </div>
-        <div>
+        <div class="field">
           <label for="themeSelect">Color theme</label>
           <select id="themeSelect"></select>
         </div>
@@ -408,19 +831,35 @@
       </div>
 
       <div class="settingsSection">
-        <div class="settingsSectionTitle">Background</div>
-        <div>
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Background
+        </div>
+        <div class="field">
           <label for="bgTypeSelect">Type</label>
           <select id="bgTypeSelect">
             <option value="color">Solid color</option>
             <option value="image">Image</option>
           </select>
         </div>
-        <div id="bgColorRow">
+        <div id="bgColorRow" class="field">
           <label for="bgColorInput">Color</label>
           <input type="color" id="bgColorInput" value="#0f0f1a" />
         </div>
-        <div id="bgImageRow">
+        <div id="bgImageRow" class="field">
           <label for="bgImageInput"
             ><span>Image</span
             ><span class="val" id="bgImageName">none chosen</span></label
@@ -428,7 +867,7 @@
           <input type="file" id="bgImageInput" accept="image/*" />
           <button id="clearBgImageBtn">Clear image</button>
         </div>
-        <div id="brightnessRow">
+        <div id="brightnessRow" class="field">
           <label for="brightnessSlider"
             ><span>Brightness</span
             ><span class="val" id="brightnessVal">100%</span></label
@@ -442,7 +881,7 @@
             value="1"
           />
         </div>
-        <div id="blurRow">
+        <div id="blurRow" class="field">
           <label for="blurSlider"
             ><span>Blur</span><span class="val" id="blurVal">0px</span></label
           >
