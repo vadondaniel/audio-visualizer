@@ -2,7 +2,9 @@
 
 // Canvas and startup UI
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+const displayCtx = canvas.getContext("2d");
+const renderCanvas = document.createElement("canvas");
+let ctx = renderCanvas.getContext("2d");
 const startOverlay = document.getElementById("startOverlay");
 const startBtn = document.getElementById("startBtn");
 const errorMsg = document.getElementById("errorMsg");
@@ -66,10 +68,13 @@ const hotkeysCloseBtn = document.getElementById("hotkeysCloseBtn");
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  renderCanvas.width = window.innerWidth;
+  renderCanvas.height = window.innerHeight;
   if (bgCanvas) {
     bgCanvas.width = window.innerWidth;
     bgCanvas.height = window.innerHeight;
   }
+  if (typeof resetTrailHistory === "function") resetTrailHistory();
 }
 window.addEventListener("resize", resize);
 resize();

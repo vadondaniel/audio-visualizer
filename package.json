@@ -30,6 +30,7 @@
       "index.html",
       "style.css",
       "audio-math.js",
+      "trail-math.js",
       "constants.js",
       "state.js",
       "dom.js",

@@ -76,9 +76,6 @@ const VISUAL_TUNING = {
     baseDegPerSec: 18,
     midDegPerSecPerUnit: 0.6,
   },
-  trail: {
-    fadePerSec: 42.8,
-  },
   backgrounds: {
     nebulaClouds: 8,
     starsCount: 180,
@@ -133,4 +130,5 @@ const KALEIDO_BAND_EDGES = (() => {
 const BASS_HISTORY_MS = 1000;
 const ENERGY_HISTORY_MS = 3000;
 const FRAME_MS = 1000 / 60;
-const TRAIL_TIMEOUT_MS = 15000;
+const TRAIL_DURATION_MS = 220;
+const TRAIL_MAX_SNAPSHOTS = 24;

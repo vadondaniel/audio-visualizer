@@ -11,25 +11,88 @@ function applyGlow(color, blur) {
 
 // ---------- particle system (used by 'particles' mode) ----------
 const particles = [];
-let trailAge = 0;
+const trailFrames = [];
+const trailCanvasPool = [];
+let lastTrailCaptureMs = null;
 
 // ---------- draw modes ----------
-function clearFrame(elapsedMs) {
-  trailAge += elapsedMs;
-  const dtSec = elapsedMs / 1000;
-  const remainingAlpha = Math.exp(-VISUAL_TUNING.trail.fadePerSec * dtSec);
+function resetTrailHistory() {
+  trailFrames.length = 0;
+  trailCanvasPool.length = 0;
+  lastTrailCaptureMs = null;
+}
+
+function clearFrame() {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = `rgba(0, 0, 0, ${1 - remainingAlpha})`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0, 0, renderCanvas.width, renderCanvas.height);
   ctx.restore();
+}
 
-  if (trailAge >= TRAIL_TIMEOUT_MS) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    trailAge = 0;
+function takeTrailCanvas() {
+  const frameCanvas = trailCanvasPool.pop() || document.createElement("canvas");
+  if (
+    frameCanvas.width !== renderCanvas.width ||
+    frameCanvas.height !== renderCanvas.height
+  ) {
+    frameCanvas.width = renderCanvas.width;
+    frameCanvas.height = renderCanvas.height;
   }
+  return frameCanvas;
+}
+
+function discardExpiredTrailFrames(timestamp) {
+  while (
+    trailFrames.length &&
+    TrailMath.isTrailFrameExpired(
+      timestamp,
+      trailFrames[0].timestamp,
+      TRAIL_DURATION_MS
+    )
+  ) {
+    trailCanvasPool.push(trailFrames.shift().canvas);
+  }
+}
+
+function captureTrailFrame(timestamp) {
+  if (trailFrames.length >= TRAIL_MAX_SNAPSHOTS) {
+    trailCanvasPool.push(trailFrames.shift().canvas);
+  }
+  const frameCanvas = takeTrailCanvas();
+  const frameCtx = frameCanvas.getContext("2d");
+  frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
+  frameCtx.drawImage(renderCanvas, 0, 0);
+  trailFrames.push({ canvas: frameCanvas, timestamp });
+  lastTrailCaptureMs = timestamp;
+}
+
+function renderTrailHistory(timestamp) {
+  discardExpiredTrailFrames(timestamp);
+  const shouldCapture = TrailMath.shouldCaptureTrail(
+    timestamp,
+    lastTrailCaptureMs,
+    TRAIL_DURATION_MS,
+    TRAIL_MAX_SNAPSHOTS
+  );
+  if (shouldCapture) captureTrailFrame(timestamp);
+
+  displayCtx.save();
+  displayCtx.setTransform(1, 0, 0, 1, 0, 0);
+  displayCtx.globalCompositeOperation = "source-over";
+  displayCtx.globalAlpha = 1;
+  displayCtx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const frame of trailFrames) {
+    displayCtx.globalAlpha = TrailMath.trailOpacity(
+      timestamp - frame.timestamp,
+      TRAIL_DURATION_MS
+    );
+    displayCtx.drawImage(frame.canvas, 0, 0);
+  }
+  if (!shouldCapture) {
+    displayCtx.globalAlpha = 1;
+    displayCtx.drawImage(renderCanvas, 0, 0);
+  }
+  displayCtx.restore();
 }
 
 const smoothedBars = new Array(96).fill(0);
@@ -1477,7 +1540,7 @@ function loop(timestamp = performance.now()) {
       360;
   }
 
-  clearFrame(elapsedMs);
+  clearFrame();
 
   if (typeof renderProceduralBackground === "function") {
     renderProceduralBackground(
@@ -1518,4 +1581,5 @@ function loop(timestamp = performance.now()) {
       drawAurora(bassLevel, midLevel, trebleLevel, dtSec);
       break;
   }
+  renderTrailHistory(timestamp);
 }
