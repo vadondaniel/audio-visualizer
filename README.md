@@ -41,7 +41,7 @@ drive the visuals.
 
 | Key     | Action                                  |
 | ------- | --------------------------------------- |
-| `1`-`8` | Switch visual style                     |
+| `1`-`9` | Switch visual style                     |
 | `C`     | Cycle color theme                       |
 | `Space` | Toggle auto-cycle through visual styles |
 | `F`     | Toggle fullscreen                       |
@@ -52,9 +52,9 @@ drive the visuals.
 Move your mouse to bring back the control hint overlay; it fades away on
 its own after a moment.
 
-The 8 visual styles are: **bars**, **radial spectrum**, **waveform**,
+The 9 visual styles are: **bars**, **radial spectrum**, **waveform**,
 **particles** (bass-reactive bursts), **kaleidoscope**, **tunnel**, **waves**,
-and **aurora**.
+**aurora**, and **cascade** (NCS-style rolldown waves).
 
 ## Settings panel
 
@@ -62,7 +62,7 @@ Click the gear icon (top-right) or press `B` to open it. Like the control
 hint overlay, the gear icon fades out when your mouse is idle, and the
 panel fades with it — just move the mouse to bring both back.
 
-- **Visual** / **Color theme** — the same options as the `1`-`8` and `C`
+- **Visual** / **Color theme** — the same options as the `1`-`9` and `C`
   keys, for when a mouse is easier than remembering keys.
 - **Visual options** — configure bars alignment, radial mirroring, waveform
   style, kaleidoscope clipping, smoothing, sensitivity, and glow intensity.

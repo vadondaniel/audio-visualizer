@@ -32,6 +32,7 @@ const MODES = [
   "tunnel",
   "waves",
   "aurora",
+  "cascade",
 ];
 
 // ---------- visual tuning ----------
@@ -68,6 +69,11 @@ const VISUAL_TUNING = {
   },
   aurora: {
     releasePerSec: 6.5,
+  },
+  cascade: {
+    lineCount: 26,
+    rollSpeed: 0.52,
+    releasePerSec: 9.6,
   },
   particles: {
     cap: 1400,
