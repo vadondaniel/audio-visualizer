@@ -57,7 +57,9 @@ function readImageFile(file) {
 // depending on which visual is currently selected.
 function updateVisualOptionRows() {
   const currentMode = MODES[state.mode];
+  barsAlignmentRow.style.display = currentMode === "bars" ? "" : "none";
   radialModeRow.style.display = currentMode === "radial" ? "" : "none";
+  waveformStyleRow.style.display = currentMode === "waveform" ? "" : "none";
   kaleidoClipRow.style.display = currentMode === "kaleidoscope" ? "" : "none";
   smoothingRow.style.display =
     currentMode === "particles" || currentMode === "waveform" ? "none" : "";
@@ -75,4 +77,6 @@ function syncSelectsToState() {
 function updateSliderLabels() {
   brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
   blurVal.textContent = `${state.bgBlur}px`;
+  sensitivityVal.textContent = `${state.sensitivity.toFixed(1)}x`;
+  glowVal.textContent = `${Math.round(state.glowIntensity * 100)}%`;
 }

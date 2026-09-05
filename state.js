@@ -18,6 +18,10 @@ const state = {
   smoothingEnabled: true,
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
+  barsAlignment: "bottom", // "bottom" | "center"
+  waveformStyle: "line", // "line" | "filled"
+  sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
+  glowIntensity: 1.0, // bloom multiplier (0% - 200%)
 };
 
 // ---------- settings persistence ----------
@@ -35,6 +39,10 @@ const PERSISTED_KEYS = [
   "smoothingEnabled",
   "radialMode",
   "kaleidoClipEnabled",
+  "barsAlignment",
+  "waveformStyle",
+  "sensitivity",
+  "glowIntensity",
 ];
 
 function saveSettings() {
@@ -82,6 +90,10 @@ function loadSettings() {
   smoothingCheckbox.checked = state.smoothingEnabled;
   radialMirroredCheckbox.checked = state.radialMode === "mirrored";
   kaleidoClipCheckbox.checked = state.kaleidoClipEnabled;
+  barsAlignmentSelect.value = state.barsAlignment;
+  waveformStyleSelect.value = state.waveformStyle;
+  sensitivitySlider.value = state.sensitivity;
+  glowSlider.value = state.glowIntensity;
   updateSliderLabels();
   updateBgRowsVisibility();
   syncSelectsToState();

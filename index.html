@@ -72,8 +72,8 @@
           <div class="hotkeyRow">
             <span class="hotkeyDesc">Switch visual style</span>
             <span class="hotkeyKeys"
-              ><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd
-              ><kbd>5</kbd></span
+              ><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><kbd>5</kbd
+              ><kbd>6</kbd><kbd>7</kbd></span
             >
           </div>
           <div class="hotkeyRow">
@@ -161,9 +161,23 @@
           <label for="modeSelect">Style</label>
           <select id="modeSelect"></select>
         </div>
+        <div id="barsAlignmentRow" class="field">
+          <label for="barsAlignmentSelect">Bars alignment</label>
+          <select id="barsAlignmentSelect">
+            <option value="bottom">Bottom</option>
+            <option value="center">Center split</option>
+          </select>
+        </div>
         <div id="radialModeRow" class="toggleRow">
           <label for="radialMirroredCheckbox">Mirrored</label>
           <input type="checkbox" id="radialMirroredCheckbox" checked />
+        </div>
+        <div id="waveformStyleRow" class="field">
+          <label for="waveformStyleSelect">Waveform style</label>
+          <select id="waveformStyleSelect">
+            <option value="line">Single line</option>
+            <option value="filled">Filled ribbon</option>
+          </select>
         </div>
         <div id="kaleidoClipRow" class="toggleRow">
           <label for="kaleidoClipCheckbox">Clip to circle</label>
@@ -176,6 +190,34 @@
         <div id="smoothingRow" class="toggleRow">
           <label for="smoothingCheckbox">Smooth motion</label>
           <input type="checkbox" id="smoothingCheckbox" checked />
+        </div>
+        <div class="field">
+          <label for="sensitivitySlider"
+            ><span>Sensitivity</span
+            ><span class="val" id="sensitivityVal">1.0x</span></label
+          >
+          <input
+            type="range"
+            id="sensitivitySlider"
+            min="0.4"
+            max="2.4"
+            step="0.1"
+            value="1.0"
+          />
+        </div>
+        <div class="field">
+          <label for="glowSlider"
+            ><span>Glow intensity</span
+            ><span class="val" id="glowVal">100%</span></label
+          >
+          <input
+            type="range"
+            id="glowSlider"
+            min="0"
+            max="2.0"
+            step="0.1"
+            value="1.0"
+          />
         </div>
       </div>
 

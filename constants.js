@@ -23,7 +23,15 @@ const THEMES = [
   { name: "Ice", hues: [190, 260] }, // blue -> purple
 ];
 
-const MODES = ["bars", "radial", "waveform", "particles", "kaleidoscope"];
+const MODES = [
+  "bars",
+  "radial",
+  "waveform",
+  "particles",
+  "kaleidoscope",
+  "tunnel",
+  "aurora",
+];
 
 // ---------- visual tuning ----------
 // Per-mode constants that shape how each visual responds to audio.
@@ -47,6 +55,18 @@ const VISUAL_TUNING = {
     spinTreblePerSec: 0.18,
     spinBeatPerSec: 0.36,
     flashDecayPerSec: 7.2,
+  },
+  tunnel: {
+    ringCount: 26,
+    speed: 1.2,
+    twistPerSec: 0.35,
+    releasePerSec: 8.5,
+  },
+  aurora: {
+    layers: 4,
+    points: 40,
+    speed: 0.8,
+    releasePerSec: 6.5,
   },
   particles: {
     cap: 1400,

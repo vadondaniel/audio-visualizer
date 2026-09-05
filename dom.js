@@ -14,6 +14,10 @@ const settingsPanel = document.getElementById("settingsPanel");
 // Visual / theme selectors
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
+const barsAlignmentRow = document.getElementById("barsAlignmentRow");
+const barsAlignmentSelect = document.getElementById("barsAlignmentSelect");
+const waveformStyleRow = document.getElementById("waveformStyleRow");
+const waveformStyleSelect = document.getElementById("waveformStyleSelect");
 const smoothingRow = document.getElementById("smoothingRow");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");
@@ -22,6 +26,10 @@ const radialMirroredCheckbox = document.getElementById(
 );
 const kaleidoClipRow = document.getElementById("kaleidoClipRow");
 const kaleidoClipCheckbox = document.getElementById("kaleidoClipCheckbox");
+const sensitivitySlider = document.getElementById("sensitivitySlider");
+const sensitivityVal = document.getElementById("sensitivityVal");
+const glowSlider = document.getElementById("glowSlider");
+const glowVal = document.getElementById("glowVal");
 
 // Background controls
 const bgLayer = document.getElementById("bgLayer");

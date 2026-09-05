@@ -4,8 +4,9 @@ function currentHue(offset = 0) {
 }
 
 function applyGlow(color, blur) {
-  ctx.shadowBlur = blur;
-  ctx.shadowColor = color;
+  const scaled = blur * state.glowIntensity;
+  ctx.shadowBlur = scaled;
+  ctx.shadowColor = scaled > 0 ? color : "transparent";
 }
 
 // ---------- particle system (used by 'particles' mode) ----------
@@ -43,6 +44,9 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
     ? Math.exp(-releasePerSec * dtSec)
     : 0;
 
+  const isCenter = state.barsAlignment === "center";
+  const centerY = canvas.height / 2;
+
   for (let i = 0; i < barCount; i++) {
     const targetV = Math.pow(freqData[i * step] / 255, 0.82);
     smoothedBars[i] = smoothTowards(smoothedBars[i], targetV, remaining);
@@ -56,11 +60,17 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
     const hue = currentHue(i / barCount);
     ctx.fillStyle = `hsl(${hue}, 90%, ${50 + v * 20}%)`;
     applyGlow(ctx.fillStyle, 14);
-    ctx.fillRect(i * w, baseY - h, w * 0.8, h);
-    // mirrored reflection below
-    ctx.globalAlpha = 0.25;
-    ctx.fillRect(i * w, baseY, w * 0.8, h * 0.35);
-    ctx.globalAlpha = 1;
+
+    if (isCenter) {
+      const halfH = h * 0.68;
+      ctx.fillRect(i * w, centerY - halfH, w * 0.8, halfH * 2);
+    } else {
+      ctx.fillRect(i * w, baseY - h, w * 0.8, h);
+      // mirrored reflection below
+      ctx.globalAlpha = 0.25;
+      ctx.fillRect(i * w, baseY, w * 0.8, h * 0.35);
+      ctx.globalAlpha = 1;
+    }
   }
   ctx.shadowBlur = 0;
 }
@@ -153,6 +163,31 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
     else ctx.lineTo(x, y);
   }
   ctx.stroke();
+
+  if (state.waveformStyle === "filled") {
+    // Upper ribbon fill
+    ctx.lineTo(canvas.width, midY);
+    ctx.lineTo(0, midY);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${currentHue(0.5)}, 90%, 60%, 0.22)`;
+    ctx.fill();
+
+    // Symmetrical lower reflected harmonic ribbon
+    ctx.beginPath();
+    for (let i = 0; i < bufferLength; i++) {
+      const raw = (timeData[i] - 128) / 128;
+      const y = midY - raw * amp * canvas.height * 0.32;
+      const x = i * slice;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.lineTo(canvas.width, midY);
+    ctx.lineTo(0, midY);
+    ctx.closePath();
+    ctx.fillStyle = `hsla(${currentHue(0.5)}, 90%, 60%, 0.12)`;
+    ctx.fill();
+  }
   ctx.shadowBlur = 0;
 }
 
@@ -413,6 +448,181 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.shadowBlur = 0;
 }
 
+// ---------- Cyber Tunnel mode ----------
+let tunnelZOffset = 0;
+let tunnelAngle = 0;
+const smoothedTunnelRings = new Array(26).fill(0);
+
+function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
+  const { ringCount, speed, twistPerSec, releasePerSec } = VISUAL_TUNING.tunnel;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const maxR = Math.min(canvas.width, canvas.height) * 0.72;
+
+  tunnelZOffset =
+    (tunnelZOffset + (speed + bassLevel * 1.5 + beatPulse * 2.0) * dtSec) % 1.0;
+  tunnelAngle += (twistPerSec + trebleLevel * 0.6) * dtSec;
+
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-releasePerSec * dtSec)
+    : 0;
+
+  const spokes = 12;
+  const spokeStep = (Math.PI * 2) / spokes;
+
+  // Perspective tunnel rail lines
+  ctx.lineWidth = 1.2 + beatPulse * 1.2;
+  for (let s = 0; s < spokes; s++) {
+    const a = s * spokeStep + tunnelAngle;
+    const startR = 15 + beatPulse * 10;
+    const endR = maxR * 1.35;
+    ctx.strokeStyle = `hsla(${currentHue(s / spokes)}, 90%, 60%, ${0.2 + midLevel * 0.25})`;
+    applyGlow(ctx.strokeStyle, 8);
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * startR, cy + Math.sin(a) * startR);
+    ctx.lineTo(cx + Math.cos(a + 0.3) * endR, cy + Math.sin(a + 0.3) * endR);
+    ctx.stroke();
+  }
+
+  // Concentric depth rings moving forward
+  for (let i = 0; i < ringCount; i++) {
+    const rawZ = (i / ringCount + tunnelZOffset) % 1.0;
+    const z = Math.pow(rawZ, 2.4);
+    if (z < 0.01) continue;
+
+    const ringRadius = z * maxR * (0.85 + midLevel * 0.2 + beatPulse * 0.2);
+    const alpha = Math.min(1, Math.sin(rawZ * Math.PI) * 1.2);
+
+    const binIdx = Math.floor(rawZ * (bufferLength * 0.4));
+    const targetV = Math.pow(freqData[binIdx] / 255, 0.85);
+    smoothedTunnelRings[i] = smoothTowards(
+      smoothedTunnelRings[i] || 0,
+      targetV,
+      remaining
+    );
+    const v = smoothedTunnelRings[i];
+
+    const ringRot = tunnelAngle + rawZ * 1.6;
+    const hue = currentHue(rawZ);
+    ctx.strokeStyle = `hsla(${hue}, 90%, ${55 + v * 25}%, ${alpha * (0.4 + v * 0.5)})`;
+    ctx.lineWidth = 1.6 + z * 3.5 + v * 2.0;
+    applyGlow(ctx.strokeStyle, 12);
+
+    ctx.beginPath();
+    const vertices = 16;
+    for (let vIdx = 0; vIdx <= vertices; vIdx++) {
+      const va = (vIdx / vertices) * Math.PI * 2 + ringRot;
+      const wobble = 1 + (vIdx % 2 === 0 ? 1 : -1) * v * 0.18;
+      const rx = cx + Math.cos(va) * ringRadius * wobble;
+      const ry = cy + Math.sin(va) * ringRadius * wobble;
+      if (vIdx === 0) ctx.moveTo(rx, ry);
+      else ctx.lineTo(rx, ry);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+
+  // Glowing hyperdrive center vortex
+  const coreR = 12 + bassLevel * 20 + beatPulse * 16;
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 75%, 0.8)`;
+  applyGlow(ctx.fillStyle, 24);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+}
+
+// ---------- Aurora / Liquid Waves mode ----------
+const auroraPhases = [0, 1.2, 2.5, 3.8];
+const smoothedAurora = [0, 0, 0, 0];
+
+function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
+  const { layers, points, speed, releasePerSec } = VISUAL_TUNING.aurora;
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-releasePerSec * dtSec)
+    : 0;
+
+  const bandLevels = [
+    bassLevel * 1.2,
+    midLevel * 1.0,
+    trebleLevel * 1.1,
+    (bassLevel * 0.5 + midLevel * 0.5) * 1.0,
+  ];
+
+  const midY = canvas.height * 0.58;
+  const segW = canvas.width / (points - 1);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+
+  for (let l = 0; l < layers; l++) {
+    smoothedAurora[l] = smoothTowards(
+      smoothedAurora[l],
+      bandLevels[l],
+      remaining
+    );
+    const v = smoothedAurora[l];
+
+    auroraPhases[l] += (speed * (0.6 + l * 0.25) + bandLevels[l] * 0.6) * dtSec;
+    const phase = auroraPhases[l];
+
+    const hue = currentHue(l / layers);
+    const amp =
+      canvas.height * (0.12 + l * 0.05) * (0.4 + v * 0.9 + beatPulse * 0.25);
+    const layerBaseY = midY + (l - layers / 2) * 35;
+
+    ctx.beginPath();
+    ctx.moveTo(0, canvas.height);
+
+    for (let p = 0; p < points; p++) {
+      const normX = p / (points - 1);
+      const wave1 = Math.sin(normX * Math.PI * 2.2 + phase);
+      const wave2 = Math.cos(normX * Math.PI * 4.4 - phase * 0.7) * 0.45;
+      const wave3 = Math.sin(normX * Math.PI * 1.1 + phase * 0.3) * 0.35;
+      const y = layerBaseY + (wave1 + wave2 + wave3) * amp;
+      const x = p * segW;
+      ctx.lineTo(x, y);
+    }
+
+    ctx.lineTo(canvas.width, canvas.height);
+    ctx.closePath();
+
+    // Translucent gradient fill
+    const grad = ctx.createLinearGradient(
+      0,
+      layerBaseY - amp,
+      0,
+      canvas.height
+    );
+    grad.addColorStop(0, `hsla(${hue}, 90%, 65%, ${0.35 + v * 0.25})`);
+    grad.addColorStop(0.6, `hsla(${hue}, 85%, 45%, ${0.15 + v * 0.15})`);
+    grad.addColorStop(1, `hsla(${hue}, 80%, 20%, 0)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Glowing crest line
+    ctx.beginPath();
+    for (let p = 0; p < points; p++) {
+      const normX = p / (points - 1);
+      const wave1 = Math.sin(normX * Math.PI * 2.2 + phase);
+      const wave2 = Math.cos(normX * Math.PI * 4.4 - phase * 0.7) * 0.45;
+      const wave3 = Math.sin(normX * Math.PI * 1.1 + phase * 0.3) * 0.35;
+      const y = layerBaseY + (wave1 + wave2 + wave3) * amp;
+      const x = p * segW;
+      if (p === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = `hsl(${hue}, 95%, 72%)`;
+    ctx.lineWidth = 2.2 + v * 1.5;
+    applyGlow(ctx.strokeStyle, 16);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+  ctx.shadowBlur = 0;
+}
+
 // ---------- main loop ----------
 let lastFrameTime = 0;
 
@@ -438,13 +648,22 @@ function loop(timestamp = performance.now()) {
   const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
   const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
   const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
-  const bassLevel = normalizeEnergy(
-    bass,
-    AUDIO_TUNING.particleFloor,
-    AUDIO_TUNING.particleRange
+  const bassLevel = Math.min(
+    1,
+    normalizeEnergy(
+      bass,
+      AUDIO_TUNING.particleFloor,
+      AUDIO_TUNING.particleRange
+    ) * state.sensitivity
   );
-  const midLevel = normalizeEnergy(mid, 18, 180);
-  const trebleLevel = normalizeEnergy(treble, 14, 170);
+  const midLevel = Math.min(
+    1,
+    normalizeEnergy(mid, 18, 180) * state.sensitivity
+  );
+  const trebleLevel = Math.min(
+    1,
+    normalizeEnergy(treble, 14, 170) * state.sensitivity
+  );
   updateBeat(bass, elapsedMs, dtSec);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
@@ -470,6 +689,12 @@ function loop(timestamp = performance.now()) {
       break;
     case "kaleidoscope":
       drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec);
+      break;
+    case "tunnel":
+      drawTunnel(bassLevel, midLevel, trebleLevel, dtSec);
+      break;
+    case "aurora":
+      drawAurora(bassLevel, midLevel, trebleLevel, dtSec);
       break;
   }
 }

@@ -235,4 +235,18 @@ describe("mergeSettings", () => {
     const saved = { kaleidoClipEnabled: false };
     expect(mergeSettings(defaults, saved, 5, 7).kaleidoClipEnabled).toBe(false);
   });
+
+  test("accepts valid barsAlignment, waveformStyle, sensitivity, and glowIntensity", () => {
+    const saved = {
+      barsAlignment: "center",
+      waveformStyle: "filled",
+      sensitivity: 1.5,
+      glowIntensity: 0.8,
+    };
+    const merged = mergeSettings(defaults, saved, 7, 7);
+    expect(merged.barsAlignment).toBe("center");
+    expect(merged.waveformStyle).toBe("filled");
+    expect(merged.sensitivity).toBe(1.5);
+    expect(merged.glowIntensity).toBe(0.8);
+  });
 });

@@ -41,6 +41,16 @@ smoothingCheckbox.addEventListener("change", (e) => {
   saveSettings();
 });
 
+barsAlignmentSelect.addEventListener("change", (e) => {
+  state.barsAlignment = e.target.value;
+  saveSettings();
+});
+
+waveformStyleSelect.addEventListener("change", (e) => {
+  state.waveformStyle = e.target.value;
+  saveSettings();
+});
+
 radialMirroredCheckbox.addEventListener("change", (e) => {
   state.radialMode = e.target.checked ? "mirrored" : "full";
   saveSettings();
@@ -48,6 +58,18 @@ radialMirroredCheckbox.addEventListener("change", (e) => {
 
 kaleidoClipCheckbox.addEventListener("change", (e) => {
   state.kaleidoClipEnabled = e.target.checked;
+  saveSettings();
+});
+
+sensitivitySlider.addEventListener("input", (e) => {
+  state.sensitivity = parseFloat(e.target.value);
+  updateSliderLabels();
+  saveSettings();
+});
+
+glowSlider.addEventListener("input", (e) => {
+  state.glowIntensity = parseFloat(e.target.value);
+  updateSliderLabels();
   saveSettings();
 });
 
@@ -189,7 +211,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   flashHud();
-  if (e.key >= "1" && e.key <= "5") {
+  if (e.key >= "1" && e.key <= String(MODES.length)) {
     state.mode = parseInt(e.key, 10) - 1;
     syncSelectsToState();
     saveSettings();

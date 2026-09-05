@@ -119,6 +119,22 @@
       state.radialMode = saved.radialMode;
     if (typeof saved.kaleidoClipEnabled === "boolean")
       state.kaleidoClipEnabled = saved.kaleidoClipEnabled;
+    if (saved.barsAlignment === "bottom" || saved.barsAlignment === "center")
+      state.barsAlignment = saved.barsAlignment;
+    if (saved.waveformStyle === "line" || saved.waveformStyle === "filled")
+      state.waveformStyle = saved.waveformStyle;
+    if (
+      typeof saved.sensitivity === "number" &&
+      saved.sensitivity >= 0.2 &&
+      saved.sensitivity <= 3.0
+    )
+      state.sensitivity = saved.sensitivity;
+    if (
+      typeof saved.glowIntensity === "number" &&
+      saved.glowIntensity >= 0 &&
+      saved.glowIntensity <= 2.5
+    )
+      state.glowIntensity = saved.glowIntensity;
 
     return state;
   }
