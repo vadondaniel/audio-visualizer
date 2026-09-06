@@ -47,8 +47,160 @@ modeSelect.addEventListener("change", (e) => {
   saveSettings();
 });
 
+function hslToRgb(h, s, l) {
+  h = (((h % 360) + 360) % 360) / 360;
+  s = Math.max(0, Math.min(100, s)) / 100;
+  l = Math.max(0, Math.min(100, l)) / 100;
+
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+
+  const hueToChannel = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [
+    Math.round(hueToChannel(p, q, h + 1 / 3) * 255),
+    Math.round(hueToChannel(p, q, h) * 255),
+    Math.round(hueToChannel(p, q, h - 1 / 3) * 255),
+  ];
+}
+
+function applyThemeUiColors() {
+  const theme = THEMES[state.theme] || THEMES[0];
+  const root = document.documentElement;
+  let start;
+  let end;
+
+  // UI accents are related to the visual theme, but they need to remain
+  // usable as interface chrome.  In particular, Black/White get distinct
+  // neutral ramps rather than collapsing to the same "readable" gray.
+  if (theme.monochrome === "white") {
+    start = [255, 255, 255];
+    end = [214, 214, 214];
+  } else if (theme.monochrome === "black") {
+    start = [150, 150, 150];
+    end = [88, 88, 88];
+  } else if (theme.colorCycle) {
+    // Color Cycle represents one hue moving around the wheel, not a
+    // miniature rainbow. Keep the UI on that single moving hue with a
+    // restrained lightness ramp.
+    const hue = ((uiHueShift % 360) + 360) % 360;
+    start = hslToRgb(hue, 88, 62);
+    end = hslToRgb(hue, 70, 42);
+  } else if (theme.rainbow && theme.cycle) {
+    // Rainbow Cycle is the full-spectrum variant: two visibly separated
+    // points from the rotating spectrum make the distinction from Color
+    // Cycle obvious.
+    const hue = ((uiHueShift % 360) + 360) % 360;
+    start = hslToRgb(hue, 92, 62);
+    end = hslToRgb(hue + 210, 92, 62);
+  } else if (theme.rainbow) {
+    // Static Rainbow gets a representative red -> blue UI ramp rather than
+    // the narrow violet segment used by the Violet theme.
+    start = hslToRgb(0, 92, 62);
+    end = hslToRgb(210, 92, 62);
+  } else if (theme.name === "Violet") {
+    // Keep Violet unmistakably purple rather than looking like a slice of
+    // the full Rainbow palette.
+    start = hslToRgb(270, 78, 55);
+    end = hslToRgb(300, 70, 74);
+  } else if (theme.colorStops?.length) {
+    const first = theme.colorStops[0];
+    const last = theme.colorStops[theme.colorStops.length - 1];
+    start = hslToRgb(first.hue, 88, 62);
+    end = hslToRgb(last.hue, 88, 62);
+  } else {
+    start = hslToRgb(320, 88, 62);
+    end = hslToRgb(190, 88, 62);
+  }
+
+  const luminance = (rgb) =>
+    0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+
+  // Cycling palettes must not flip the UI foreground between black and white
+  // as the moving accent crosses a luminance threshold. That reads as UI
+  // flicker rather than part of the color cycle. Keep one stable foreground
+  // for the whole cycle.
+  let contrast;
+  if (theme.colorCycle || (theme.rainbow && theme.cycle)) {
+    contrast = [245, 246, 250];
+  } else {
+    contrast =
+      (luminance(start) + luminance(end)) / 2 > 155
+        ? [11, 11, 16]
+        : [245, 246, 250];
+  }
+
+  root.style.setProperty("--accent-rgb", start.join(", "));
+  root.style.setProperty("--accent-2-rgb", end.join(", "));
+  root.style.setProperty("--accent-contrast-rgb", contrast.join(", "));
+}
+
+let uiAccentAnimationFrame = null;
+let lastUiAccentUpdate = 0;
+let uiHueShift = 0;
+let uiHueClock = null;
+function updateCyclingUiAccent(timestamp = performance.now()) {
+  const theme = THEMES[state.theme] || THEMES[0];
+  const shouldCycle = Boolean(
+    theme.colorCycle || (theme.rainbow && theme.cycle)
+  );
+
+  if (!shouldCycle) {
+    uiAccentAnimationFrame = null;
+    return;
+  }
+
+  if (uiHueClock == null) uiHueClock = timestamp;
+  const dtMs = Math.min(100, Math.max(0, timestamp - uiHueClock));
+  uiHueClock = timestamp;
+
+  // The landing screen does not run the audio renderer yet, so it cannot
+  // rely on state.hueShift being advanced by the main visual loop. Keep a
+  // small independent UI hue clock so cycling themes visibly cycle before
+  // START as well. Once audio is running, this remains intentionally
+  // independent so the UI never adds work to the renderer's hot path.
+  const cycleSpeed = VISUAL_TUNING.hueCycle.baseDegPerSec;
+  uiHueShift = (uiHueShift + (cycleSpeed * dtMs) / 1000) % 360;
+
+  // UI accents do not need display-rate stylesheet updates. 30 Hz keeps the
+  // controls feeling alive without needlessly touching the stylesheet every frame.
+  if (timestamp - lastUiAccentUpdate >= 33) {
+    lastUiAccentUpdate = timestamp;
+    applyThemeUiColors();
+  }
+
+  uiAccentAnimationFrame = requestAnimationFrame(updateCyclingUiAccent);
+}
+
+function restartUiAccentAnimation() {
+  if (uiAccentAnimationFrame !== null) {
+    cancelAnimationFrame(uiAccentAnimationFrame);
+    uiAccentAnimationFrame = null;
+  }
+  lastUiAccentUpdate = 0;
+  uiHueClock = null;
+  uiHueShift = ((state.hueShift % 360) + 360) % 360;
+  const theme = THEMES[state.theme] || THEMES[0];
+  if (theme.colorCycle || (theme.rainbow && theme.cycle)) {
+    uiAccentAnimationFrame = requestAnimationFrame(updateCyclingUiAccent);
+  }
+}
+
 themeSelect.addEventListener("change", (e) => {
   state.theme = parseInt(e.target.value, 10);
+  applyThemeUiColors();
+  restartUiAccentAnimation();
   updateVisualOptionRows();
   saveSettings();
 });
@@ -235,6 +387,8 @@ particleStyleSelect.addEventListener("change", (e) => {
 
 // Initialize settings from localStorage into UI and state
 loadSettings();
+applyThemeUiColors();
+restartUiAccentAnimation();
 updateTrailVisibility();
 
 // ---------- input & hud ----------
@@ -297,6 +451,8 @@ hotkeysOverlay.addEventListener("click", (e) => {
 const KEY_ACTIONS = {
   c: () => {
     state.theme = (state.theme + 1) % THEMES.length;
+    applyThemeUiColors();
+    restartUiAccentAnimation();
     syncSelectsToState();
     saveSettings();
   },

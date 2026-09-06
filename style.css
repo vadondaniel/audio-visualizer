@@ -126,6 +126,7 @@
   --accent: rgb(var(--accent-rgb));
   --accent-2-rgb: 79, 215, 255;
   --accent-2: rgb(var(--accent-2-rgb));
+  --accent-contrast-rgb: 11, 11, 16;
   --accent-gradient: linear-gradient(
     135deg,
     var(--accent) 0%,
@@ -350,11 +351,16 @@ body {
   font-size: var(--fs-md);
   font-weight: 500;
   letter-spacing: 1.5px;
-  background: var(--glass-fill);
+  /* Use the same gradient for the visible border and fill. Keeping the
+     border transparent avoids a one-pixel color mismatch around the
+     anti-aliased rounded edge. */
+  background:
+    linear-gradient(var(--glass-fill), var(--glass-fill)) padding-box,
+    var(--accent-gradient) border-box;
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   color: var(--ink);
-  border: 1px solid rgba(var(--accent-rgb), 0.55);
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition:
@@ -365,7 +371,11 @@ body {
 }
 
 #startBtn:hover {
-  background: var(--accent-gradient);
+  /* Keep the gradient continuous through the border rather than letting the
+     old single-color border show through at the rounded edge. */
+  background:
+    var(--accent-gradient) padding-box,
+    var(--accent-gradient) border-box;
   border-color: transparent;
   box-shadow: 0 0 36px rgba(var(--accent-rgb), 0.45);
 }
@@ -1019,7 +1029,7 @@ body {
 
   #settingsPanel select option:checked {
     background: var(--accent-gradient);
-    color: #0b0b10;
+    color: rgb(var(--accent-contrast-rgb));
   }
 }
 
@@ -1044,6 +1054,7 @@ body {
   border-radius: var(--radius-pill);
   background: var(--surface-input);
   border: 1px solid var(--hairline-strong);
+  outline: none;
   cursor: pointer;
   transition:
     background var(--transition-med),
@@ -1058,13 +1069,22 @@ body {
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  background: var(--ink);
+  background: rgb(var(--accent-contrast-rgb));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
   transition: transform var(--transition-med);
 }
 
 #settingsPanel input[type="checkbox"]:checked {
-  background: var(--accent-gradient);
   border-color: transparent;
+  background:
+    var(--accent-gradient) padding-box,
+    var(--accent-gradient) border-box;
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+#settingsPanel input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 2px rgba(var(--accent-2-rgb), 0.2);
 }
 
 #settingsPanel input[type="checkbox"]:checked::before {
