@@ -7,4 +7,5 @@ module.exports = {
   TOGGLE_FULLSCREEN: "toggle-fullscreen",
   TOGGLE_ALWAYS_ON_TOP: "toggle-always-on-top",
   QUIT_APP: "quit-app",
+  GET_PERFORMANCE_METRICS: "get-performance-metrics",
 };

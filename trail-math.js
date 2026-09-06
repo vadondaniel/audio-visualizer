@@ -14,20 +14,23 @@
     return remaining * remaining * remaining;
   }
 
-  function trailCaptureIntervalMs(durationMs, maxSnapshots) {
-    return durationMs / maxSnapshots;
+  function trailCaptureIntervalMs(durationMs, maxSnapshots, maxFps = 60) {
+    const snapshotInterval = durationMs / maxSnapshots;
+    const fpsInterval = 1000 / maxFps;
+    return Math.max(snapshotInterval, fpsInterval);
   }
 
   function shouldCaptureTrail(
     timestampMs,
     lastCaptureMs,
     durationMs,
-    maxSnapshots
+    maxSnapshots,
+    maxFps = 60
   ) {
     return (
       lastCaptureMs === null ||
       timestampMs - lastCaptureMs >=
-        trailCaptureIntervalMs(durationMs, maxSnapshots)
+        trailCaptureIntervalMs(durationMs, maxSnapshots, maxFps)
     );
   }
 

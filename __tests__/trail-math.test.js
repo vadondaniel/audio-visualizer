@@ -20,11 +20,11 @@ describe("trailOpacity", () => {
 
 describe("trail history timing", () => {
   test("captures every normal display frame and caps high-refresh capture rate", () => {
-    expect(trailCaptureIntervalMs(220, 24)).toBeCloseTo(220 / 24);
+    expect(trailCaptureIntervalMs(220, 24, 60)).toBeCloseTo(1000 / 60);
     expect(shouldCaptureTrail(0, null, 220, 24)).toBe(true);
-    expect(shouldCaptureTrail(16.67, 0, 220, 24)).toBe(true);
-    expect(shouldCaptureTrail(6, 0, 220, 24)).toBe(false);
-    expect(shouldCaptureTrail(9.17, 0, 220, 24)).toBe(true);
+    expect(shouldCaptureTrail(16.67, 0, 220, 24, 60)).toBe(true);
+    expect(shouldCaptureTrail(6, 0, 220, 24, 60)).toBe(false);
+    expect(shouldCaptureTrail(9.17, 0, 220, 24, 120)).toBe(true);
   });
 
   test("keeps a 240 Hz trail within the snapshot cap for its full lifetime", () => {

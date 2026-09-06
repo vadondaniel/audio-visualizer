@@ -93,3 +93,5 @@ ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
 ipcMain.on(IPC.QUIT_APP, () => {
   app.quit();
 });
+
+ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());

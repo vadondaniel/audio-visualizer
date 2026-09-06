@@ -26,6 +26,7 @@ const state = {
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
   trailsEnabled: true,
   trailDuration: TRAIL_DURATION_MS,
+  trailMaxFps: TRAIL_MAX_FPS,
   wakeLockEnabled: false,
   reactiveVignette: true, // audio-reactive peripheral pulse
   crtFilter: false, // retro CRT scanlines & chromatic fringe
@@ -57,6 +58,7 @@ const PERSISTED_KEYS = [
   "glowIntensity",
   "trailsEnabled",
   "trailDuration",
+  "trailMaxFps",
   "wakeLockEnabled",
   "reactiveVignette",
   "crtFilter",
@@ -120,6 +122,7 @@ function loadSettings() {
   glowSlider.value = state.glowIntensity;
   trailsCheckbox.checked = state.trailsEnabled;
   trailDurationSlider.value = state.trailDuration;
+  trailFpsSlider.value = state.trailMaxFps;
   wakeLockCheckbox.checked = state.wakeLockEnabled;
   if (typeof reactiveVignetteCheckbox !== "undefined")
     reactiveVignetteCheckbox.checked = state.reactiveVignette;

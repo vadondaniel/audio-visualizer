@@ -394,5 +394,6 @@ function updateSliderLabels() {
   sensitivityVal.textContent = `${state.sensitivity.toFixed(1)}x`;
   glowVal.textContent = `${Math.round(state.glowIntensity * 100)}%`;
   trailDurationVal.textContent = `${state.trailDuration}ms`;
+  trailFpsVal.textContent = `${state.trailMaxFps} FPS`;
   particleDensityVal.textContent = `${Math.round(state.particleDensity * 100)}%`;
 }

@@ -983,3 +983,116 @@ body {
   border-color: var(--accent-2);
   color: var(--ink);
 }
+
+/* ---------- diagnostics ---------- */
+#settingsPanel .diagnosticsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+#settingsPanel .diagnosticMetric {
+  min-width: 0;
+  padding: 9px 10px;
+  background: var(--surface-input);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+}
+
+#settingsPanel .diagnosticMetric:last-child,
+#settingsPanel .diagnosticMetricWide {
+  grid-column: 1 / -1;
+}
+
+#settingsPanel .diagnosticMetric span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--ink-faint);
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+#settingsPanel .diagnosticMetric strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#settingsPanel .diagnosticDetail {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+#settingsPanel .diagnosticActions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 7px;
+}
+
+#settingsPanel .diagnosticButton {
+  padding: 8px 10px;
+  border: 1px solid rgba(var(--accent-2-rgb), 0.4);
+  border-radius: var(--radius-sm);
+  background: rgba(var(--accent-2-rgb), 0.12);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+#settingsPanel .diagnosticButton:hover {
+  background: rgba(var(--accent-2-rgb), 0.2);
+  border-color: rgba(var(--accent-2-rgb), 0.6);
+}
+
+#settingsPanel .diagnosticButtonSecondary {
+  background: transparent;
+  border-color: var(--hairline-strong);
+  color: var(--ink-dim);
+}
+
+#settingsPanel .diagnosticProfile {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+}
+
+#settingsPanel .diagnosticProfileHeader {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 7px;
+}
+
+#settingsPanel .diagnosticProfileHeader span:first-child {
+  color: var(--ink);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+#settingsPanel .diagnosticProfileHeader span:last-child {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+#settingsPanel .diagnosticButton.recording {
+  border-color: rgba(255, 100, 100, 0.7);
+  background: rgba(255, 80, 80, 0.14);
+}
+
+#settingsPanel .diagnosticButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

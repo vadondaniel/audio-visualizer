@@ -41,6 +41,8 @@ const trailsCheckbox = document.getElementById("trailsCheckbox");
 const trailDurationRow = document.getElementById("trailDurationRow");
 const trailDurationSlider = document.getElementById("trailDurationSlider");
 const trailDurationVal = document.getElementById("trailDurationVal");
+const trailFpsSlider = document.getElementById("trailFpsSlider");
+const trailFpsVal = document.getElementById("trailFpsVal");
 const wakeLockCheckbox = document.getElementById("wakeLockCheckbox");
 
 // Background controls
@@ -75,6 +77,14 @@ const particleStyleRow = document.getElementById("particleStyleRow");
 const particleDensitySlider = document.getElementById("particleDensitySlider");
 const particleDensityVal = document.getElementById("particleDensityVal");
 const particleStyleSelect = document.getElementById("particleStyleSelect");
+
+const diagnosticsStatus = document.getElementById("diagnosticsStatus");
+const diagFps = document.getElementById("diagFps");
+const diagFrame = document.getElementById("diagFrame");
+const diagRender = document.getElementById("diagRender");
+const diagTrail = document.getElementById("diagTrail");
+const diagLoad = document.getElementById("diagLoad");
+const diagDetail = document.getElementById("diagDetail");
 
 // Hotkeys modal
 const hotkeysBtn = document.getElementById("hotkeysBtn");

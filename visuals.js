@@ -54,8 +54,13 @@ function discardExpiredTrailFrames(timestamp) {
   }
 }
 
+function getTrailSnapshotLimit() {
+  const desired = Math.ceil((state.trailDuration * state.trailMaxFps) / 1000);
+  return Math.max(1, Math.min(180, desired + 1));
+}
+
 function captureTrailFrame(timestamp) {
-  if (trailFrames.length >= TRAIL_MAX_SNAPSHOTS) {
+  if (trailFrames.length >= getTrailSnapshotLimit()) {
     trailCanvasPool.push(trailFrames.shift().canvas);
   }
   const frameCanvas = takeTrailCanvas();
@@ -69,24 +74,41 @@ function captureTrailFrame(timestamp) {
 function renderTrailHistory(timestamp) {
   if (!state.trailsEnabled) {
     resetTrailHistory();
+    const presentStart =
+      typeof diagnostics !== "undefined" ? diagnostics.beginPresent() : 0;
     displayCtx.save();
     displayCtx.setTransform(1, 0, 0, 1, 0, 0);
     displayCtx.globalAlpha = 1;
     displayCtx.clearRect(0, 0, canvas.width, canvas.height);
     displayCtx.drawImage(renderCanvas, 0, 0);
     displayCtx.restore();
+    if (typeof diagnostics !== "undefined")
+      diagnostics.endPresent(presentStart);
     return;
   }
 
   discardExpiredTrailFrames(timestamp);
+  const desiredSnapshots = Math.ceil(
+    (state.trailDuration * state.trailMaxFps) / 1000
+  );
+  const snapshotLimit = Math.max(1, Math.min(180, desiredSnapshots + 1));
   const shouldCapture = TrailMath.shouldCaptureTrail(
     timestamp,
     lastTrailCaptureMs,
     state.trailDuration,
-    TRAIL_MAX_SNAPSHOTS
+    snapshotLimit,
+    state.trailMaxFps
   );
-  if (shouldCapture) captureTrailFrame(timestamp);
+  if (shouldCapture) {
+    const captureStart =
+      typeof diagnostics !== "undefined" ? diagnostics.beginTrailCapture() : 0;
+    captureTrailFrame(timestamp);
+    if (typeof diagnostics !== "undefined")
+      diagnostics.endTrailCapture(captureStart);
+  }
 
+  const compositeStart =
+    typeof diagnostics !== "undefined" ? diagnostics.beginTrailComposite() : 0;
   displayCtx.save();
   displayCtx.setTransform(1, 0, 0, 1, 0, 0);
   displayCtx.globalCompositeOperation = "source-over";
@@ -104,4 +126,10 @@ function renderTrailHistory(timestamp) {
     displayCtx.drawImage(renderCanvas, 0, 0);
   }
   displayCtx.restore();
+  if (typeof diagnostics !== "undefined")
+    diagnostics.endTrailComposite(compositeStart);
+  const presentStart =
+    typeof diagnostics !== "undefined" ? diagnostics.beginPresent() : 0;
+  // The final display canvas is presented by Chromium after this function returns.
+  if (typeof diagnostics !== "undefined") diagnostics.endPresent(presentStart);
 }

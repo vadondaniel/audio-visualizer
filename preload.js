@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld("electronAPI", {
   toggleFullscreen: () => ipcRenderer.send(IPC.TOGGLE_FULLSCREEN),
   toggleAlwaysOnTop: () => ipcRenderer.send(IPC.TOGGLE_ALWAYS_ON_TOP),
   quit: () => ipcRenderer.send(IPC.QUIT_APP),
+  getPerformanceMetrics: () => ipcRenderer.invoke(IPC.GET_PERFORMANCE_METRICS),
 });

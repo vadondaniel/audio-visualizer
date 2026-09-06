@@ -1,8 +1,25 @@
 // ---------- main loop ----------
 let lastFrameTime = 0;
 
+function diagnosticCall(method, ...args) {
+  try {
+    if (
+      typeof diagnostics !== "undefined" &&
+      diagnostics &&
+      typeof diagnostics[method] === "function"
+    ) {
+      return diagnostics[method](...args);
+    }
+  } catch (error) {
+    // Diagnostics must never be allowed to interrupt the renderer.
+    // Rendering continues normally if profiling instrumentation fails.
+  }
+  return 0;
+}
+
 function loop(timestamp = performance.now()) {
   requestAnimationFrame(loop);
+
   if (!analyser) return;
 
   // AudioContext suspension is easy to miss because requestAnimationFrame
@@ -12,11 +29,14 @@ function loop(timestamp = performance.now()) {
     return;
   }
 
+  diagnosticCall("tickStart", timestamp);
+
   if (lastFrameTime === 0) lastFrameTime = timestamp;
   const elapsedMs = Math.min(100, Math.max(0, timestamp - lastFrameTime));
   lastFrameTime = timestamp;
   const dtSec = elapsedMs / 1000;
 
+  const audioTimer = diagnosticCall("beginAudio");
   analyser.getByteFrequencyData(freqData);
   analyser.getByteTimeDomainData(timeData);
 
@@ -48,6 +68,7 @@ function loop(timestamp = performance.now()) {
     applyValueHandling(rawTreble, state.valueHandling) * state.sensitivity
   );
   updateBeat(bass, elapsedMs, dtSec);
+  diagnosticCall("endAudio", audioTimer);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
     const { baseDegPerSec, midDegPerSecPerUnit } = VISUAL_TUNING.hueCycle;
@@ -56,8 +77,11 @@ function loop(timestamp = performance.now()) {
       360;
   }
 
+  const clearTimer = diagnosticCall("beginClear");
   clearFrame();
+  diagnosticCall("endClear", clearTimer);
 
+  const backgroundTimer = diagnosticCall("beginBackground");
   if (typeof renderProceduralBackground === "function") {
     renderProceduralBackground(
       dtSec,
@@ -67,9 +91,15 @@ function loop(timestamp = performance.now()) {
       beatPulse
     );
   }
+  diagnosticCall("endBackground", backgroundTimer);
+
+  const fxTimer = diagnosticCall("beginFx");
   if (typeof updateFxLive === "function") {
     updateFxLive(bassLevel, midLevel, trebleLevel, beatPulse);
   }
+  diagnosticCall("endFx", fxTimer);
+
+  const modeTimer = diagnosticCall("beginRender");
 
   switch (MODES[state.mode]) {
     case "bars":
@@ -100,5 +130,10 @@ function loop(timestamp = performance.now()) {
       drawCascade(bassLevel, midLevel, trebleLevel, dtSec);
       break;
   }
+  diagnosticCall("endRender", modeTimer);
+
+  const trailTimer = diagnosticCall("beginTrail");
   renderTrailHistory(timestamp);
+  diagnosticCall("endTrail", trailTimer);
+  diagnosticCall("endFrame");
 }

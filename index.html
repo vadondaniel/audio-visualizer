@@ -324,6 +324,20 @@
               value="220"
             />
           </div>
+          <div id="trailFpsRow" class="field">
+            <label for="trailFpsSlider"
+              ><span>Trail max FPS</span
+              ><span class="val" id="trailFpsVal">60 FPS</span></label
+            >
+            <input
+              type="range"
+              id="trailFpsSlider"
+              min="15"
+              max="240"
+              step="15"
+              value="60"
+            />
+          </div>
         </div>
       </div>
 
@@ -438,6 +452,84 @@
         </div>
       </div>
 
+      <!-- ── Diagnostics ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 19V5" />
+            <path d="M4 19h16" />
+            <path d="m7 15 3-4 3 2 4-7" />
+          </svg>
+          Diagnostics
+        </div>
+        <div class="sectionContent">
+          <div id="diagnosticsStatus" class="diagnosticsGrid">
+            <div class="diagnosticMetric">
+              <span>FPS</span><strong id="diagFps">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Frame</span><strong id="diagFrame">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Render P95</span><strong id="diagRender">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Trail P95</span><strong id="diagTrail">—</strong>
+            </div>
+            <div class="diagnosticMetric diagnosticMetricWide">
+              <span>Layers · BG / FX</span><strong id="diagLayers">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Load</span><strong id="diagLoad">—</strong>
+            </div>
+          </div>
+          <div id="diagDetail" class="diagnosticDetail">
+            Collecting live frame data…
+          </div>
+          <div class="diagnosticActions">
+            <button id="copyDiagnosticsBtn" class="diagnosticButton">
+              Copy snapshot
+            </button>
+            <button
+              id="resetDiagnosticsBtn"
+              class="diagnosticButton diagnosticButtonSecondary"
+            >
+              Reset
+            </button>
+          </div>
+          <div class="diagnosticProfile">
+            <div class="diagnosticProfileHeader">
+              <span>Profiler</span>
+              <span id="profileStatus"
+                >Record while switching modes/settings, then copy the
+                profile.</span
+              >
+            </div>
+            <div class="diagnosticActions">
+              <button id="recordProfileBtn" class="diagnosticButton">
+                Record profile
+              </button>
+              <button
+                id="copyProfileBtn"
+                class="diagnosticButton diagnosticButtonSecondary"
+                disabled
+              >
+                Copy profile
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- hotkeys button at the bottom of the settings panel -->
       <div class="settingsSection">
         <button id="hotkeysBtn">
@@ -468,6 +560,7 @@
     <script src="dom.js"></script>
     <script src="background.js"></script>
     <script src="audio.js"></script>
+    <script src="diagnostics.js"></script>
     <script src="wake-lock.js"></script>
     <script src="visuals.js"></script>
     <script src="visuals/bars.js"></script>

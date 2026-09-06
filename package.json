@@ -37,6 +37,7 @@
       "dom.js",
       "background.js",
       "audio.js",
+      "diagnostics.js",
       "wake-lock.js",
       "visuals.js",
       "visuals/**/*",

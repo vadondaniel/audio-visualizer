@@ -117,6 +117,13 @@ trailDurationSlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+trailFpsSlider.addEventListener("input", (e) => {
+  state.trailMaxFps = parseInt(e.target.value, 10);
+  updateSliderLabels();
+  resetTrailHistory();
+  saveSettings();
+});
+
 wakeLockCheckbox.addEventListener("change", (e) => {
   state.wakeLockEnabled = e.target.checked;
   if (state.wakeLockEnabled) requestWakeLock();
