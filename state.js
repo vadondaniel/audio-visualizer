@@ -35,6 +35,9 @@ const state = {
   beatFlash: true, // cinematic transient beat flare
   particleDensity: 1.0, // overall particle population multiplier
   particleStyle: "flow", // "flow" | "burst" | "vortex"
+  mediaMetadataEnabled: false,
+  mediaDisplay: "cover-title-artist", // "title" | "title-artist" | "cover" | "cover-title" | "cover-title-artist"
+  mediaTextPosition: "below", // "above" | "below" relative to the visual focus
 };
 
 // ---------- settings persistence ----------
@@ -69,6 +72,9 @@ const PERSISTED_KEYS = [
   "beatFlash",
   "particleDensity",
   "particleStyle",
+  "mediaMetadataEnabled",
+  "mediaDisplay",
+  "mediaTextPosition",
 ];
 
 function saveSettings() {
@@ -104,6 +110,10 @@ function loadSettings() {
   } catch (e) {
     saved = null;
   }
+  // Keep the earlier media-position key readable so existing settings do not reset.
+  if (saved && saved.mediaTextPosition == null && saved.mediaArtistPosition) {
+    saved.mediaTextPosition = saved.mediaArtistPosition;
+  }
   Object.assign(
     state,
     mergeSettings(state, saved, MODES.length, THEMES.length)
@@ -138,6 +148,13 @@ function loadSettings() {
     beatFlashCheckbox.checked = state.beatFlash;
   particleDensitySlider.value = state.particleDensity;
   particleStyleSelect.value = state.particleStyle;
+  if (typeof mediaMetadataCheckbox !== "undefined")
+    mediaMetadataCheckbox.checked = state.mediaMetadataEnabled;
+  if (typeof mediaDisplaySelect !== "undefined")
+    mediaDisplaySelect.value = state.mediaDisplay;
+  if (typeof mediaTextPositionSelect !== "undefined")
+    mediaTextPositionSelect.value = state.mediaTextPosition;
+  if (typeof applyMediaMetadataUi === "function") applyMediaMetadataUi();
   updateSliderLabels();
   updateBgRowsVisibility();
   syncSelectsToState();

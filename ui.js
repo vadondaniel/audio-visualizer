@@ -44,6 +44,7 @@ window.addEventListener("click", (e) => {
 modeSelect.addEventListener("change", (e) => {
   state.mode = parseInt(e.target.value, 10);
   updateVisualOptionRows();
+  if (typeof refreshMediaForMode === "function") refreshMediaForMode();
   saveSettings();
 });
 
@@ -385,8 +386,32 @@ particleStyleSelect.addEventListener("change", (e) => {
   saveSettings();
 });
 
+mediaMetadataCheckbox.addEventListener("change", (e) => {
+  setMediaMetadataEnabled(e.target.checked);
+});
+
+mediaDisplaySelect.addEventListener("change", (e) => {
+  state.mediaDisplay = e.target.value;
+  updateMediaLayout();
+  mediaTextPositionRow.hidden =
+    !state.mediaMetadataEnabled ||
+    !["title", "title-artist", "cover-title", "cover-title-artist"].includes(
+      state.mediaDisplay
+    );
+  saveSettings();
+});
+
+mediaTextPositionSelect.addEventListener("change", (e) => {
+  state.mediaTextPosition = e.target.value;
+  updateMediaLayout();
+  saveSettings();
+});
+
 // Initialize settings from localStorage into UI and state
 loadSettings();
+if (state.mediaMetadataEnabled && window.electronAPI?.setMediaMetadataEnabled) {
+  window.electronAPI.setMediaMetadataEnabled(true);
+}
 applyThemeUiColors();
 restartUiAccentAnimation();
 updateTrailVisibility();
@@ -479,6 +504,7 @@ window.addEventListener("keydown", (e) => {
   if (e.key >= "1" && e.key <= String(MODES.length)) {
     state.mode = parseInt(e.key, 10) - 1;
     syncSelectsToState();
+    if (typeof refreshMediaForMode === "function") refreshMediaForMode();
     saveSettings();
     return;
   }

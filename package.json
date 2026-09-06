@@ -40,6 +40,7 @@
       "audio.js",
       "diagnostics.js",
       "wake-lock.js",
+      "media-watcher.ps1",
       "visuals.js",
       "visuals/**/*",
       "ui.js",

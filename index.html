@@ -463,6 +463,50 @@
         </div>
       </div>
 
+      <!-- ── Media ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <circle cx="8" cy="12" r="2" />
+            <path d="M13 9h5M13 13h5M13 17h3" />
+          </svg>
+          Media
+        </div>
+        <div class="sectionContent">
+          <div class="toggleRow">
+            <label for="mediaMetadataCheckbox">Show currently playing</label>
+            <input type="checkbox" id="mediaMetadataCheckbox" />
+          </div>
+          <div id="mediaDisplayRow" class="field">
+            <label for="mediaDisplaySelect">Media content</label>
+            <select id="mediaDisplaySelect">
+              <option value="title">Title only</option>
+              <option value="title-artist">Title + artist</option>
+              <option value="cover">Album cover</option>
+              <option value="cover-title">Cover + title</option>
+              <option value="cover-title-artist">Cover + title + artist</option>
+            </select>
+          </div>
+          <div id="mediaTextPositionRow" class="field">
+            <label for="mediaTextPositionSelect">Text position</label>
+            <select id="mediaTextPositionSelect">
+              <option value="above">Above focus</option>
+              <option value="below">Below focus</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       <!-- ── Effects & Post-Processing ── -->
       <div class="settingsSection collapsed">
         <div class="settingsSectionTitle">
@@ -623,6 +667,7 @@
     <script src="visuals/aurora.js"></script>
     <script src="visuals/cascade.js"></script>
     <script src="visuals/loop.js"></script>
+    <script src="media.js"></script>
     <script src="ui.js"></script>
   </body>
 </html>

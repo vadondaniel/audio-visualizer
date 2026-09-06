@@ -1225,3 +1225,252 @@ body {
   opacity: 0.45;
   cursor: default;
 }
+
+/* ---------- currently playing media ---------- */
+#mediaOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-canvas) + 1);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 320ms ease,
+    visibility 320ms ease;
+}
+
+#mediaOverlay.enabled {
+  opacity: 1;
+  visibility: visible;
+}
+
+#mediaOverlay .mediaCard {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 1.2vw, 16px);
+  width: min(46rem, calc(100vw - (var(--edge-gap) * 2)));
+  max-width: calc(100vw - (var(--edge-gap) * 2));
+  color: var(--ink);
+  pointer-events: none;
+}
+
+#mediaOverlay .mediaCard::before {
+  content: "";
+  position: absolute;
+  inset: -3rem -4rem;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(var(--accent-rgb), 0.15),
+    rgba(var(--accent-2-rgb), 0.08) 40%,
+    transparent 74%
+  );
+  filter: blur(26px);
+  opacity: 0.52;
+  z-index: -1;
+}
+
+#mediaOverlay .mediaArtWrap {
+  position: relative;
+  flex: 0 0 auto;
+  width: clamp(56px, 6vw, 84px);
+  height: clamp(56px, 6vw, 84px);
+  overflow: hidden;
+  border-radius: calc(var(--radius-sm) * 1.05);
+  background: rgba(8, 8, 12, 0.36);
+  border: 1px solid rgba(var(--accent-rgb), 0.55);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(var(--accent-2-rgb), 0.22),
+    0 0 24px rgba(var(--accent-rgb), 0.16);
+}
+
+#mediaOverlay .mediaArt {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 240ms ease;
+}
+
+#mediaOverlay .mediaArt.loaded {
+  opacity: 1;
+}
+
+#mediaOverlay .mediaCopy {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(6px, 0.65vw, 10px);
+}
+
+#mediaOverlay .mediaTitle,
+#mediaOverlay .mediaArtist {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Media identity is part of the visualizer, so the lettering uses the same
+   live theme colors as the rest of the UI.  The outline remains visible even
+   when the active theme is bright, while the shadow separates it from busy
+   visualizer content. */
+#mediaOverlay .mediaTitle {
+  display: block;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  text-wrap: balance;
+  font-family: var(--font-sans);
+  font-size: clamp(24px, 3.5vw, 54px);
+  line-height: 1.16;
+  font-weight: 760;
+  letter-spacing: -0.032em;
+  padding: 0.06em 0.06em 0.14em;
+  color: var(--ink);
+  -webkit-text-stroke: clamp(2.25px, 0.24vw, 3.25px)
+    rgba(var(--accent-rgb), 0.98);
+  paint-order: stroke fill;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.82),
+    0 0 2px rgba(var(--accent-rgb), 0.82),
+    0 0 12px rgba(var(--accent-rgb), 0.3),
+    0 0 26px rgba(var(--accent-2-rgb), 0.2);
+}
+
+#mediaOverlay .mediaArtist {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  font-family: var(--font-sans);
+  font-size: clamp(17px, 1.55vw, 23px);
+  line-height: 1.3;
+  font-weight: 650;
+  letter-spacing: 0.018em;
+  color: var(--ink);
+  -webkit-text-stroke: clamp(1.5px, 0.14vw, 2px) rgba(var(--accent-2-rgb), 0.98);
+  paint-order: stroke fill;
+  text-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.78),
+    0 0 2px rgba(var(--accent-2-rgb), 0.72),
+    0 0 12px rgba(var(--accent-2-rgb), 0.26);
+  opacity: 0.92;
+}
+
+#mediaOverlay [hidden] {
+  display: none !important;
+}
+
+/* Cascade: identity sits as an independent lockup well outside the focal
+   disc. Album artwork itself is rendered by cascade.js inside that disc. */
+#mediaOverlay.mode-cascade .mediaCard {
+  left: 50%;
+  width: min(78rem, calc(100vw - (var(--edge-gap) * 2)));
+  transform: translateX(-50%);
+  justify-content: center;
+  text-align: center;
+}
+
+#mediaOverlay.mode-cascade .mediaArtWrap {
+  display: none !important;
+}
+#mediaOverlay.mode-cascade .mediaCopy {
+  align-items: center;
+  width: min(100%, calc(100vw - (var(--edge-gap) * 2)));
+  max-width: min(78rem, calc(100vw - (var(--edge-gap) * 2)));
+  gap: clamp(7px, 0.8vw, 12px);
+  overflow: visible;
+}
+#mediaOverlay.mode-cascade .mediaTitle {
+  font-size: clamp(28px, 4.05vw, 62px);
+  line-height: 1.16;
+  letter-spacing: -0.036em;
+}
+#mediaOverlay.mode-cascade .mediaArtist {
+  font-size: clamp(17px, 1.35vw, 21px);
+}
+
+#mediaOverlay.mode-cascade[data-position="below"] .mediaCard {
+  top: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
+}
+
+#mediaOverlay.mode-cascade[data-position="above"] .mediaCard {
+  bottom: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
+}
+
+/* Peripheral modes: quiet metadata at the edge, with the same theme outline
+   language so it belongs to the visualizer rather than looking like UI chrome. */
+#mediaOverlay.mode-bars .mediaCard,
+#mediaOverlay.mode-waveform .mediaCard,
+#mediaOverlay.mode-waves .mediaCard,
+#mediaOverlay.mode-aurora .mediaCard {
+  left: var(--edge-gap);
+  bottom: var(--edge-gap);
+}
+
+#mediaOverlay.mode-particles .mediaCard,
+#mediaOverlay.mode-tunnel .mediaCard,
+#mediaOverlay.mode-kaleidoscope .mediaCard,
+#mediaOverlay.mode-radial .mediaCard {
+  right: var(--edge-gap);
+  bottom: var(--edge-gap);
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+#mediaOverlay.mode-radial .mediaCard,
+#mediaOverlay.mode-kaleidoscope .mediaCard {
+  bottom: max(var(--edge-gap), 5vh);
+}
+
+#mediaOverlay.text-only .mediaCard {
+  padding: 0;
+}
+#mediaOverlay.text-only .mediaCopy {
+  gap: 5px;
+}
+#mediaOverlay.no-text .mediaCopy {
+  display: none;
+}
+
+#mediaOverlay.media-updated .mediaTitle {
+  animation: mediaTitleIn 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes mediaTitleIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 700px) {
+  #mediaOverlay .mediaCard {
+    max-width: calc(100vw - 28px);
+  }
+  #mediaOverlay.mode-bars .mediaCard,
+  #mediaOverlay.mode-waveform .mediaCard,
+  #mediaOverlay.mode-waves .mediaCard,
+  #mediaOverlay.mode-aurora .mediaCard {
+    left: 14px;
+    bottom: 14px;
+  }
+  #mediaOverlay.mode-particles .mediaCard,
+  #mediaOverlay.mode-tunnel .mediaCard {
+    right: 14px;
+    top: 14px;
+    bottom: auto;
+  }
+  #mediaOverlay.mode-cascade .mediaCard {
+    width: calc(100vw - (var(--edge-gap) * 2));
+  }
+  #mediaOverlay.mode-cascade[data-position="below"] .mediaCard {
+    top: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
+  }
+  #mediaOverlay.mode-cascade[data-position="above"] .mediaCard {
+    bottom: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
+  }
+}

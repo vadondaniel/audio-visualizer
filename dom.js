@@ -82,6 +82,15 @@ const particleDensitySlider = document.getElementById("particleDensitySlider");
 const particleDensityVal = document.getElementById("particleDensityVal");
 const particleStyleSelect = document.getElementById("particleStyleSelect");
 
+// Media metadata controls
+const mediaMetadataCheckbox = document.getElementById("mediaMetadataCheckbox");
+const mediaDisplaySelect = document.getElementById("mediaDisplaySelect");
+const mediaTextPositionSelect = document.getElementById(
+  "mediaTextPositionSelect"
+);
+const mediaDisplayRow = document.getElementById("mediaDisplayRow");
+const mediaTextPositionRow = document.getElementById("mediaTextPositionRow");
+
 const diagnosticsStatus = document.getElementById("diagnosticsStatus");
 const diagFps = document.getElementById("diagFps");
 const diagFrame = document.getElementById("diagFrame");

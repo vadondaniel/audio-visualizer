@@ -385,7 +385,29 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.arc(cx, cy, discBaseR - 3, 0, Math.PI * 2);
   ctx.clip();
 
-  if (centerLogoLoaded && centerLogoImg.width > 0) {
+  const currentMediaArt =
+    typeof mediaState !== "undefined" &&
+    state.mediaMetadataEnabled &&
+    mediaState.metadata?.thumbnailDataUrl &&
+    mediaState.thumbnailImage?.complete &&
+    mediaState.thumbnailImage.naturalWidth > 0 &&
+    mediaState.thumbnailImage.naturalHeight > 0
+      ? mediaState.thumbnailImage
+      : null;
+
+  if (currentMediaArt && currentMediaArt.naturalWidth > 0) {
+    // The album art replaces the app emblem inside the existing focus.
+    // It is intentionally clipped to the same circular disc so the visual
+    // remains part of the mode instead of looking like an overlay card.
+    const imgSize = (discBaseR - 3) * 2.02;
+    ctx.drawImage(
+      currentMediaArt,
+      cx - imgSize / 2,
+      cy - imgSize / 2,
+      imgSize,
+      imgSize
+    );
+  } else if (centerLogoLoaded && centerLogoImg.width > 0) {
     const imgSize = (discBaseR - 3) * 2.02;
     ctx.drawImage(
       centerLogoImg,

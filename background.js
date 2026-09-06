@@ -385,6 +385,7 @@ function updateVisualOptionRows() {
   colorGradientCheckbox.disabled = !gradientAvailable;
   smoothingRow.style.display =
     currentMode === "particles" || currentMode === "waveform" ? "none" : "";
+  if (typeof refreshMediaForMode === "function") refreshMediaForMode();
 }
 
 function syncSelectsToState() {

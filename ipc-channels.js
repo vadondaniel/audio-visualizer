@@ -1,11 +1,10 @@
-// Single source of truth for IPC channel names. main.js and preload.js both
-// require this instead of typing the channel strings independently — a typo
-// in either file becomes a ReferenceError here instead of a hotkey that
-// silently does nothing (ipcRenderer.send to a channel nobody listens on
-// fails silently, so a mismatch was previously invisible).
-module.exports = {
+const IPC = Object.freeze({
   TOGGLE_FULLSCREEN: "toggle-fullscreen",
   TOGGLE_ALWAYS_ON_TOP: "toggle-always-on-top",
   QUIT_APP: "quit-app",
   GET_PERFORMANCE_METRICS: "get-performance-metrics",
-};
+  SET_MEDIA_METADATA_ENABLED: "set-media-metadata-enabled",
+  MEDIA_METADATA: "media-metadata",
+});
+
+module.exports = IPC;

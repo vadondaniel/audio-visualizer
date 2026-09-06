@@ -221,6 +221,21 @@
       saved.particleStyle === "vortex"
     )
       state.particleStyle = saved.particleStyle;
+    if (typeof saved.mediaMetadataEnabled === "boolean")
+      state.mediaMetadataEnabled = saved.mediaMetadataEnabled;
+    if (
+      saved.mediaDisplay === "title" ||
+      saved.mediaDisplay === "title-artist" ||
+      saved.mediaDisplay === "cover" ||
+      saved.mediaDisplay === "cover-title" ||
+      saved.mediaDisplay === "cover-title-artist"
+    )
+      state.mediaDisplay = saved.mediaDisplay;
+    if (
+      saved.mediaTextPosition === "above" ||
+      saved.mediaTextPosition === "below"
+    )
+      state.mediaTextPosition = saved.mediaTextPosition;
     if (
       saved.valueHandling === "exponential" ||
       saved.valueHandling === "logarithmic" ||

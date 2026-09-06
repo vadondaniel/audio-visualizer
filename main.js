@@ -9,8 +9,67 @@ const {
 const path = require("path");
 const IPC = require("./ipc-channels");
 const { toggleAlwaysOnTop } = require("./window-state");
+const { spawn } = require("child_process");
 
 let mainWindow;
+let mediaWatcher = null;
+let mediaWatcherBuffer = "";
+
+function stopMediaWatcher() {
+  if (!mediaWatcher) return;
+  try {
+    mediaWatcher.kill();
+  } catch {}
+  mediaWatcher = null;
+  mediaWatcherBuffer = "";
+}
+
+function startMediaWatcher() {
+  if (process.platform !== "win32" || mediaWatcher) return;
+
+  stopMediaWatcher();
+  mediaWatcher = spawn(
+    "powershell.exe",
+    [
+      "-NoLogo",
+      "-NoProfile",
+      "-NonInteractive",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      path.join(__dirname, "media-watcher.ps1"),
+    ],
+    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
+  );
+
+  mediaWatcher.stdout.setEncoding("utf8");
+  mediaWatcher.stdout.on("data", (chunk) => {
+    mediaWatcherBuffer += chunk;
+    const lines = mediaWatcherBuffer.split(/\r?\n/);
+    mediaWatcherBuffer = lines.pop() || "";
+    for (const line of lines) {
+      const text = line.trim();
+      if (!text || !mainWindow || mainWindow.isDestroyed()) continue;
+      try {
+        mainWindow.webContents.send(IPC.MEDIA_METADATA, JSON.parse(text));
+      } catch {}
+    }
+  });
+
+  mediaWatcher.stderr.on("data", (chunk) => {
+    const text = String(chunk).trim();
+    if (text) console.warn("Media watcher:", text);
+  });
+
+  mediaWatcher.on("error", (err) => {
+    console.warn("Could not start Windows media watcher:", err.message);
+    stopMediaWatcher();
+  });
+
+  mediaWatcher.on("exit", () => {
+    mediaWatcher = null;
+  });
+}
 
 function createWindow() {
   const displays = screen.getAllDisplays();
@@ -95,3 +154,10 @@ ipcMain.on(IPC.QUIT_APP, () => {
 });
 
 ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
+
+ipcMain.on(IPC.SET_MEDIA_METADATA_ENABLED, (_event, enabled) => {
+  if (enabled) startMediaWatcher();
+  else stopMediaWatcher();
+});
+
+app.on("before-quit", stopMediaWatcher);
