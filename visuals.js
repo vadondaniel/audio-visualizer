@@ -540,6 +540,29 @@ function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
   ctx.restore();
 }
 
+// Reusable render buffers. Particle simulation remains object-based, but the hot
+// rendering path stores only the values it actually needs and batches canvas work.
+const PARTICLE_RENDER_CAP = VISUAL_TUNING.particles.cap;
+const particleRender = {
+  x: new Float32Array(PARTICLE_RENDER_CAP),
+  y: new Float32Array(PARTICLE_RENDER_CAP),
+  px: new Float32Array(PARTICLE_RENDER_CAP),
+  py: new Float32Array(PARTICLE_RENDER_CAP),
+  r: new Float32Array(PARTICLE_RENDER_CAP),
+  alpha: new Float32Array(PARTICLE_RENDER_CAP),
+  hue: new Float32Array(PARTICLE_RENDER_CAP),
+  bin: new Uint8Array(PARTICLE_RENDER_CAP),
+  alphaBin: new Uint8Array(PARTICLE_RENDER_CAP),
+  count: 0,
+};
+
+const PARTICLE_HUE_BINS = 12;
+const PARTICLE_ALPHA_BINS = 4;
+
+function beginParticleBatch() {
+  ctx.beginPath();
+}
+
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const dt = elapsedMs / FRAME_MS;
   particlePhase += dt * (0.55 + trebleLevel * 1.9 + beatPulse * 1.4);
@@ -549,16 +572,19 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     state.valueHandling
   );
 
-  energyHistory.push({ value: rawEnergy, t: audioClockMs });
+  // Keep the history bounded without shifting the whole array every frame.
+  const historyNow = { value: rawEnergy, t: audioClockMs };
+  energyHistory.push(historyNow);
   while (
-    energyHistory.length &&
+    energyHistory.length > 1 &&
     audioClockMs - energyHistory[0].t > ENERGY_HISTORY_MS
   ) {
     energyHistory.shift();
   }
   let histMin = 1;
   let histMax = 0;
-  for (const e of energyHistory) {
+  for (let i = 0; i < energyHistory.length; i++) {
+    const e = energyHistory[i];
     if (e.value < histMin) histMin = e.value;
     if (e.value > histMax) histMax = e.value;
   }
@@ -594,7 +620,9 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const cy = canvas.height / 2;
   const minDim = Math.min(canvas.width, canvas.height);
 
-  // Large bass hits create a subtle expanding shockwave independently of the particles.
+  // Shockwaves are few enough to stay individually rendered, but avoid save/restore
+  // churn and only touch the expensive glow state once per wave.
+  ctx.globalCompositeOperation = "lighter";
   for (let i = particleShockwaves.length - 1; i >= 0; i--) {
     const wave = particleShockwaves[i];
     wave.radius += wave.speed * dt;
@@ -605,31 +633,36 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       continue;
     }
     const hue = currentHue(wave.hueOffset);
-    ctx.save();
-    ctx.globalCompositeOperation = "lighter";
-    ctx.strokeStyle = `hsla(${hue}, 95%, 70%, ${Math.min(0.42, wave.life * 0.55)})`;
+    const alpha = Math.min(0.42, wave.life * 0.55);
+    ctx.strokeStyle = `hsla(${hue}, 95%, 70%, ${alpha})`;
     ctx.lineWidth = wave.width * wave.life;
-    applyGlow(ctx.strokeStyle, 12 + wave.life * 9);
+    ctx.shadowBlur = (12 + wave.life * 9) * state.glowIntensity;
+    ctx.shadowColor = ctx.strokeStyle;
     ctx.beginPath();
     ctx.arc(cx, cy, wave.radius, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.restore();
   }
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
 
   const coreRadius = minDim * (0.055 + energyNow * 0.032 + beatPulse * 0.045);
-  // Keep the reactive structure deliberately understated so the particles remain the subject.
   drawParticleSpectrum(bassLevel, midLevel, trebleLevel, coreRadius * 1.25);
 
-  const overCap = particles.length - VISUAL_TUNING.particles.cap;
+  const overCap = particles.length - PARTICLE_RENDER_CAP;
   if (overCap > 0) {
     const trim = 0.055 * dt;
     for (let i = 0; i < overCap; i++) particles[i].life -= trim;
   }
 
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
+  // Simulate once, store compact render data, then batch the expensive canvas work.
+  // This is intentionally two-pass: extra JS comparisons are substantially cheaper
+  // than thousands of beginPath()/fill()/stroke() calls on Canvas2D.
+  const theme = THEMES[state.theme];
+  const count = Math.min(particles.length, PARTICLE_RENDER_CAP);
+  const rr = particleRender;
+  rr.count = 0;
 
+  ctx.lineCap = "round";
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.px = p.x;
@@ -649,8 +682,6 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     p.vx += (nx * 0.018 + tangentX * vortex) * dt;
     p.vy += (ny * 0.018 + tangentY * vortex) * dt;
 
-    // Pull particles very slightly back toward the field center instead of letting
-    // a few loud notes permanently eject them off-screen.
     const returnForce =
       Math.min(0.11, (dist / minDim) * 0.065) * (0.75 + energyNow);
     p.vx -= nx * returnForce * dt;
@@ -663,7 +694,6 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     p.twinkle += p.twinkleSpeed * dt * (1 + trebleLevel * 2.5);
     p.life -= p.decay * decayScale * dt;
 
-    // Respawn long-lived ambience before it has enough time to visibly clump at an edge.
     const margin = minDim * 0.13;
     if (
       p.x < -margin ||
@@ -678,14 +708,10 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       particles.splice(i, 1);
       continue;
     }
+    if (rr.count >= count) continue;
 
-    const theme = THEMES[state.theme];
     let hueOffset = p.hueOffset + p.z * 0.02;
     if (theme.rainbow) {
-      // A plain rainbow offset gave the three particle bands only a few
-      // dominant hues (roughly red/cyan/magenta). Spread the spectrum over
-      // each particle's actual position instead, with a small depth/band
-      // perturbation so nearby particles still form coherent color clusters.
       const angle01 =
         (Math.atan2(p.y - cy, p.x - cx) + Math.PI) / (Math.PI * 2);
       const radius01 = Math.min(
@@ -699,6 +725,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
         p.z * 0.07 +
         particlePhase * 0.0015;
     }
+
     const hue = currentHue(hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
     const depthScale = 0.58 + p.z * 0.72;
@@ -706,89 +733,134 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       p.size * depthScale * (0.28 + energyNow * 1.15) * (0.58 + p.life * 0.62);
     const alpha =
       p.life * shimmer * (0.48 + energyNow * 0.92) * (0.72 + p.z * 0.35);
-    const glow = r > 2.0 && alpha > 0.16;
 
-    const rainbowBoost = theme.rainbow
-      ? 4 + Math.sin(((hue * Math.PI) / 180) * 3) * 3
-      : 0;
-    const lightness = Math.min(
-      84,
-      66 + p.z * 16 + rainbowBoost + trebleLevel * 4
+    // Tiny particles contribute little visually at peak intensity. Keep simulating
+    // them, but skip their canvas representation when they fall below visibility.
+    if (r < 0.72 || alpha < 0.055) continue;
+
+    const idx = rr.count++;
+    rr.x[idx] = p.x;
+    rr.y[idx] = p.y;
+    rr.px[idx] = p.px;
+    rr.py[idx] = p.py;
+    rr.r[idx] = r;
+    rr.alpha[idx] = Math.min(1, alpha);
+    rr.hue[idx] = hue;
+    rr.bin[idx] = Math.max(
+      0,
+      Math.min(
+        PARTICLE_HUE_BINS - 1,
+        Math.floor(((hue % 360) / 360) * PARTICLE_HUE_BINS)
+      )
     );
-    const saturation = theme.rainbow
-      ? Math.min(100, 88 + p.z * 8 + trebleLevel * 4)
-      : 96;
+    rr.alphaBin[idx] = Math.max(
+      0,
+      Math.min(
+        PARTICLE_ALPHA_BINS - 1,
+        Math.floor(Math.min(0.999, rr.alpha[idx]) * PARTICLE_ALPHA_BINS)
+      )
+    );
+  }
 
-    const particleAlpha = Math.min(1, alpha);
-
-    // Rainbow particles need separation on pale backgrounds, but a black
-    // contour looks unnatural on dark backgrounds. Use the particle's own
-    // hue at a deeper value instead: it reads as chromatic depth rather than
-    // an outline, and remains compatible with both light and dark surfaces.
-    if (theme.rainbow) {
-      const rimLightness = Math.max(24, lightness - 34);
-      const rimAlpha = Math.min(0.52, 0.1 + particleAlpha * 0.22);
+  // Batched trails: 12 hue groups, one stroke per group. Only sufficiently large
+  // particles get trails, which preserves motion readability without spending work
+  // on subpixel streaks.
+  const trailWidthScale = theme.rainbow ? 0.78 : 0.55;
+  for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
+    beginParticleBatch();
+    let hasPath = false;
+    for (let i = 0; i < rr.count; i++) {
+      if (rr.bin[i] !== hb || rr.r[i] <= 2.2) continue;
+      const a = Math.min(0.28, rr.alpha[i] * trailWidthScale);
+      if (a <= 0.02) continue;
+      ctx.moveTo(rr.px[i], rr.py[i]);
+      ctx.lineTo(rr.x[i], rr.y[i]);
+      hasPath = true;
+    }
+    if (hasPath) {
+      const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
       ctx.shadowBlur = 0;
-      ctx.fillStyle = `hsla(${hue}, ${Math.min(100, saturation + 4)}%, ${rimLightness}%, ${rimAlpha})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r + Math.max(0.55, r * 0.2), 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    if (r > 2.2) {
-      if (theme.rainbow) {
-        const trailRimAlpha = Math.min(0.34, 0.06 + particleAlpha * 0.12);
-        ctx.strokeStyle = `hsla(${hue}, ${Math.min(100, saturation + 2)}%, ${Math.max(22, lightness - 30)}%, ${trailRimAlpha})`;
-        ctx.lineWidth = Math.max(1.1, r * 0.8);
-        ctx.beginPath();
-        ctx.moveTo(p.px, p.py);
-        ctx.lineTo(p.x, p.y);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, ${Math.min(0.38, alpha * 0.45)})`;
-      ctx.lineWidth = Math.max(0.55, r * 0.55);
-      ctx.beginPath();
-      ctx.moveTo(p.px, p.py);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    }
-
-    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${particleAlpha})`;
-    if (glow) applyGlow(ctx.fillStyle, 5 + r * 2.8);
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    // Tiny specular point helps the particles read as luminous points rather
-    // than flat colored blobs, especially when the background is near-white.
-    if (theme.rainbow && r > 2.6 && particleAlpha > 0.35) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.48, particleAlpha * 0.42)})`;
-      ctx.beginPath();
-      ctx.arc(
-        p.x - r * 0.22,
-        p.y - r * 0.22,
-        Math.max(0.45, r * 0.16),
-        0,
-        Math.PI * 2
-      );
-      ctx.fill();
-    }
-
-    if (r > 4.8 && alpha > 0.55) {
-      ctx.strokeStyle = `hsla(${currentHue(p.hueOffset + 0.35)}, 100%, 82%, ${Math.min(0.5, alpha * 0.45)})`;
-      ctx.lineWidth = 0.7;
-      ctx.beginPath();
-      ctx.moveTo(p.x - r * 1.8, p.y);
-      ctx.lineTo(p.x + r * 1.8, p.y);
-      ctx.moveTo(p.x, p.y - r * 1.8);
-      ctx.lineTo(p.x, p.y + r * 1.8);
+      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, 0.22)`;
+      ctx.lineWidth = Math.max(0.75, 1.0 + energyNow * 0.8);
       ctx.stroke();
     }
   }
 
-  ctx.restore();
+  // Main particle bodies: 12 hue groups × 4 coarse alpha levels = at most 48 fills,
+  // instead of thousands of individual fills. Quantization is effectively invisible
+  // because the particles overlap and their positions remain fully continuous.
+  const rainbowBoost = theme.rainbow ? 7 : 0;
+  for (let ab = 0; ab < PARTICLE_ALPHA_BINS; ab++) {
+    const alpha = (ab + 0.5) / PARTICLE_ALPHA_BINS;
+    for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
+      beginParticleBatch();
+      let hasPath = false;
+      for (let i = 0; i < rr.count; i++) {
+        if (rr.bin[i] !== hb || rr.alphaBin[i] !== ab) continue;
+        ctx.moveTo(rr.x[i] + rr.r[i], rr.y[i]);
+        ctx.arc(rr.x[i], rr.y[i], rr.r[i], 0, Math.PI * 2);
+        hasPath = true;
+      }
+      if (!hasPath) continue;
+      const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
+      const lightness = Math.min(84, 71 + rainbowBoost + trebleLevel * 4);
+      ctx.fillStyle = `hsla(${hue}, ${theme.rainbow ? 96 : 92}%, ${lightness}%, ${alpha})`;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      ctx.fill();
+    }
+  }
+
+  // Glow is now a separate, coarse-grained pass. The shadow state changes only once
+  // per hue bucket, and only large luminous particles participate.
+  for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
+    beginParticleBatch();
+    let maxR = 0;
+    let hasGlow = false;
+    for (let i = 0; i < rr.count; i++) {
+      const r = rr.r[i];
+      if (rr.bin[i] !== hb || r <= 3.0 || rr.alpha[i] <= 0.18) continue;
+      ctx.moveTo(rr.x[i] + r, rr.y[i]);
+      ctx.arc(rr.x[i], rr.y[i], r, 0, Math.PI * 2);
+      if (r > maxR) maxR = r;
+      hasGlow = true;
+    }
+    if (!hasGlow) continue;
+    const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
+    ctx.fillStyle = `hsla(${hue}, 100%, 72%, 0.28)`;
+    const glow = Math.min(18, 3 + maxR * 1.8) * state.glowIntensity;
+    ctx.shadowBlur = glow;
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = "transparent";
+
+  // Retain the strongest highlights, but only for genuinely large particles.
+  if (theme.rainbow) {
+    for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
+      beginParticleBatch();
+      let hasPath = false;
+      for (let i = 0; i < rr.count; i++) {
+        const r = rr.r[i];
+        if (rr.bin[i] !== hb || r <= 5.4 || rr.alpha[i] <= 0.45) continue;
+        ctx.moveTo(rr.x[i] - r * 1.8, rr.y[i]);
+        ctx.lineTo(rr.x[i] + r * 1.8, rr.y[i]);
+        ctx.moveTo(rr.x[i], rr.y[i] - r * 1.8);
+        ctx.lineTo(rr.x[i], rr.y[i] + r * 1.8);
+        hasPath = true;
+      }
+      if (hasPath) {
+        const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
+        ctx.strokeStyle = `hsla(${hue}, 100%, 82%, 0.34)`;
+        ctx.lineWidth = 0.7;
+        ctx.stroke();
+      }
+    }
+  }
+
   drawParticleCore(bassLevel, midLevel, trebleLevel, energyNow);
+  ctx.globalCompositeOperation = "source-over";
 }
 
 let kaleidoRotation = 0;
