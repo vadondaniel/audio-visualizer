@@ -15,13 +15,15 @@ const {
 
 // ---------- visual modes & themes ----------
 const THEMES = [
-  { name: "Neon", hues: [320, 200] }, // pink -> cyan
+  { name: "Neon", hues: [320, 200], alwaysGradient: true }, // pink -> cyan
   { name: "Fire", hues: [15, 45] }, // red -> orange
   { name: "Matrix", hues: [130, 160] }, // green
+  { name: "Ice", hues: [190, 260] }, // blue -> purple
+  { name: "White", hues: [240, 60], monochrome: "white" }, // blue -> yellow, converted to white-scale
+  { name: "Black", hues: [240, 60], monochrome: "black" }, // blue -> yellow, converted to black-scale
   { name: "Color Cycle", colorCycle: true, spread: 50 }, // rotates over time, with a hue gradient across each visual so it isn't flat
   { name: "Rainbow", rainbow: true }, // fixed full spectrum across each visual
   { name: "Rainbow Cycle", rainbow: true, cycle: true }, // spectrum rotates
-  { name: "Ice", hues: [190, 260] }, // blue -> purple
 ];
 
 const MODES = [

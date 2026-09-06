@@ -6,6 +6,7 @@
 const state = {
   mode: 0,
   theme: 0,
+  colorGradientEnabled: true,
   autoCycle: false,
   autoCycleTimer: null,
   hueShift: 0,
@@ -46,6 +47,7 @@ const PERSISTED_KEYS = [
   "bgBlur",
   "mode",
   "theme",
+  "colorGradientEnabled",
   "autoCycle",
   "smoothingEnabled",
   "radialMode",
@@ -120,6 +122,7 @@ function loadSettings() {
   if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
     valueHandlingSelect.value = state.valueHandling;
   glowSlider.value = state.glowIntensity;
+  colorGradientCheckbox.checked = state.colorGradientEnabled;
   trailsCheckbox.checked = state.trailsEnabled;
   trailDurationSlider.value = state.trailDuration;
   trailFpsSlider.value = state.trailMaxFps;

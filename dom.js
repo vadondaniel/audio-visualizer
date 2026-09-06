@@ -16,6 +16,8 @@ const settingsPanel = document.getElementById("settingsPanel");
 // Visual / theme selectors
 const modeSelect = document.getElementById("modeSelect");
 const themeSelect = document.getElementById("themeSelect");
+const colorGradientRow = document.getElementById("colorGradientRow");
+const colorGradientCheckbox = document.getElementById("colorGradientCheckbox");
 const barsAlignmentRow = document.getElementById("barsAlignmentRow");
 const barsAlignmentSelect = document.getElementById("barsAlignmentSelect");
 const waveformStyleRow = document.getElementById("waveformStyleRow");

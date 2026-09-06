@@ -49,6 +49,12 @@ modeSelect.addEventListener("change", (e) => {
 
 themeSelect.addEventListener("change", (e) => {
   state.theme = parseInt(e.target.value, 10);
+  updateVisualOptionRows();
+  saveSettings();
+});
+
+colorGradientCheckbox.addEventListener("change", (e) => {
+  state.colorGradientEnabled = e.target.checked;
   saveSettings();
 });
 

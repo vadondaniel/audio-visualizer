@@ -378,6 +378,10 @@ function updateVisualOptionRows() {
   const particleMode = currentMode === "particles";
   particleDensityRow.style.display = particleMode ? "" : "none";
   particleStyleRow.style.display = particleMode ? "" : "none";
+  const theme = THEMES[state.theme];
+  const gradientAvailable = !theme.rainbow && !theme.alwaysGradient;
+  colorGradientRow.style.display = gradientAvailable ? "" : "none";
+  colorGradientCheckbox.disabled = !gradientAvailable;
   smoothingRow.style.display =
     currentMode === "particles" || currentMode === "waveform" ? "none" : "";
 }
@@ -385,6 +389,7 @@ function updateVisualOptionRows() {
 function syncSelectsToState() {
   modeSelect.value = state.mode;
   themeSelect.value = state.theme;
+  colorGradientCheckbox.checked = state.colorGradientEnabled;
   updateVisualOptionRows();
 }
 

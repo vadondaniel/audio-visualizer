@@ -46,7 +46,7 @@
   // Given a theme definition (as in renderer.js's THEMES array) and the
   // current global hue-cycle position, works out the hue for a point at
   // `offset` (0-1) along whatever's being drawn (e.g. a bar's position).
-  function computeHue(theme, hueShift, offset = 0) {
+  function computeHue(theme, hueShift, offset = 0, gradientEnabled = true) {
     if (theme.rainbow) {
       const rotation = theme.cycle ? hueShift : 0;
       return (offset * 360 + rotation) % 360;
@@ -56,11 +56,13 @@
       // as well as over time, instead of painting everything the exact
       // same hue at any given instant. Defaults to 0 (old flat behavior)
       // for any theme that doesn't set it.
-      const spread = theme.spread || 0;
+      const spread =
+        theme.alwaysGradient || gradientEnabled ? theme.spread || 0 : 0;
       return (hueShift + offset * spread) % 360;
     }
-    const [a, b] = theme.hues;
-    return a + (b - a) * (offset % 1);
+    const [a = 0, b = a] = theme.hues || [0, 0];
+    const useGradient = theme.alwaysGradient || gradientEnabled;
+    return a + (b - a) * (useGradient ? offset % 1 : 0);
   }
 
   // Decides whether the current bass reading counts as a "beat" — either a
@@ -121,6 +123,8 @@
       saved.theme < validThemeCount
     )
       state.theme = saved.theme;
+    if (typeof saved.colorGradientEnabled === "boolean")
+      state.colorGradientEnabled = saved.colorGradientEnabled;
     if (saved.autoCycle) state.autoCycle = true;
     if (typeof saved.smoothingEnabled === "boolean")
       state.smoothingEnabled = saved.smoothingEnabled;

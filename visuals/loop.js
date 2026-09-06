@@ -130,6 +130,10 @@ function loop(timestamp = performance.now()) {
       drawCascade(bassLevel, midLevel, trebleLevel, dtSec);
       break;
   }
+  // Monochrome themes are colorized after the visual has rendered so their
+  // endpoints remain literally white/black while the optional gradient can
+  // vary only the luminance. This also keeps trail snapshots consistent.
+  applyMonochromeTheme();
   diagnosticCall("endRender", modeTimer);
 
   const trailTimer = diagnosticCall("beginTrail");

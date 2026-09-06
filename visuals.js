@@ -1,6 +1,67 @@
 // ---------- helpers ----------
 function currentHue(offset = 0) {
-  return computeHue(THEMES[state.theme], state.hueShift, offset);
+  return computeHue(
+    THEMES[state.theme],
+    state.hueShift,
+    offset,
+    THEMES[state.theme]?.alwaysGradient || state.colorGradientEnabled !== false
+  );
+}
+
+let monochromeCanvas = null;
+
+function applyMonochromeTheme() {
+  const theme = THEMES[state.theme];
+  if (theme?.monochrome !== "white" && theme?.monochrome !== "black") return;
+
+  const W = renderCanvas.width;
+  const H = renderCanvas.height;
+  if (!W || !H) return;
+
+  if (!monochromeCanvas) monochromeCanvas = document.createElement("canvas");
+  if (monochromeCanvas.width !== W || monochromeCanvas.height !== H) {
+    monochromeCanvas.width = W;
+    monochromeCanvas.height = H;
+  }
+
+  const monoCtx = monochromeCanvas.getContext("2d");
+  monoCtx.clearRect(0, 0, W, H);
+
+  const gradientEnabled = state.colorGradientEnabled !== false;
+  const isWhite = theme.monochrome === "white";
+  let fillStyle;
+
+  if (!gradientEnabled) {
+    fillStyle = isWhite ? "#ffffff" : "#000000";
+  } else {
+    const grad = monoCtx.createLinearGradient(0, 0, W, 0);
+    // The primary endpoint stays absolute; the secondary endpoint only
+    // introduces a restrained amount of gray.
+    if (isWhite) {
+      grad.addColorStop(0, "#ffffff");
+      grad.addColorStop(1, "#dddddd");
+    } else {
+      grad.addColorStop(0, "#000000");
+      grad.addColorStop(1, "#222222");
+    }
+    fillStyle = grad;
+  }
+
+  monoCtx.fillStyle = fillStyle;
+  monoCtx.fillRect(0, 0, W, H);
+  monoCtx.globalCompositeOperation = "destination-in";
+  monoCtx.drawImage(renderCanvas, 0, 0);
+  monoCtx.globalCompositeOperation = "source-over";
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(monochromeCanvas, 0, 0);
+  ctx.restore();
+}
+
+function currentThemeRenderFilter() {
+  return "none";
 }
 
 function applyGlow(color, blur) {
@@ -80,7 +141,9 @@ function renderTrailHistory(timestamp) {
     displayCtx.setTransform(1, 0, 0, 1, 0, 0);
     displayCtx.globalAlpha = 1;
     displayCtx.clearRect(0, 0, canvas.width, canvas.height);
+    displayCtx.filter = currentThemeRenderFilter();
     displayCtx.drawImage(renderCanvas, 0, 0);
+    displayCtx.filter = "none";
     displayCtx.restore();
     if (typeof diagnostics !== "undefined")
       diagnostics.endPresent(presentStart);
@@ -114,6 +177,7 @@ function renderTrailHistory(timestamp) {
   displayCtx.globalCompositeOperation = "source-over";
   displayCtx.globalAlpha = 1;
   displayCtx.clearRect(0, 0, canvas.width, canvas.height);
+  displayCtx.filter = currentThemeRenderFilter();
   for (const frame of trailFrames) {
     displayCtx.globalAlpha = TrailMath.trailOpacity(
       timestamp - frame.timestamp,
@@ -125,6 +189,7 @@ function renderTrailHistory(timestamp) {
     displayCtx.globalAlpha = 1;
     displayCtx.drawImage(renderCanvas, 0, 0);
   }
+  displayCtx.filter = "none";
   displayCtx.restore();
   if (typeof diagnostics !== "undefined")
     diagnostics.endTrailComposite(compositeStart);
