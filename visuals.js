@@ -907,7 +907,7 @@ let tunnelBassPrev = 0;
 let tunnelMidPrev = 0;
 let tunnelTreblePrev = 0;
 
-const TUNNEL_RINGS = 30;
+const TUNNEL_RINGS = 34;
 const TUNNEL_SEGMENTS = 48;
 const tunnelGrid = Array.from(
   { length: TUNNEL_RINGS },
@@ -932,128 +932,207 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   const mids = tunnelMidSmoothed;
   const treble = tunnelTrebleSmoothed;
 
-  const bassAttack = Math.max(0, (bass - tunnelBassPrev) * 20);
-  const midAttack = Math.max(0, (mids - tunnelMidPrev) * 20);
-  const trebleAttack = Math.max(0, (treble - tunnelTreblePrev) * 20);
+  // Deliberate three-territory response: dormant, active, and peak each occupy
+  // a broad region of the input range. The functions remain continuous inside
+  // each territory, so the tunnel keeps scaling instead of behaving like a switch.
+  const territory = (v, lo, hi) => {
+    const x = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
+    return x * x * (3 - 2 * x);
+  };
+  const dormantBass = territory(bass, 0.0, 0.34);
+  const activeBass = territory(bass, 0.24, 0.72);
+  const peakBass = territory(bass, 0.58, 1.0);
+  const dormantMids = territory(mids, 0.0, 0.36);
+  const activeMids = territory(mids, 0.27, 0.7);
+  const peakMids = territory(mids, 0.56, 1.0);
+  const dormantTreble = territory(treble, 0.0, 0.32);
+  const activeTreble = territory(treble, 0.23, 0.68);
+  const peakTreble = territory(treble, 0.56, 1.0);
+
+  // Preserve strong musical drops as separate transient energy. This is additive
+  // to the three territories rather than replacing them with a single intensity.
+  const bassAttack = Math.max(0, (bass - tunnelBassPrev) * 18);
+  const midAttack = Math.max(0, (mids - tunnelMidPrev) * 18);
+  const trebleAttack = Math.max(0, (treble - tunnelTreblePrev) * 18);
   tunnelBassPrev = bass;
   tunnelMidPrev = mids;
   tunnelTreblePrev = treble;
 
-  const beat = Math.pow(Math.max(0, beatPulse), 0.72);
-  tunnelPulse = Math.max(tunnelPulse * Math.exp(-6.5 * dtSec), beat);
+  const beat = Math.pow(Math.max(0, beatPulse), 0.68);
+  const drop = Math.min(
+    1.8,
+    Math.max(0, bassAttack * 0.48 + midAttack * 0.28 + trebleAttack * 0.22)
+  );
+  tunnelPulse = Math.max(
+    tunnelPulse * Math.exp(-6.4 * dtSec),
+    beat,
+    Math.min(1, drop)
+  );
 
-  // Each band owns a different part of the motion:
-  // bass = forward travel and the scale of the corridor,
-  // mids = wall shape, treble = twist/detail, beats = travelling pressure waves.
+  // Each frequency dimension owns different spatial qualities. The territories
+  // make dormant/active/peak perceptually distinct without hard on/off gates.
   const travelSpeed =
-    0.035 +
-    bass * 0.28 +
+    0.02 +
+    dormantBass * 0.08 +
+    activeBass * 0.23 +
+    peakBass * 0.34 +
     bassAttack * 0.11 +
-    mids * 0.035 +
-    beat * (0.04 + bass * 0.1);
+    mids * 0.055 +
+    treble * 0.018 +
+    beat * (0.05 + bass * 0.12);
   tunnelTravel = (tunnelTravel + travelSpeed * dtSec) % 1;
 
-  tunnelTwist += (0.01 + treble * 0.5 + trebleAttack * 0.32) * dtSec;
-  tunnelAngle += (0.004 + treble * 0.13 + trebleAttack * 0.06) * dtSec;
-  tunnelPulsePhase = (tunnelPulsePhase + (0.24 + bass * 0.45) * dtSec) % 1;
+  tunnelTwist +=
+    (0.004 +
+      dormantTreble * 0.055 +
+      activeTreble * 0.18 +
+      peakTreble * 0.34 +
+      trebleAttack * 0.2) *
+    dtSec;
+  tunnelAngle +=
+    (0.0015 +
+      dormantTreble * 0.02 +
+      activeTreble * 0.055 +
+      peakTreble * 0.115 +
+      activeMids * 0.025 +
+      trebleAttack * 0.045) *
+    dtSec;
+  tunnelPulsePhase =
+    (tunnelPulsePhase +
+      (0.1 + dormantBass * 0.12 + activeBass * 0.32 + peakBass * 0.66) *
+        dtSec) %
+    1;
 
   const W = canvas.width;
   const H = canvas.height;
   const minDim = Math.min(W, H);
   const diagonal = Math.hypot(W, H);
   const cx =
-    W * 0.5 + Math.sin(time * 0.31 + tunnelTwist * 0.7) * minDim * 0.006;
+    W * 0.5 + Math.sin(time * 0.24 + tunnelTwist * 0.45) * minDim * 0.004;
   const cy =
-    H * 0.5 + Math.cos(time * 0.27 + tunnelTwist * 0.45) * minDim * 0.004;
+    H * 0.5 + Math.cos(time * 0.21 + tunnelTwist * 0.31) * minDim * 0.003;
 
-  // The near wall is deliberately larger than the screen diagonal. That means
-  // the viewer is looking through the tunnel walls, not at a small object on top
-  // of the background.
-  const farRadius = minDim * (0.028 + bass * 0.012);
-  const nearRadius = diagonal * (0.61 + bass * 0.035 + beat * 0.018);
-  const baseDeform = 0.018 + mids * 0.16 + midAttack * 0.045;
-  const fineDeform = 0.008 + treble * 0.026 + trebleAttack * 0.014;
-  const twistAmount = 0.1 + treble * 0.85 + trebleAttack * 0.3;
-  const verticalScale = 1 + bass * 0.045 + mids * 0.035;
+  // The overall tunnel remains large at all times. Bass changes its physical
+  // breathing and perspective instead of switching the tunnel on/off.
+  const farRadius = minDim * (0.018 + dormantBass * 0.012 + activeBass * 0.018);
+  const nearRadius =
+    diagonal *
+    (0.64 +
+      dormantBass * 0.025 +
+      activeBass * 0.08 +
+      peakBass * 0.17 +
+      drop * 0.035);
+
+  const broadDeform =
+    0.008 +
+    dormantMids * 0.035 +
+    activeMids * 0.085 +
+    peakMids * 0.16 +
+    midAttack * 0.055;
+  const fineDeform =
+    0.003 +
+    dormantTreble * 0.012 +
+    activeTreble * 0.028 +
+    peakTreble * 0.062 +
+    trebleAttack * 0.018;
+  const twistAmount =
+    0.035 +
+    dormantTreble * 0.16 +
+    activeTreble * 0.42 +
+    peakTreble * 0.92 +
+    trebleAttack * 0.18;
+  const verticalScale =
+    0.96 +
+    dormantBass * 0.018 +
+    activeBass * 0.045 +
+    peakBass * 0.085 +
+    mids * 0.035;
 
   const rings = [];
 
+  // A few broad spectral buckets give the walls several simultaneous, graded
+  // responses rather than making all of the detail follow the same three values.
+  const spectralBands = 12;
+  const spectral = new Float32Array(spectralBands);
+  for (let b = 0; b < spectralBands; b++) {
+    const lo = 0.008 + (b / spectralBands) ** 1.55 * 0.46;
+    const hi = 0.012 + ((b + 1) / spectralBands) ** 1.55 * 0.46;
+    const raw = Math.pow(
+      applyValueHandling(
+        bandAverage(freqData, lo, hi) / 255,
+        state.valueHandling
+      ),
+      0.86
+    );
+    spectral[b] = smoothTowards(spectral[b], raw, remaining);
+  }
+
   for (let r = 0; r < TUNNEL_RINGS; r++) {
     const phase = (r / TUNNEL_RINGS + tunnelTravel) % 1;
-    const depth = Math.pow(phase, 1.38);
+    const depth = Math.pow(phase, 1.28);
+    const depthEase = depth * depth * (3 - 2 * depth);
     const radius =
-      farRadius + (nearRadius - farRadius) * depth * (1 + bass * 0.045);
+      farRadius + (nearRadius - farRadius) * depthEase * (1 + bass * 0.035);
     const rotation =
       tunnelAngle +
-      (1 - depth) * twistAmount +
-      tunnelTwist * (0.05 + treble * 0.08);
+      (1 - depth) * twistAmount * 0.72 +
+      tunnelTwist * (0.035 + treble * 0.075);
     const points = [];
 
     for (let seg = 0; seg < TUNNEL_SEGMENTS; seg++) {
       const norm = seg / TUNNEL_SEGMENTS;
       const angle = norm * Math.PI * 2 + rotation;
-      const bin = Math.min(
-        bufferLength - 1,
-        Math.floor(norm * bufferLength * 0.48)
+      const band = Math.min(
+        spectralBands - 1,
+        Math.floor(norm * spectralBands)
       );
-      const spectral = Math.pow(
-        applyValueHandling(freqData[bin] / 255, state.valueHandling),
-        0.82
-      );
-      const slot = r % TUNNEL_RINGS;
-      tunnelGrid[slot][seg] = smoothTowards(
-        tunnelGrid[slot][seg],
-        spectral,
-        remaining
-      );
-      const localAudio = tunnelGrid[slot][seg];
+      const localSpectrum = spectral[band];
 
-      // Midrange makes broad, slow wall bulges. Treble adds smaller corrugations
-      // on top, so the two bands remain visually distinguishable.
-      const midWave =
+      const broadWave =
         Math.sin(
-          seg * (0.48 + mids * 0.3) +
-            phase * (6.0 + mids * 5.0) +
-            time * (0.7 + mids * 1.15) +
-            tunnelTwist * 0.35
-        ) * baseDeform;
-      const midWave2 =
+          seg * (0.34 + mids * 0.42) +
+            phase * (4.5 + mids * 7) +
+            time * (0.5 + mids * 1.15) +
+            tunnelTwist * 0.28
+        ) * broadDeform;
+      const secondaryWave =
         Math.sin(
-          seg * 1.9 -
-            phase * (4.0 + mids * 5.0) +
-            time * 0.45 -
-            tunnelTwist * 0.18
+          seg * 1.3 -
+            phase * (2.8 + mids * 4.5) -
+            time * 0.35 +
+            tunnelTwist * 0.12
         ) *
         mids *
-        0.035;
+        0.048;
       const fineWave =
         Math.sin(
-          seg * (2.8 + treble * 1.8) +
-            phase * 12.0 -
-            time * (0.8 + treble * 2.0) +
+          seg * (2.0 + treble * 2.8) +
+            phase * (8 + treble * 8) -
+            time * (0.65 + treble * 2.4) +
             tunnelTwist
         ) * fineDeform;
-      const spectralWarp = localAudio * (0.012 + mids * 0.07);
+      const spectralWave =
+        (localSpectrum - 0.24) * (0.012 + mids * 0.11 + treble * 0.035);
 
-      // A beat temporarily pushes a ring-shaped pressure front down the tunnel.
       const beatDistance = Math.abs(phase - tunnelPulsePhase);
       const beatFront =
-        tunnelPulse * Math.exp(-Math.pow(beatDistance / 0.08, 2));
-      const beatWarp = beatFront * (0.022 + bass * 0.04);
+        tunnelPulse * Math.exp(-Math.pow(beatDistance / 0.075, 2));
+      const beatWarp = beatFront * (0.018 + bass * 0.045);
 
       const radiusWarp =
-        1 + midWave + midWave2 + fineWave + spectralWarp + beatWarp;
-      const y =
-        Math.sin(angle) *
+        1 + broadWave + secondaryWave + fineWave + spectralWave + beatWarp;
+      const radial =
         radius *
         radiusWarp *
-        verticalScale *
-        (1 + Math.sin(phase * 7.0 + tunnelTwist * 0.45) * treble * 0.018);
+        (1 + Math.sin(phase * 5.4 + tunnelTwist * 0.3) * treble * 0.02);
 
       points.push({
-        x: cx + Math.cos(angle) * radius * radiusWarp,
-        y: cy + y,
-        v: localAudio,
+        x: cx + Math.cos(angle) * radial,
+        y:
+          cy +
+          Math.sin(angle) * radial * verticalScale +
+          Math.sin(angle * 2 + phase * 5) * radius * mids * 0.018,
+        v: localSpectrum,
         beatFront,
       });
     }
@@ -1061,28 +1140,35 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     rings.push({ phase, depth, points });
   }
 
-  // Self-contained wall shading. This belongs to the tunnel itself; the app's
-  // configured background remains untouched underneath it.
+  // Filled wall facets provide a readable tunnel surface. Their opacity varies
+  // continuously with depth, local spectrum and the mids/treble content.
   ctx.save();
   ctx.globalCompositeOperation = "source-over";
   for (let r = 0; r < rings.length - 1; r++) {
     const a = rings[r];
     const b = rings[r + 1];
-    const depthVisibility = 0.22 + a.depth * 0.72;
+    const depthVisibility = 0.12 + a.depth * 0.52;
 
-    for (let seg = 0; seg < TUNNEL_SEGMENTS; seg += 1) {
+    for (let seg = 0; seg < TUNNEL_SEGMENTS; seg++) {
       const next = (seg + 1) % TUNNEL_SEGMENTS;
       const local = (a.points[seg].v + a.points[next].v + b.points[seg].v) / 3;
-      const structural =
-        0.18 + local * 0.32 + mids * 0.12 + a.points[seg].beatFront * 0.2;
+      const structure =
+        0.22 +
+        local * 0.4 +
+        dormantMids * 0.07 +
+        activeMids * 0.16 +
+        peakMids * 0.28 +
+        dormantTreble * 0.03 +
+        activeTreble * 0.06 +
+        peakTreble * 0.11 +
+        a.points[seg].beatFront * (0.2 + drop * 0.12);
       const alpha = Math.min(
-        0.18,
-        structural * depthVisibility * (0.45 + treble * 0.28)
+        0.34,
+        (0.075 + structure * 0.34) * depthVisibility
       );
-      if (alpha < 0.018) continue;
 
-      const hue = currentHue((seg / TUNNEL_SEGMENTS) * 0.9 + a.phase * 0.15);
-      ctx.fillStyle = `hsla(${hue}, 78%, ${43 + treble * 9}%, ${alpha})`;
+      const hue = currentHue((seg / TUNNEL_SEGMENTS) * 0.88 + a.phase * 0.12);
+      ctx.fillStyle = `hsla(${hue}, 82%, ${42 + treble * 10}%, ${alpha})`;
       ctx.beginPath();
       ctx.moveTo(a.points[seg].x, a.points[seg].y);
       ctx.lineTo(a.points[next].x, a.points[next].y);
@@ -1094,75 +1180,73 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   }
   ctx.restore();
 
-  // Structural rails. Treble controls how intricate the tunnel becomes rather
-  // than making the entire tunnel simply brighter.
-  const railCount = 14 + Math.round(treble * 24);
+  // Longitudinal ribs: always present, with continuous amplitude and density
+  // changes as treble rises.
+  const railCount = Math.round(
+    9 + dormantTreble * 6 + activeTreble * 14 + peakTreble * 20
+  );
   ctx.save();
   ctx.lineCap = "round";
   for (let rail = 0; rail < railCount; rail++) {
     const seg = Math.floor((rail / railCount) * TUNNEL_SEGMENTS);
+    const hue = currentHue((rail / railCount) * 0.95 + treble * 0.08);
     let previous = null;
-    let energy = 0;
-    const hue = currentHue((rail / railCount) * 0.95);
+    let averageEnergy = 0;
 
     ctx.beginPath();
     for (const ring of rings) {
       const pt = ring.points[seg];
-      const reveal =
-        ring.depth > 0.035 &&
-        (ring.depth > 0.18 || pt.v > 0.18 || treble > 0.34);
-
-      if (!reveal) {
-        previous = null;
-        continue;
-      }
       if (previous) {
         ctx.moveTo(previous.x, previous.y);
         ctx.lineTo(pt.x, pt.y);
       }
       previous = pt;
-      energy += pt.v * (0.18 + ring.depth);
+      averageEnergy += pt.v;
     }
 
-    if (!previous) continue;
+    averageEnergy /= rings.length;
+    const railEnergy =
+      0.28 +
+      averageEnergy * 0.46 +
+      dormantTreble * 0.08 +
+      activeTreble * 0.18 +
+      peakTreble * 0.34 +
+      activeMids * 0.08 +
+      trebleAttack * 0.07;
 
-    const localTreble =
-      treble * (0.55 + 0.45 * Math.sin(rail * 1.71 + time * 1.25)) +
-      trebleAttack * 0.06;
-    const alpha = Math.min(
-      0.82,
-      0.24 +
-        localTreble * 0.42 +
-        Math.min(0.11, (energy / rings.length) * 0.08) +
-        mids * 0.08
-    );
-    ctx.strokeStyle = `hsla(${hue}, 88%, ${50 + mids * 10}%, ${alpha})`;
-    ctx.lineWidth = 1.15 + localTreble * 2.1 + trebleAttack * 0.28;
-    applyGlow(ctx.strokeStyle, 1.5 + localTreble * 3.5);
+    ctx.strokeStyle = `hsla(${hue}, 88%, ${51 + treble * 10}%, ${Math.min(0.9, railEnergy)})`;
+    ctx.lineWidth = 0.8 + treble * 1.7 + averageEnergy * 1.4;
+    applyGlow(ctx.strokeStyle, 1 + treble * 2.8);
     ctx.stroke();
   }
   ctx.restore();
 
-  // Depth rings are deliberately stronger than in the previous versions. They
-  // establish the tunnel's 3D rhythm and make forward travel easy to perceive.
+  // Depth rings remain the strongest spatial cue. Bass changes scale/weight,
+  // treble changes their crispness, and local spectrum gives each ring its own
+  // level instead of making the whole tunnel breathe in lockstep.
   ctx.save();
   ctx.lineJoin = "round";
   for (let r = 0; r < rings.length; r++) {
     const ring = rings[r];
-    if (ring.depth < 0.018) continue;
-
-    const depthFade = 0.24 + ring.depth * 0.76;
+    const depth = ring.depth;
     const localEnergy =
       ring.points.reduce((sum, point) => sum + point.v, 0) / ring.points.length;
+    const visibility = 0.18 + depth * 0.82;
     const alpha = Math.min(
-      0.9,
-      0.28 +
-        depthFade * 0.28 +
-        bass * 0.1 +
-        localEnergy * 0.15 +
-        ring.points[0].beatFront * 0.52
+      0.98,
+      0.26 +
+        visibility * 0.34 +
+        localEnergy * 0.24 +
+        dormantBass * 0.06 +
+        activeBass * 0.1 +
+        peakBass * 0.18 +
+        dormantMids * 0.03 +
+        activeMids * 0.08 +
+        peakMids * 0.14 +
+        ring.points[0].beatFront * 0.42 +
+        drop * 0.12
     );
-    const hue = currentHue(ring.phase * 0.8);
+    const hue = currentHue(ring.phase * 0.82 + localEnergy * 0.18);
 
     ctx.beginPath();
     for (let seg = 0; seg <= TUNNEL_SEGMENTS; seg++) {
@@ -1171,22 +1255,30 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       else ctx.lineTo(pt.x, pt.y);
     }
     ctx.closePath();
-    ctx.strokeStyle = `hsla(${hue}, 90%, ${52 + bass * 10}%, ${alpha})`;
+    ctx.strokeStyle = `hsla(${hue}, 92%, ${54 + treble * 10}%, ${alpha})`;
     ctx.lineWidth =
-      0.9 + depthFade * 0.9 + bass * 0.9 + ring.points[0].beatFront * 1.8;
-    applyGlow(ctx.strokeStyle, 1.5 + depthFade * 2.5);
+      0.85 +
+      depth * 1.35 +
+      localEnergy * 1.0 +
+      dormantBass * 0.25 +
+      activeBass * 0.55 +
+      peakBass * 0.95 +
+      dormantMids * 0.12 +
+      activeMids * 0.28 +
+      peakMids * 0.48 +
+      ring.points[0].beatFront * (1.4 + drop * 1.2);
+    applyGlow(ctx.strokeStyle, 1 + visibility * 2.4 + treble * 1.8);
     ctx.stroke();
   }
   ctx.restore();
 
-  // A beat becomes a travelling event rather than a central flash: one bright
-  // pressure front moves down the depth axis and briefly lights nearby structure.
-  if (tunnelPulse > 0.08) {
-    const pulsePhase = tunnelPulsePhase;
+  // Beats create a travelling front along the tunnel depth. It changes the
+  // structure around it without becoming a second central visual.
+  if (tunnelPulse > 0.06) {
     let nearest = null;
     let nearestDelta = Infinity;
     for (const ring of rings) {
-      const delta = Math.abs(ring.phase - pulsePhase);
+      const delta = Math.abs(ring.phase - tunnelPulsePhase);
       if (delta < nearestDelta) {
         nearest = ring;
         nearestDelta = delta;
@@ -1194,7 +1286,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     }
 
     if (nearest) {
-      const alpha = Math.min(0.95, 0.45 * tunnelPulse + mids * 0.16);
+      const alpha = Math.min(0.95, 0.32 + tunnelPulse * 0.5 + mids * 0.16);
       ctx.save();
       ctx.beginPath();
       for (let seg = 0; seg <= TUNNEL_SEGMENTS; seg++) {
@@ -1203,9 +1295,14 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
         else ctx.lineTo(pt.x, pt.y);
       }
       ctx.closePath();
-      ctx.strokeStyle = `hsla(${currentHue(pulsePhase)}, 96%, 78%, ${alpha})`;
-      ctx.lineWidth = 1.8 + tunnelPulse * 3.2 + bass * 1.2;
-      applyGlow(ctx.strokeStyle, 5 + tunnelPulse * 7);
+      ctx.strokeStyle = `hsla(${currentHue(tunnelPulsePhase)}, 96%, 80%, ${alpha})`;
+      ctx.lineWidth =
+        1.5 +
+        tunnelPulse * 3.1 +
+        activeBass * 0.8 +
+        peakBass * 1.3 +
+        drop * 1.4;
+      applyGlow(ctx.strokeStyle, 3 + tunnelPulse * 6);
       ctx.stroke();
       ctx.restore();
     }
