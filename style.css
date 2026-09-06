@@ -1263,8 +1263,8 @@ body {
 #mediaOverlay .mediaArtWrap {
   position: relative;
   flex: 0 0 auto;
-  width: clamp(120px, 11vw, 184px);
-  height: clamp(120px, 11vw, 184px);
+  width: var(--media-art-width, clamp(120px, 11vw, 184px));
+  height: var(--media-art-height, clamp(120px, 11vw, 184px));
   overflow: hidden;
   border-radius: calc(var(--radius-sm) * 1.05);
   background: rgba(8, 8, 12, 0.36);
@@ -1610,8 +1610,8 @@ body {
     max-width: calc(100vw - 28px);
   }
   #mediaOverlay .mediaArtWrap {
-    width: clamp(88px, 22vw, 124px);
-    height: clamp(88px, 22vw, 124px);
+    width: var(--media-art-width, clamp(88px, 22vw, 124px));
+    height: var(--media-art-height, clamp(88px, 22vw, 124px));
   }
   #mediaOverlay.mode-cascade .mediaCard,
   #mediaOverlay.mode-radial .mediaCard {

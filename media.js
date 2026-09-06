@@ -232,6 +232,26 @@ function updateMediaLayout() {
   );
 }
 
+function updateMediaArtAspectRatio(image) {
+  if (!image || !image.naturalWidth || !image.naturalHeight) return;
+
+  // Preserve the source image's shape for non-focus media cards, but keep
+  // extreme panoramas/portraits within a useful 16:9..9:16 range.
+  const sourceRatio = image.naturalWidth / image.naturalHeight;
+  const ratio = Math.min(16 / 9, Math.max(9 / 16, sourceRatio));
+
+  // Keep the familiar square size as the short side. For non-square artwork,
+  // grow the long side instead of shrinking the whole cover to fit a fixed
+  // box. This lets the container follow the artwork's shape naturally while
+  // still clamping extreme panoramas/portraits to 16:9..9:16.
+  const baseSize = Math.max(120, Math.min(184, window.innerWidth * 0.11));
+  const width = baseSize * Math.max(1, ratio);
+  const height = baseSize * Math.max(1, 1 / ratio);
+
+  mediaArtWrap.style.setProperty("--media-art-width", `${width}px`);
+  mediaArtWrap.style.setProperty("--media-art-height", `${height}px`);
+}
+
 function updateMediaMetadata(metadata) {
   const next = metadata && typeof metadata === "object" ? metadata : null;
   const previousKey = mediaState.metadata
@@ -251,6 +271,7 @@ function updateMediaMetadata(metadata) {
     artImage.onload = () => {
       mediaState.thumbnailImage = artImage;
       mediaArt.classList.add("loaded");
+      updateMediaArtAspectRatio(artImage);
       updateMediaLayout();
     };
     artImage.onerror = () => {
@@ -266,6 +287,8 @@ function updateMediaMetadata(metadata) {
   } else if (!next?.thumbnailDataUrl) {
     mediaState.imageSrc = null;
     mediaState.thumbnailImage = null;
+    mediaArtWrap.style.removeProperty("--media-art-width");
+    mediaArtWrap.style.removeProperty("--media-art-height");
     mediaArt.removeAttribute("src");
     mediaArt.classList.remove("loaded");
   }

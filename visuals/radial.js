@@ -76,13 +76,32 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.arc(cx, cy, focusR, 0, Math.PI * 2);
   ctx.clip();
   if (currentMediaArt) {
-    const imgSize = focusR * 2.04;
+    const destSize = focusR * 2.04;
+    const sourceW = currentMediaArt.naturalWidth;
+    const sourceH = currentMediaArt.naturalHeight;
+    const sourceRatio = sourceW / sourceH;
+    const cropRatio = 1;
+    let sourceX = 0;
+    let sourceY = 0;
+    let cropW = sourceW;
+    let cropH = sourceH;
+    if (sourceRatio > cropRatio) {
+      cropW = sourceH * cropRatio;
+      sourceX = (sourceW - cropW) / 2;
+    } else if (sourceRatio < cropRatio) {
+      cropH = sourceW / cropRatio;
+      sourceY = (sourceH - cropH) / 2;
+    }
     ctx.drawImage(
       currentMediaArt,
-      cx - imgSize / 2,
-      cy - imgSize / 2,
-      imgSize,
-      imgSize
+      sourceX,
+      sourceY,
+      cropW,
+      cropH,
+      cx - destSize / 2,
+      cy - destSize / 2,
+      destSize,
+      destSize
     );
   } else {
     const focusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, focusR);
