@@ -1339,10 +1339,9 @@ body {
   paint-order: stroke fill;
   text-shadow:
     0 1px 1px rgba(0, 0, 0, 0.95),
-    0 0 3px rgba(0, 0, 0, 0.92),
-    0 0 7px rgba(0, 0, 0, 0.72),
-    0 0 8px var(--media-char-glow),
-    0 0 16px var(--media-char-glow);
+    0 0 2px rgba(0, 0, 0, 0.88),
+    0 0 calc(var(--media-char-glow-blur) * 0.45) var(--media-char-glow),
+    0 0 var(--media-char-glow-blur) var(--media-char-glow);
 }
 
 #mediaOverlay .mediaArtist .mediaTextChar {

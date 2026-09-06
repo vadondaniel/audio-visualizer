@@ -41,8 +41,12 @@ function themeCssColor(hue, saturation = 90, lightness = 60, alpha = 1) {
   return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
 }
 
+function getGlowBlur(blur) {
+  return blur * state.glowIntensity;
+}
+
 function applyGlow(color, blur) {
-  const scaled = blur * state.glowIntensity;
+  const scaled = getGlowBlur(blur);
   ctx.shadowBlur = scaled;
   ctx.shadowColor = scaled > 0 ? color : "transparent";
 }

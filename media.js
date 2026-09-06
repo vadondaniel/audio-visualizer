@@ -63,9 +63,19 @@ function updateMediaRendererColors() {
       // follows the same hueShift/spread, and regular themes use their stops.
       const offset = index / last;
       const stroke = themeCssColor(currentHue(offset), 95, 68, 1);
-      const glow = themeCssColor(currentHue(offset), 95, 72, 0.34);
+      const glow = themeCssColor(currentHue(offset), 95, 72, 0.48);
+      const glowBlur =
+        typeof getGlowBlur === "function"
+          ? getGlowBlur(kind === "title" ? 10 : 7)
+          : kind === "title"
+            ? 10
+            : 7;
       char.style.setProperty("--media-char-stroke", stroke);
       char.style.setProperty("--media-char-glow", glow);
+      char.style.setProperty(
+        "--media-char-glow-blur",
+        `${glowBlur.toFixed(1)}px`
+      );
       char.style.setProperty("--media-char-index", index);
     });
   };
