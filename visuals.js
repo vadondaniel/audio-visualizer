@@ -669,15 +669,6 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       p.life * shimmer * (0.48 + energyNow * 0.92) * (0.72 + p.z * 0.35);
     const glow = r > 2.0 && alpha > 0.16;
 
-    if (r > 2.2) {
-      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, ${Math.min(0.38, alpha * 0.45)})`;
-      ctx.lineWidth = Math.max(0.55, r * 0.55);
-      ctx.beginPath();
-      ctx.moveTo(p.px, p.py);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-    }
-
     const rainbowBoost = theme.rainbow
       ? 4 + Math.sin(((hue * Math.PI) / 180) * 3) * 3
       : 0;
@@ -688,12 +679,62 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     const saturation = theme.rainbow
       ? Math.min(100, 88 + p.z * 8 + trebleLevel * 4)
       : 96;
-    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${Math.min(1, alpha)})`;
+
+    const particleAlpha = Math.min(1, alpha);
+
+    // Rainbow particles need separation on pale backgrounds, but a black
+    // contour looks unnatural on dark backgrounds. Use the particle's own
+    // hue at a deeper value instead: it reads as chromatic depth rather than
+    // an outline, and remains compatible with both light and dark surfaces.
+    if (theme.rainbow) {
+      const rimLightness = Math.max(24, lightness - 34);
+      const rimAlpha = Math.min(0.52, 0.1 + particleAlpha * 0.22);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = `hsla(${hue}, ${Math.min(100, saturation + 4)}%, ${rimLightness}%, ${rimAlpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + Math.max(0.55, r * 0.2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    if (r > 2.2) {
+      if (theme.rainbow) {
+        const trailRimAlpha = Math.min(0.34, 0.06 + particleAlpha * 0.12);
+        ctx.strokeStyle = `hsla(${hue}, ${Math.min(100, saturation + 2)}%, ${Math.max(22, lightness - 30)}%, ${trailRimAlpha})`;
+        ctx.lineWidth = Math.max(1.1, r * 0.8);
+        ctx.beginPath();
+        ctx.moveTo(p.px, p.py);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, ${Math.min(0.38, alpha * 0.45)})`;
+      ctx.lineWidth = Math.max(0.55, r * 0.55);
+      ctx.beginPath();
+      ctx.moveTo(p.px, p.py);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${particleAlpha})`;
     if (glow) applyGlow(ctx.fillStyle, 5 + r * 2.8);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
+
+    // Tiny specular point helps the particles read as luminous points rather
+    // than flat colored blobs, especially when the background is near-white.
+    if (theme.rainbow && r > 2.6 && particleAlpha > 0.35) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.48, particleAlpha * 0.42)})`;
+      ctx.beginPath();
+      ctx.arc(
+        p.x - r * 0.22,
+        p.y - r * 0.22,
+        Math.max(0.45, r * 0.16),
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    }
 
     if (r > 4.8 && alpha > 0.55) {
       ctx.strokeStyle = `hsla(${currentHue(p.hueOffset + 0.35)}, 100%, 82%, ${Math.min(0.5, alpha * 0.45)})`;
