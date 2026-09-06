@@ -303,8 +303,10 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
 
 const bandSpawnAccum = [0, 0, 0];
 const energyHistory = [];
+const particleShockwaves = [];
 let energyNow = 0;
 let energyTrend = 0;
+let particlePhase = 0;
 
 function makeParticle({
   x,
@@ -316,20 +318,27 @@ function makeParticle({
   size,
   hueOffset,
   twinkleSpeed,
+  orbitStrength = 0,
+  outwardBias = 1,
+  z = 0.5,
 }) {
   return {
     x,
     y,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
+    px: x,
+    py: y,
+    vx: Math.cos(angle) * speed * outwardBias,
+    vy: Math.sin(angle) * speed * outwardBias,
     life: 1,
     decay,
     drag,
     size,
+    orbitStrength,
     twinkle: Math.random() * Math.PI * 2,
     twinkleSpeed:
       twinkleSpeed !== undefined ? twinkleSpeed : 0.08 + Math.random() * 0.16,
     hueOffset,
+    z,
   };
 }
 
@@ -337,51 +346,167 @@ function spawnBandParticle(band, energyRatio) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const angle = Math.random() * Math.PI * 2;
+  const spawnRadius =
+    Math.pow(Math.random(), 2.2) *
+    Math.min(canvas.width, canvas.height) *
+    0.035;
+  const tangentBias =
+    band === PARTICLE_BANDS[2]
+      ? 0.32
+      : band === PARTICLE_BANDS[1]
+        ? 0.18
+        : 0.08;
   const speed =
-    (1.4 + Math.random() * 5.6) * band.speedMul * (0.6 + energyRatio * 1.6);
+    (1.3 + Math.random() * 5.4) * band.speedMul * (0.55 + energyRatio * 1.9);
+  const x = cx + Math.cos(angle) * spawnRadius;
+  const y = cy + Math.sin(angle) * spawnRadius;
   particles.push(
     makeParticle({
-      x: cx,
-      y: cy,
+      x,
+      y,
       angle,
       speed,
-      decay: (0.007 + Math.random() * 0.014) * band.decayMul,
-      drag: 0.975 + Math.random() * 0.02,
+      decay: (0.006 + Math.random() * 0.012) * band.decayMul,
+      drag: 0.972 + Math.random() * 0.022,
       size:
-        (1.5 + Math.random() * 3.5) * band.sizeMul * (0.8 + energyRatio * 0.6),
-      hueOffset: band.hueT + (Math.random() - 0.5) * 0.06,
+        (1.35 + Math.random() * 3.9) *
+        band.sizeMul *
+        (0.72 + energyRatio * 0.9),
+      hueOffset: band.hueT + (Math.random() - 0.5) * 0.08,
+      orbitStrength: tangentBias * (0.65 + energyRatio * 1.7),
+      outwardBias: 0.65 + Math.random() * 0.55,
+      z: 0.25 + Math.random() * 0.75,
     })
   );
 }
 
-function spawnBeatRing(bass) {
+function spawnBeatRing(bass, bassLevel) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const count = Math.max(12, Math.floor(bass / 6));
-  const speed = 4 + Math.min(1, bass / 255) * 6;
+  const count = Math.max(18, Math.floor(bass / 4.2));
+  const speed = 4.2 + bassLevel * 7.5;
+  const rotation = particlePhase * 0.7;
+
+  particleShockwaves.push({
+    radius: Math.min(canvas.width, canvas.height) * 0.045,
+    speed: 7 + bassLevel * 13,
+    life: 1,
+    width: 2.5 + bassLevel * 5,
+    hueOffset: 0.5,
+  });
+
   for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2;
+    const angle = (i / count) * Math.PI * 2 + rotation;
     particles.push(
       makeParticle({
         x: cx,
         y: cy,
         angle,
-        speed,
-        decay: 0.018,
-        drag: 0.965,
-        size: 3.5,
-        hueOffset: 0.0,
-        twinkleSpeed: 0.12,
+        speed: speed * (0.86 + Math.random() * 0.26),
+        decay: 0.014 + Math.random() * 0.008,
+        drag: 0.957 + Math.random() * 0.014,
+        size: 2.4 + Math.random() * 2.8 + bassLevel * 2,
+        hueOffset: 0.03 + (Math.random() - 0.5) * 0.12,
+        twinkleSpeed: 0.16 + Math.random() * 0.1,
+        orbitStrength: 0.08 + Math.random() * 0.14,
+        outwardBias: 1,
+        z: 0.7 + Math.random() * 0.3,
       })
     );
   }
 }
 
+function drawParticleSpectrum(bassLevel, midLevel, trebleLevel, radius) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const spokes = 84;
+  const step = Math.max(1, Math.floor((bufferLength * 0.42) / spokes));
+  const energy = bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15;
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  for (let i = 0; i < spokes; i++) {
+    const v = applyValueHandling(freqData[i * step] / 255, state.valueHandling);
+    const pulse = 0.7 + v * (2.8 + energy * 2.6);
+    const angle = (i / spokes) * Math.PI * 2 + particlePhase * 0.045;
+    const inner = radius * (0.86 + Math.sin(particlePhase * 0.9 + i) * 0.025);
+    const outer = inner + radius * 0.32 * pulse;
+    const x1 = cx + Math.cos(angle) * inner;
+    const y1 = cy + Math.sin(angle) * inner;
+    const x2 = cx + Math.cos(angle) * outer;
+    const y2 = cy + Math.sin(angle) * outer;
+    const hue = currentHue(i / spokes + particlePhase * 0.01);
+    const alpha = Math.min(0.34, 0.025 + v * 0.22 + energy * 0.08);
+
+    ctx.strokeStyle = `hsla(${hue}, 95%, 67%, ${alpha})`;
+    ctx.lineWidth = 0.7 + v * 2.2 + trebleLevel * 0.7;
+    if (alpha > 0.16) applyGlow(ctx.strokeStyle, 8 + v * 6);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+  ctx.restore();
+}
+
+function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const minDim = Math.min(canvas.width, canvas.height);
+  const pulse = 0.55 + energy * 0.75 + beatPulse * 0.95;
+  const coreR = minDim * (0.028 + pulse * 0.022);
+  const haloR = coreR * (3.8 + midLevel * 2.8 + beatPulse * 3.5);
+  const hue = currentHue(0.48);
+
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
+  halo.addColorStop(0, `hsla(${hue}, 100%, 86%, ${0.5 + energy * 0.22})`);
+  halo.addColorStop(0.08, `hsla(${hue}, 100%, 70%, ${0.26 + energy * 0.24})`);
+  halo.addColorStop(
+    0.32,
+    `hsla(${currentHue(0.18)}, 95%, 58%, ${0.08 + midLevel * 0.11})`
+  );
+  halo.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = halo;
+  ctx.fillRect(cx - haloR, cy - haloR, haloR * 2, haloR * 2);
+
+  for (let ring = 0; ring < 3; ring++) {
+    const r = coreR * (1.9 + ring * 1.85 + beatPulse * (1.2 + ring * 0.7));
+    ctx.strokeStyle = `hsla(${currentHue(0.48 + ring * 0.1)}, 100%, 72%, ${0.16 + energy * 0.14 - ring * 0.035})`;
+    ctx.lineWidth = 1.1 + beatPulse * (1.3 - ring * 0.25);
+    applyGlow(ctx.strokeStyle, 7 + beatPulse * 5);
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+  }
+
+  const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+  core.addColorStop(0, "rgba(255, 255, 255, 0.96)");
+  core.addColorStop(0.16, `hsla(${hue}, 100%, 86%, 0.96)`);
+  core.addColorStop(
+    0.62,
+    `hsla(${currentHue(0.82)}, 100%, 62%, ${0.72 + beatPulse * 0.18})`
+  );
+  core.addColorStop(1, `hsla(${currentHue(0.15)}, 100%, 48%, 0)`);
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const dt = elapsedMs / FRAME_MS;
+  particlePhase += dt * (0.55 + trebleLevel * 1.9 + beatPulse * 1.4);
 
   const rawEnergy = applyValueHandling(
-    bassLevel * 0.5 + midLevel * 0.3 + trebleLevel * 0.2,
+    bassLevel * 0.48 + midLevel * 0.3 + trebleLevel * 0.22,
     state.valueHandling
   );
 
@@ -392,8 +517,8 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   ) {
     energyHistory.shift();
   }
-  let histMin = 1,
-    histMax = 0;
+  let histMin = 1;
+  let histMax = 0;
   for (const e of energyHistory) {
     if (e.value < histMin) histMin = e.value;
     if (e.value > histMax) histMax = e.value;
@@ -401,15 +526,16 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const span = Math.max(0.08, histMax - histMin);
   const normalized = Math.min(1, Math.max(0, (rawEnergy - histMin) / span));
 
-  const fastFactor = normalized > energyNow ? 0.5 : 0.25;
+  const fastFactor = normalized > energyNow ? 0.55 : 0.23;
   energyNow += (normalized - energyNow) * Math.min(1, fastFactor * dt);
   energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
   const levels = [bassLevel, midLevel, trebleLevel];
-  const SPAWN_RATE = 40;
-  const AMBIENT_FLOOR = 0.05;
+  const SPAWN_RATE = 52;
+  const AMBIENT_FLOOR = 0.045;
   for (let b = 0; b < 3; b++) {
-    const rate = (AMBIENT_FLOOR + levels[b]) * SPAWN_RATE;
+    const rate =
+      (AMBIENT_FLOOR + levels[b] * (b === 0 ? 0.95 : 1.15)) * SPAWN_RATE;
     bandSpawnAccum[b] += rate * (dt / 60);
     while (bandSpawnAccum[b] >= 1) {
       spawnBandParticle(PARTICLE_BANDS[b], levels[b]);
@@ -418,45 +544,139 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   }
 
   if (beatJustHit) {
-    spawnBeatRing(bass);
+    spawnBeatRing(bass, bassLevel);
     beatJustHit = false;
   }
 
-  const decayScale = 1.7 - energyTrend * 1.1;
-  const speedScale = 0.3 + energyNow * 2.4;
+  const decayScale = 1.55 - energyTrend * 0.9;
+  const speedScale = 0.32 + energyNow * 2.65;
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const minDim = Math.min(canvas.width, canvas.height);
+
+  // Large bass hits create a subtle expanding shockwave independently of the particles.
+  for (let i = particleShockwaves.length - 1; i >= 0; i--) {
+    const wave = particleShockwaves[i];
+    wave.radius += wave.speed * dt;
+    wave.speed *= Math.pow(0.985, dt);
+    wave.life -= (0.011 + (wave.radius / minDim) * 0.006) * dt;
+    if (wave.life <= 0) {
+      particleShockwaves.splice(i, 1);
+      continue;
+    }
+    const hue = currentHue(wave.hueOffset);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.strokeStyle = `hsla(${hue}, 95%, 70%, ${Math.min(0.42, wave.life * 0.55)})`;
+    ctx.lineWidth = wave.width * wave.life;
+    applyGlow(ctx.strokeStyle, 12 + wave.life * 9);
+    ctx.beginPath();
+    ctx.arc(cx, cy, wave.radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const coreRadius = minDim * (0.075 + energyNow * 0.05 + beatPulse * 0.08);
+  drawParticleSpectrum(bassLevel, midLevel, trebleLevel, coreRadius * 1.4);
 
   const overCap = particles.length - VISUAL_TUNING.particles.cap;
   if (overCap > 0) {
-    const trim = 0.05 * dt;
+    const trim = 0.055 * dt;
     for (let i = 0; i < overCap; i++) particles[i].life -= trim;
   }
 
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
+    p.px = p.x;
+    p.py = p.y;
+
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+    const nx = dx / dist;
+    const ny = dy / dist;
+    const tangentX = -ny;
+    const tangentY = nx;
+    const vortex =
+      p.orbitStrength *
+      (0.8 + Math.min(2.5, 180 / dist)) *
+      (0.7 + energyNow * 1.8);
+    p.vx += (nx * 0.018 + tangentX * vortex) * dt;
+    p.vy += (ny * 0.018 + tangentY * vortex) * dt;
+
+    // Pull particles very slightly back toward the field center instead of letting
+    // a few loud notes permanently eject them off-screen.
+    const returnForce =
+      Math.min(0.11, (dist / minDim) * 0.065) * (0.75 + energyNow);
+    p.vx -= nx * returnForce * dt;
+    p.vy -= ny * returnForce * dt;
+
     p.x += p.vx * speedScale * dt;
     p.y += p.vy * speedScale * dt;
     p.vx *= Math.pow(p.drag, dt);
     p.vy *= Math.pow(p.drag, dt);
-    p.twinkle += p.twinkleSpeed * dt;
+    p.twinkle += p.twinkleSpeed * dt * (1 + trebleLevel * 2.5);
     p.life -= p.decay * decayScale * dt;
+
+    // Respawn long-lived ambience before it has enough time to visibly clump at an edge.
+    const margin = minDim * 0.13;
+    if (
+      p.x < -margin ||
+      p.x > canvas.width + margin ||
+      p.y < -margin ||
+      p.y > canvas.height + margin
+    ) {
+      p.life *= 0.55;
+    }
+
     if (p.life <= 0) {
       particles.splice(i, 1);
       continue;
     }
 
-    const hue = currentHue(p.hueOffset);
+    const hue = currentHue(p.hueOffset + p.z * 0.02);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
-    const r = p.size * p.life * (0.4 + energyNow * 1.7);
-    const alpha = p.life * shimmer * (0.45 + energyNow * 0.8);
+    const depthScale = 0.58 + p.z * 0.72;
+    const r =
+      p.size * depthScale * (0.42 + energyNow * 1.85) * (0.55 + p.life * 0.65);
+    const alpha =
+      p.life * shimmer * (0.34 + energyNow * 0.92) * (0.65 + p.z * 0.4);
+    const glow = r > 2.0 && alpha > 0.16;
 
-    ctx.fillStyle = `hsla(${hue}, 90%, 65%, ${Math.min(1, alpha)})`;
-    const glow = r > 2.2 && alpha > 0.25;
-    if (glow) applyGlow(ctx.fillStyle, 8);
+    if (r > 1.3) {
+      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, ${Math.min(0.38, alpha * 0.45)})`;
+      ctx.lineWidth = Math.max(0.55, r * 0.55);
+      ctx.beginPath();
+      ctx.moveTo(p.px, p.py);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    ctx.fillStyle = `hsla(${hue}, 96%, ${66 + p.z * 16}%, ${Math.min(1, alpha)})`;
+    if (glow) applyGlow(ctx.fillStyle, 5 + r * 2.8);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
     ctx.fill();
-    if (glow) ctx.shadowBlur = 0;
+    ctx.shadowBlur = 0;
+
+    if (r > 3.3 && alpha > 0.42) {
+      ctx.strokeStyle = `hsla(${currentHue(p.hueOffset + 0.35)}, 100%, 82%, ${Math.min(0.5, alpha * 0.45)})`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(p.x - r * 1.8, p.y);
+      ctx.lineTo(p.x + r * 1.8, p.y);
+      ctx.moveTo(p.x, p.y - r * 1.8);
+      ctx.lineTo(p.x, p.y + r * 1.8);
+      ctx.stroke();
+    }
   }
+
+  ctx.restore();
+  drawParticleCore(bassLevel, midLevel, trebleLevel, energyNow);
 }
 
 let kaleidoRotation = 0;
