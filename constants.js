@@ -13,17 +13,92 @@ const {
   applyValueHandling,
 } = AudioMath;
 
-// ---------- visual modes & themes ----------
+// `colorStops` are ordered spatial stops around the visual. They are
+// intentionally directional: each stop is a point on the HSL hue wheel,
+// and interpolation proceeds from first -> last. This lets palettes such
+// as Sunset/Aurora use a deliberate multi-stage color journey instead of
+// forcing everything through one two-point hue range.
 const THEMES = [
-  { name: "Neon", hues: [320, 200], alwaysGradient: true }, // pink -> cyan
-  { name: "Fire", hues: [15, 45] }, // red -> orange
-  { name: "Matrix", hues: [130, 160] }, // green
-  { name: "Ice", hues: [190, 260] }, // blue -> purple
-  { name: "White", hues: [240, 60], monochrome: "white" }, // blue -> yellow, converted to white-scale
-  { name: "Black", hues: [240, 60], monochrome: "black" }, // blue -> yellow, converted to black-scale
-  { name: "Color Cycle", colorCycle: true, spread: 50 }, // rotates over time, with a hue gradient across each visual so it isn't flat
-  { name: "Rainbow", rainbow: true }, // fixed full spectrum across each visual
-  { name: "Rainbow Cycle", rainbow: true, cycle: true }, // spectrum rotates
+  {
+    name: "Neon",
+    colorStops: [
+      { position: 0, hue: 320 },
+      { position: 0.5, hue: 270 },
+      { position: 1, hue: 190 },
+    ],
+    alwaysGradient: true,
+  },
+  {
+    name: "Fire",
+    colorStops: [
+      { position: 0, hue: 0 },
+      { position: 0.5, hue: 18 },
+      { position: 1, hue: 48 },
+    ],
+  },
+  {
+    name: "Matrix",
+    colorStops: [
+      { position: 0, hue: 125 },
+      { position: 0.5, hue: 142 },
+      { position: 1, hue: 95 },
+    ],
+  },
+  {
+    name: "Ice",
+    colorStops: [
+      { position: 0, hue: 215 },
+      { position: 0.5, hue: 195 },
+      { position: 1, hue: 180 },
+    ],
+  },
+  {
+    name: "Aqua",
+    colorStops: [
+      { position: 0, hue: 165 },
+      { position: 0.5, hue: 180 },
+      { position: 1, hue: 195 },
+    ],
+  },
+  {
+    name: "Violet",
+    colorStops: [
+      { position: 0, hue: 255 },
+      { position: 0.5, hue: 275 },
+      { position: 1, hue: 300 },
+    ],
+  },
+  {
+    name: "Aurora",
+    colorStops: [
+      { position: 0, hue: 145 },
+      { position: 0.42, hue: 175 },
+      { position: 0.72, hue: 215 },
+      { position: 1, hue: 280 },
+    ],
+  },
+  {
+    name: "Sunset",
+    colorStops: [
+      { position: 0, hue: 335 },
+      { position: 0.42, hue: 8 },
+      { position: 0.72, hue: 20 },
+      { position: 1, hue: 38 },
+    ],
+  },
+  {
+    name: "Amber",
+    colorStops: [
+      { position: 0, hue: 42 },
+      { position: 0.5, hue: 48 },
+      { position: 1, hue: 34 },
+    ],
+  },
+  { name: "White", monochrome: "white" },
+  { name: "Black", monochrome: "black" },
+  { name: "Color Cycle", colorCycle: true, spread: 50 },
+  { name: "Rainbow", rainbow: true },
+  { name: "Rainbow Cycle", rainbow: true, cycle: true },
 ];
 
 const MODES = [
@@ -37,7 +112,6 @@ const MODES = [
   "aurora",
   "cascade",
 ];
-
 // ---------- visual tuning ----------
 // Per-mode constants that shape how each visual responds to audio.
 // Grouped here so tweaking a feel doesn't require hunting through draw code.

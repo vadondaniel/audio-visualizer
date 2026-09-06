@@ -100,10 +100,23 @@ describe("smoothTowards", () => {
 });
 
 describe("computeHue", () => {
-  test("hue-shift theme (e.g. Neon/Fire) interpolates between its two hues", () => {
+  test("legacy two-hue themes still interpolate along the shortest path", () => {
     const theme = { hues: [320, 200] };
     expect(computeHue(theme, 0, 0)).toBe(320);
     expect(computeHue(theme, 0, 0.5)).toBe(260);
+  });
+
+  test("multi-stop palettes interpolate between ordered color stops", () => {
+    const theme = {
+      colorStops: [
+        { position: 0, hue: 335 },
+        { position: 0.5, hue: 5 },
+        { position: 1, hue: 38 },
+      ],
+    };
+    expect(computeHue(theme, 0, 0)).toBe(335);
+    expect(computeHue(theme, 0, 0.5)).toBe(5);
+    expect(computeHue(theme, 0, 1)).toBe(38);
   });
 
   test("colorCycle theme with no spread set is flat and just follows the shift", () => {
@@ -152,14 +165,11 @@ describe("computeHue", () => {
     expect(computeHue(theme, 0, 1)).toBe(200);
   });
 
-  test("monochrome themes still have distinct gradient endpoints", () => {
-    const white = { hues: [240, 60], monochrome: "white" };
-    const black = { hues: [240, 60], monochrome: "black" };
-    expect(computeHue(white, 0, 0, true)).toBe(240);
-    expect(computeHue(white, 0, 1, true)).toBe(60);
-    expect(computeHue(black, 0, 0, true)).toBe(240);
-    expect(computeHue(black, 0, 1, true)).toBe(60);
-    expect(computeHue(white, 0, 1, false)).toBe(240);
+  test("themes without color stops remain safe", () => {
+    const white = { monochrome: "white" };
+    const black = { monochrome: "black" };
+    expect(computeHue(white, 0, 0, true)).toBe(0);
+    expect(computeHue(black, 0, 1, true)).toBe(0);
   });
 });
 

@@ -46,23 +46,48 @@
   // Given a theme definition (as in renderer.js's THEMES array) and the
   // current global hue-cycle position, works out the hue for a point at
   // `offset` (0-1) along whatever's being drawn (e.g. a bar's position).
+  function interpolateHue(a, b, t) {
+    const delta = ((b - a + 540) % 360) - 180;
+    return (a + delta * t + 360) % 360;
+  }
+
   function computeHue(theme, hueShift, offset = 0, gradientEnabled = true) {
     if (theme.rainbow) {
       const rotation = theme.cycle ? hueShift : 0;
       return (offset * 360 + rotation) % 360;
     }
     if (theme.colorCycle) {
-      // `spread` lets a colorCycle theme vary hue across offset (position)
-      // as well as over time, instead of painting everything the exact
-      // same hue at any given instant. Defaults to 0 (old flat behavior)
-      // for any theme that doesn't set it.
       const spread =
         theme.alwaysGradient || gradientEnabled ? theme.spread || 0 : 0;
       return (hueShift + offset * spread) % 360;
     }
-    const [a = 0, b = a] = theme.hues || [0, 0];
+
     const useGradient = theme.alwaysGradient || gradientEnabled;
-    return a + (b - a) * (useGradient ? offset % 1 : 0);
+    const t = useGradient ? Math.min(1, Math.max(0, offset)) : 0;
+    const stops =
+      Array.isArray(theme.colorStops) && theme.colorStops.length
+        ? theme.colorStops
+        : null;
+
+    if (stops) {
+      if (stops.length === 1 || t <= stops[0].position)
+        return ((stops[0].hue % 360) + 360) % 360;
+      for (let i = 1; i < stops.length; i++) {
+        const prev = stops[i - 1];
+        const next = stops[i];
+        if (t <= next.position) {
+          const span = Math.max(1e-9, next.position - prev.position);
+          const localT = (t - prev.position) / span;
+          return interpolateHue(prev.hue, next.hue, localT);
+        }
+      }
+      return ((stops[stops.length - 1].hue % 360) + 360) % 360;
+    }
+
+    // Backward-compatible two-hue themes. Hue ranges are directional and
+    // interpolated along the shortest circular path.
+    const [a = 0, b = a] = theme.hues || [0, 0];
+    return interpolateHue(a, b, t);
   }
 
   // Decides whether the current bass reading counts as a "beat" — either a
