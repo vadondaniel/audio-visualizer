@@ -60,7 +60,7 @@ const VISUAL_TUNING = {
     flashDecayPerSec: 7.2,
   },
   tunnel: {
-    ringCount: 26,
+    ringCount: 30,
     speed: 1.2,
     twistPerSec: 0.35,
     releasePerSec: 8.5,
