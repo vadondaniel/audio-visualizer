@@ -419,35 +419,36 @@ function spawnBeatRing(bass, bassLevel) {
 function drawParticleSpectrum(bassLevel, midLevel, trebleLevel, radius) {
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const spokes = 84;
-  const step = Math.max(1, Math.floor((bufferLength * 0.42) / spokes));
+  const dots = 110;
   const energy = bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15;
 
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
-  for (let i = 0; i < spokes; i++) {
-    const v = applyValueHandling(freqData[i * step] / 255, state.valueHandling);
-    const pulse = 0.7 + v * (2.8 + energy * 2.6);
-    const angle = (i / spokes) * Math.PI * 2 + particlePhase * 0.045;
-    const inner = radius * (0.86 + Math.sin(particlePhase * 0.9 + i) * 0.025);
-    const outer = inner + radius * 0.32 * pulse;
-    const x1 = cx + Math.cos(angle) * inner;
-    const y1 = cy + Math.sin(angle) * inner;
-    const x2 = cx + Math.cos(angle) * outer;
-    const y2 = cy + Math.sin(angle) * outer;
-    const hue = currentHue(i / spokes + particlePhase * 0.01);
-    const alpha = Math.min(0.34, 0.025 + v * 0.22 + energy * 0.08);
 
-    ctx.strokeStyle = `hsla(${hue}, 95%, 67%, ${alpha})`;
-    ctx.lineWidth = 0.7 + v * 2.2 + trebleLevel * 0.7;
-    if (alpha > 0.16) applyGlow(ctx.strokeStyle, 8 + v * 6);
+  for (let i = 0; i < dots; i++) {
+    const t = i / dots;
+    const sample = Math.min(
+      bufferLength - 1,
+      Math.floor(t * bufferLength * 0.42)
+    );
+    const v = applyValueHandling(freqData[sample] / 255, state.valueHandling);
+    const angle = t * Math.PI * 2 + particlePhase * (0.025 + energy * 0.02);
+    const wobble = 1 + Math.sin(particlePhase * 1.4 + i * 1.73) * 0.055;
+    const dist = radius * (1.05 + v * (0.75 + energy * 1.3)) * wobble;
+    const x = cx + Math.cos(angle) * dist;
+    const y = cy + Math.sin(angle) * dist;
+    const r = 0.45 + v * 1.25 + trebleLevel * 0.45;
+    const alpha = 0.14 + v * 0.34 + energy * 0.08;
+    const hue = currentHue(t + particlePhase * 0.006);
+
+    ctx.fillStyle = `hsla(${hue}, 96%, 72%, ${Math.min(0.65, alpha)})`;
+    if (r > 1.2) applyGlow(ctx.fillStyle, 4 + v * 5);
     ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.stroke();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
     ctx.shadowBlur = 0;
   }
+
   ctx.restore();
 }
 
@@ -531,7 +532,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
   const levels = [bassLevel, midLevel, trebleLevel];
-  const SPAWN_RATE = 52;
+  const SPAWN_RATE = 88;
   const AMBIENT_FLOOR = 0.045;
   for (let b = 0; b < 3; b++) {
     const rate =
@@ -576,8 +577,9 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     ctx.restore();
   }
 
-  const coreRadius = minDim * (0.075 + energyNow * 0.05 + beatPulse * 0.08);
-  drawParticleSpectrum(bassLevel, midLevel, trebleLevel, coreRadius * 1.4);
+  const coreRadius = minDim * (0.055 + energyNow * 0.032 + beatPulse * 0.045);
+  // Keep the reactive structure deliberately understated so the particles remain the subject.
+  drawParticleSpectrum(bassLevel, midLevel, trebleLevel, coreRadius * 1.25);
 
   const overCap = particles.length - VISUAL_TUNING.particles.cap;
   if (overCap > 0) {
@@ -642,12 +644,12 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
     const depthScale = 0.58 + p.z * 0.72;
     const r =
-      p.size * depthScale * (0.42 + energyNow * 1.85) * (0.55 + p.life * 0.65);
+      p.size * depthScale * (0.28 + energyNow * 1.15) * (0.58 + p.life * 0.62);
     const alpha =
-      p.life * shimmer * (0.34 + energyNow * 0.92) * (0.65 + p.z * 0.4);
+      p.life * shimmer * (0.48 + energyNow * 0.92) * (0.72 + p.z * 0.35);
     const glow = r > 2.0 && alpha > 0.16;
 
-    if (r > 1.3) {
+    if (r > 2.2) {
       ctx.strokeStyle = `hsla(${hue}, 92%, 68%, ${Math.min(0.38, alpha * 0.45)})`;
       ctx.lineWidth = Math.max(0.55, r * 0.55);
       ctx.beginPath();
@@ -663,7 +665,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    if (r > 3.3 && alpha > 0.42) {
+    if (r > 4.8 && alpha > 0.55) {
       ctx.strokeStyle = `hsla(${currentHue(p.hueOffset + 0.35)}, 100%, 82%, ${Math.min(0.5, alpha * 0.45)})`;
       ctx.lineWidth = 0.7;
       ctx.beginPath();
