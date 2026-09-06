@@ -114,10 +114,23 @@ describe("initAudio", () => {
     expect(source.connect).toHaveBeenCalledWith(analyser);
     expect(context.resume).toHaveBeenCalledTimes(1);
 
+    // A Windows output-device switch can leave the old loopback track live.
+    // The devicechange path must still force a fresh getDisplayMedia() call.
+    const deviceChangeHandler =
+      navigator.mediaDevices.addEventListener.mock.calls.find(
+        ([eventName]) => eventName === "devicechange"
+      )[1];
+    jest.useFakeTimers();
+    deviceChangeHandler();
+    await jest.advanceTimersByTimeAsync(800);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
+    expect(context.close).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
+
     context.state = "suspended";
     await expect(recoverAudioCapture()).resolves.toBeUndefined();
     expect(context.resume).toHaveBeenCalledTimes(2);
-    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(1);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
 
     let finishResume;
     context.state = "suspended";
@@ -136,7 +149,7 @@ describe("initAudio", () => {
     await expect(firstRecovery).resolves.toBeUndefined();
     await expect(secondRecovery).resolves.toBeUndefined();
     expect(context.resume).toHaveBeenCalledTimes(3);
-    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(1);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
 
     const inactiveHandler = mediaStream.addEventListener.mock.calls.find(
       ([eventName]) => eventName === "inactive"
@@ -144,12 +157,12 @@ describe("initAudio", () => {
     mediaStream.active = false;
     inactiveHandler();
     await new Promise((resolve) => setImmediate(resolve));
-    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(3);
 
     audioTrack.readyState = "ended";
     await expect(recoverAudioCapture()).resolves.toBeUndefined();
-    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(3);
-    expect(context.close).toHaveBeenCalledTimes(2);
+    expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(4);
+    expect(context.close).toHaveBeenCalledTimes(3);
   });
 
   test("cleans up when the audio engine cannot reach the running state", async () => {

@@ -98,8 +98,10 @@ async function initAudio() {
       deviceChangeTimer = setTimeout(() => {
         deviceChangeTimer = null;
         if (audioTrack === track && audioCtx === context) {
-          console.info("Output device changed — recovering audio capture…");
-          recoverAudioCapture();
+          console.info(
+            "Output device changed — restarting audio capture on the current default output…"
+          );
+          recoverAudioCapture({ force: true });
         }
       }, 800);
     };
@@ -207,10 +209,27 @@ function scheduleAudioRecovery() {
   }, delayMs);
 }
 
-async function recoverAudioCapture() {
+async function recoverAudioCapture({ force = false } = {}) {
   if (audioRecoveryPromise) return audioRecoveryPromise;
 
   audioRecoveryPromise = (async () => {
+    if (force) {
+      // A live loopback track can stay attached to the previous Windows
+      // default output after a device switch. Recovery normally keeps live
+      // streams, so device changes must explicitly tear the old capture down
+      // and request a fresh loopback stream from the now-current default
+      // output device.
+      cleanupAudioCapture();
+      try {
+        await initAudio();
+        return;
+      } catch (err) {
+        console.warn(
+          "Could not switch audio capture to the new output:",
+          formatAudioCaptureError(err)
+        );
+      }
+    }
     const trackHasEnded = !audioTrack || audioTrack.readyState === "ended";
     const streamIsInactive = !audioStream || audioStream.active === false;
     if (
