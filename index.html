@@ -191,6 +191,28 @@
             <label for="kaleidoClipCheckbox">Clip to circle</label>
             <input type="checkbox" id="kaleidoClipCheckbox" checked />
           </div>
+          <div id="particleDensityRow" class="field">
+            <label for="particleDensitySlider"
+              ><span>Particle density</span
+              ><span class="val" id="particleDensityVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="particleDensitySlider"
+              min="0.5"
+              max="1.8"
+              step="0.05"
+              value="1.0"
+            />
+          </div>
+          <div id="particleStyleRow" class="field">
+            <label for="particleStyleSelect">Particle behavior</label>
+            <select id="particleStyleSelect">
+              <option value="flow">Flow</option>
+              <option value="burst">Burst</option>
+              <option value="vortex">Vortex</option>
+            </select>
+          </div>
           <div class="field">
             <label for="themeSelect">Color theme</label>
             <select id="themeSelect"></select>

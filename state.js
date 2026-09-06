@@ -30,6 +30,8 @@ const state = {
   reactiveVignette: true, // audio-reactive peripheral pulse
   crtFilter: false, // retro CRT scanlines & chromatic fringe
   beatFlash: true, // cinematic transient beat flare
+  particleDensity: 1.0, // overall particle population multiplier
+  particleStyle: "flow", // "flow" | "burst" | "vortex"
 };
 
 // ---------- settings persistence ----------
@@ -59,6 +61,8 @@ const PERSISTED_KEYS = [
   "reactiveVignette",
   "crtFilter",
   "beatFlash",
+  "particleDensity",
+  "particleStyle",
 ];
 
 function saveSettings() {
@@ -123,6 +127,8 @@ function loadSettings() {
     crtFilterCheckbox.checked = state.crtFilter;
   if (typeof beatFlashCheckbox !== "undefined")
     beatFlashCheckbox.checked = state.beatFlash;
+  particleDensitySlider.value = state.particleDensity;
+  particleStyleSelect.value = state.particleStyle;
   updateSliderLabels();
   updateBgRowsVisibility();
   syncSelectsToState();

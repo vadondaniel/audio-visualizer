@@ -69,6 +69,13 @@ const reactiveVignetteCheckbox = document.getElementById(
 const crtFilterCheckbox = document.getElementById("crtFilterCheckbox");
 const beatFlashCheckbox = document.getElementById("beatFlashCheckbox");
 
+// Particle-mode controls
+const particleDensityRow = document.getElementById("particleDensityRow");
+const particleStyleRow = document.getElementById("particleStyleRow");
+const particleDensitySlider = document.getElementById("particleDensitySlider");
+const particleDensityVal = document.getElementById("particleDensityVal");
+const particleStyleSelect = document.getElementById("particleStyleSelect");
+
 // Hotkeys modal
 const hotkeysBtn = document.getElementById("hotkeysBtn");
 const hotkeysOverlay = document.getElementById("hotkeysOverlay");

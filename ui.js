@@ -198,6 +198,21 @@ beatFlashCheckbox.addEventListener("change", (e) => {
   saveSettings();
 });
 
+function wireParticleSlider(slider, key) {
+  slider.addEventListener("input", (e) => {
+    state[key] = parseFloat(e.target.value);
+    updateSliderLabels();
+    saveSettings();
+  });
+}
+
+wireParticleSlider(particleDensitySlider, "particleDensity");
+
+particleStyleSelect.addEventListener("change", (e) => {
+  state.particleStyle = e.target.value;
+  saveSettings();
+});
+
 // Initialize settings from localStorage into UI and state
 loadSettings();
 updateTrailDurationVisibility();

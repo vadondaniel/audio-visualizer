@@ -303,6 +303,37 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
 
 const bandSpawnAccum = [0, 0, 0];
 const energyHistory = [];
+const PARTICLE_STYLES = {
+  flow: {
+    size: 1.0,
+    speed: 1.0,
+    spread: 1.0,
+    orbit: 0.85,
+    burst: 1.0,
+    life: 1.0,
+  },
+  burst: {
+    size: 1.22,
+    speed: 1.28,
+    spread: 0.72,
+    orbit: 0.25,
+    burst: 2.1,
+    life: 0.82,
+  },
+  vortex: {
+    size: 0.88,
+    speed: 0.78,
+    spread: 1.18,
+    orbit: 2.35,
+    burst: 0.65,
+    life: 1.22,
+  },
+};
+
+function getParticleStyle() {
+  return PARTICLE_STYLES[state.particleStyle] || PARTICLE_STYLES.flow;
+}
+
 const particleShockwaves = [];
 let energyNow = 0;
 let energyTrend = 0;
@@ -343,13 +374,15 @@ function makeParticle({
 }
 
 function spawnBandParticle(band, energyRatio) {
+  const style = getParticleStyle();
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const angle = Math.random() * Math.PI * 2;
   const spawnRadius =
     Math.pow(Math.random(), 2.2) *
     Math.min(canvas.width, canvas.height) *
-    0.035;
+    0.035 *
+    style.spread;
   const tangentBias =
     band === PARTICLE_BANDS[2]
       ? 0.32
@@ -357,7 +390,10 @@ function spawnBandParticle(band, energyRatio) {
         ? 0.18
         : 0.08;
   const speed =
-    (1.3 + Math.random() * 5.4) * band.speedMul * (0.55 + energyRatio * 1.9);
+    (1.3 + Math.random() * 5.4) *
+    band.speedMul *
+    style.speed *
+    (0.55 + energyRatio * 1.9);
   const x = cx + Math.cos(angle) * spawnRadius;
   const y = cy + Math.sin(angle) * spawnRadius;
   particles.push(
@@ -366,14 +402,15 @@ function spawnBandParticle(band, energyRatio) {
       y,
       angle,
       speed,
-      decay: (0.006 + Math.random() * 0.012) * band.decayMul,
+      decay: ((0.006 + Math.random() * 0.012) * band.decayMul) / style.life,
       drag: 0.972 + Math.random() * 0.022,
       size:
         (1.35 + Math.random() * 3.9) *
         band.sizeMul *
+        style.size *
         (0.72 + energyRatio * 0.9),
       hueOffset: band.hueT + (Math.random() - 0.5) * 0.08,
-      orbitStrength: tangentBias * (0.65 + energyRatio * 1.7),
+      orbitStrength: tangentBias * (0.65 + energyRatio * 1.7) * style.orbit,
       outwardBias: 0.65 + Math.random() * 0.55,
       z: 0.25 + Math.random() * 0.75,
     })
@@ -381,9 +418,10 @@ function spawnBandParticle(band, energyRatio) {
 }
 
 function spawnBeatRing(bass, bassLevel) {
+  const style = getParticleStyle();
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
-  const count = Math.max(18, Math.floor(bass / 4.2));
+  const count = Math.max(8, Math.floor((bass / 4.2) * style.burst));
   const speed = 4.2 + bassLevel * 7.5;
   const rotation = particlePhase * 0.7;
 
@@ -402,13 +440,13 @@ function spawnBeatRing(bass, bassLevel) {
         x: cx,
         y: cy,
         angle,
-        speed: speed * (0.86 + Math.random() * 0.26),
-        decay: 0.014 + Math.random() * 0.008,
+        speed: speed * (0.86 + Math.random() * 0.26) * style.speed,
+        decay: (0.014 + Math.random() * 0.008) / style.life,
         drag: 0.957 + Math.random() * 0.014,
-        size: 2.4 + Math.random() * 2.8 + bassLevel * 2,
+        size: (2.4 + Math.random() * 2.8 + bassLevel * 2) * style.size,
         hueOffset: 0.03 + (Math.random() - 0.5) * 0.12,
         twinkleSpeed: 0.16 + Math.random() * 0.1,
-        orbitStrength: 0.08 + Math.random() * 0.14,
+        orbitStrength: (0.08 + Math.random() * 0.14) * style.orbit,
         outwardBias: 1,
         z: 0.7 + Math.random() * 0.3,
       })
@@ -532,7 +570,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
   const levels = [bassLevel, midLevel, trebleLevel];
-  const SPAWN_RATE = 88;
+  const SPAWN_RATE = 88 * Math.pow(state.particleDensity, 1.15);
   const AMBIENT_FLOOR = 0.045;
   for (let b = 0; b < 3; b++) {
     const rate =
@@ -550,7 +588,8 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   }
 
   const decayScale = 1.55 - energyTrend * 0.9;
-  const speedScale = 0.32 + energyNow * 2.65;
+  const style = getParticleStyle();
+  const speedScale = (0.28 + energyNow * 2.95) * style.speed;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const minDim = Math.min(canvas.width, canvas.height);
