@@ -375,6 +375,7 @@ function updateVisualOptionRows() {
   waveformStyleRow.style.display = currentMode === "waveform" ? "" : "none";
   kaleidoClipRow.style.display = currentMode === "kaleidoscope" ? "" : "none";
   cascadeFrequencyRow.style.display = currentMode === "cascade" ? "" : "none";
+  cascadeFillRow.style.display = currentMode === "cascade" ? "" : "none";
   const particleMode = currentMode === "particles";
   particleDensityRow.style.display = particleMode ? "" : "none";
   particleStyleRow.style.display = particleMode ? "" : "none";

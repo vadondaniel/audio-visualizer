@@ -22,6 +22,7 @@ const state = {
   barsAlignment: "bottom", // "bottom" | "center"
   waveformStyle: "line", // "line" | "filled"
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
+  cascadeFillStyle: "dark", // "dark" | "light" | "theme"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
   valueHandling: "exponential", // "exponential" | "logarithmic" | "linear"
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
@@ -55,6 +56,7 @@ const PERSISTED_KEYS = [
   "barsAlignment",
   "waveformStyle",
   "cascadeFrequencyOrder",
+  "cascadeFillStyle",
   "sensitivity",
   "valueHandling",
   "glowIntensity",
@@ -118,6 +120,7 @@ function loadSettings() {
   waveformStyleSelect.value = state.waveformStyle;
   cascadeFrequencyCheckbox.checked =
     state.cascadeFrequencyOrder === "treble-to-bass";
+  cascadeFillSelect.value = state.cascadeFillStyle;
   sensitivitySlider.value = state.sensitivity;
   if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
     valueHandlingSelect.value = state.valueHandling;

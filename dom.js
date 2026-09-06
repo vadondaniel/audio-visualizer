@@ -26,6 +26,8 @@ const cascadeFrequencyRow = document.getElementById("cascadeFrequencyRow");
 const cascadeFrequencyCheckbox = document.getElementById(
   "cascadeFrequencyCheckbox"
 );
+const cascadeFillRow = document.getElementById("cascadeFillRow");
+const cascadeFillSelect = document.getElementById("cascadeFillSelect");
 const smoothingRow = document.getElementById("smoothingRow");
 const smoothingCheckbox = document.getElementById("smoothingCheckbox");
 const radialModeRow = document.getElementById("radialModeRow");

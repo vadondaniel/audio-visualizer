@@ -167,6 +167,12 @@
     )
       state.cascadeFrequencyOrder = saved.cascadeFrequencyOrder;
     if (
+      saved.cascadeFillStyle === "dark" ||
+      saved.cascadeFillStyle === "light" ||
+      saved.cascadeFillStyle === "theme"
+    )
+      state.cascadeFillStyle = saved.cascadeFillStyle;
+    if (
       Number.isFinite(saved.sensitivity) &&
       saved.sensitivity >= 0.2 &&
       saved.sensitivity <= 3.0

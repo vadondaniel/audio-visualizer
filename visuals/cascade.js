@@ -264,10 +264,45 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   }
   ctx.restore();
 
-  // 5. Draw Dark Solid Silhouette Backdrop under the live wave contour
+  // 5. Draw configurable silhouette fill under the live wave contour
   ctx.save();
   traceContour(4);
-  ctx.fillStyle = "rgba(6, 6, 12, 0.94)";
+  const cascadeFillStyle = state.cascadeFillStyle || "dark";
+  if (cascadeFillStyle === "light") {
+    ctx.fillStyle = "rgba(245, 246, 250, 0.94)";
+  } else if (cascadeFillStyle === "theme") {
+    const fillTheme = THEMES[state.theme];
+    if (fillTheme?.rainbow) {
+      const fillGradient = ctx.createConicGradient(-Math.PI / 2, cx, cy);
+      const stops = 8;
+      for (let s = 0; s <= stops; s++) {
+        const p = s / stops;
+        fillGradient.addColorStop(
+          p,
+          themeCssColor(currentHue(p), 78, 22, 0.94)
+        );
+      }
+      ctx.fillStyle = fillGradient;
+    } else if (
+      state.colorGradientEnabled !== false ||
+      fillTheme.alwaysGradient
+    ) {
+      const fillGradient = ctx.createLinearGradient(0, 0, W, H);
+      const stops = 6;
+      for (let s = 0; s <= stops; s++) {
+        const p = s / stops;
+        fillGradient.addColorStop(
+          p,
+          themeCssColor(currentHue(p), 78, 22, 0.94)
+        );
+      }
+      ctx.fillStyle = fillGradient;
+    } else {
+      ctx.fillStyle = themeCssColor(themeHue, 78, 22, 0.94);
+    }
+  } else {
+    ctx.fillStyle = "rgba(6, 6, 12, 0.94)";
+  }
   ctx.fill();
   ctx.restore();
 

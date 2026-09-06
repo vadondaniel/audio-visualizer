@@ -80,6 +80,11 @@ cascadeFrequencyCheckbox.addEventListener("change", (e) => {
   saveSettings();
 });
 
+cascadeFillSelect.addEventListener("change", (e) => {
+  state.cascadeFillStyle = e.target.value;
+  saveSettings();
+});
+
 radialMirroredCheckbox.addEventListener("change", (e) => {
   state.radialMode = e.target.checked ? "mirrored" : "full";
   saveSettings();
