@@ -918,6 +918,8 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   const remaining = state.smoothingEnabled
     ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
     : 0;
+  const now = Date.now();
+  const time = now * 0.001;
 
   const rawEnergy = applyValueHandling(
     bassLevel * 0.55 + midLevel * 0.3 + trebleLevel * 0.15,
@@ -928,237 +930,168 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     rawEnergy,
     remaining
   );
-  // Gamma contrast curve: low levels stay serene; high levels punch through clearly
-  const energy = Math.min(1, Math.pow(smoothedTunnelEnergy, 1.12));
-  const surgeEnergy = Math.pow(energy, 1.75);
+  const energy = Math.min(1, Math.pow(smoothedTunnelEnergy, 1.08));
+  const bass = Math.pow(bassLevel, 0.82);
+  const mids = Math.pow(midLevel, 0.9);
+  const treble = Math.pow(trebleLevel, 0.82);
+  const beat = Math.pow(beatPulse, 0.8);
 
-  // 1. Visceral camera shake — ONLY kicks in on real beat hits & loud drops
-  const isImpact = beatPulse > 0.55 || bassLevel > 0.7;
-  const shakeAmp = isImpact
-    ? Math.pow(beatPulse, 1.8) * 9 + Math.pow(bassLevel - 0.45, 2) * 8
-    : 0;
-  const shakeX = shakeAmp > 0.5 ? (Math.random() - 0.5) * shakeAmp : 0;
-  const shakeY = shakeAmp > 0.5 ? (Math.random() - 0.5) * shakeAmp : 0;
+  // The tunnel changes character instead of simply getting brighter/larger:
+  // calm music feels deep and architectural, mids make the walls breathe,
+  // and loud passages bend the whole corridor into a fast-moving vortex.
+  const phase = energy * energy * 1.7;
+  const warp = Math.max(0, (energy - 0.3) / 0.7);
+  const deep = 1 - warp;
 
-  const cx = canvas.width / 2 + shakeX;
-  const cy = canvas.height / 2 + shakeY;
+  const bassPulse = 1 + bass * 0.14 + beat * 0.2;
+  const twistRate = 0.08 + treble * 0.5 + warp * 0.75 + beat * 0.4;
+  tunnelAngle += twistRate * dtSec;
 
-  // Aperture dynamic range:
-  // Pronounced aperture threshold:
-  // Below threshold: narrow, deep, sleek 0.35 cylindrical corridor
-  // Above threshold: massive 0.88 wide-angle warp vortex
+  const speed =
+    (0.09 + energy * 0.7 + Math.pow(energy, 2.4) * 2.8 + beat * 1.5) * dtSec;
+  tunnelZOffset = (tunnelZOffset + speed) % 1;
+
   const minDim = Math.min(canvas.width, canvas.height);
   const maxDim = Math.max(canvas.width, canvas.height);
-  const maxR =
-    minDim * 0.35 * (1 - surgeEnergy * 0.86) +
-    maxDim * (0.44 + surgeEnergy * 0.38 + beatPulse * 0.15) * surgeEnergy;
+  const baseRadius = minDim * (0.19 + energy * 0.035) * bassPulse;
+  const aperture = baseRadius + maxDim * (0.09 + energy * 0.31 + beat * 0.1);
 
-  // Dynamic Camera Focal Depth:
-  // Low intensity = deep telephoto lens (3.4 exponent), rings recede far into infinite distance
-  // High intensity = wide-angle fisheye (2.15 exponent), rings rush past the camera
-  const depthExp = 3.4 - surgeEnergy * 1.25;
+  // Tiny movement at rest, increasingly physical when the track gets loud.
+  const shake = beat * beat * 6 + Math.pow(bass, 2.2) * 2.5;
+  const cx = canvas.width / 2 + (Math.random() - 0.5) * shake;
+  const cy = canvas.height / 2 + (Math.random() - 0.5) * shake;
 
-  // Speed dynamic range:
-  // Low intensity = serene, hypnotic cruise (0.15)
-  // High intensity = supersonic hyperdrive surge (up to 6.0+)
-  const warpBoost =
-    Math.pow(energy, 2.2) * 3.8 + Math.pow(beatPulse, 1.6) * 4.2;
-  const currentSpeed = (0.15 + warpBoost) * dtSec;
-  tunnelZOffset = (tunnelZOffset + currentSpeed) % 1.0;
-  tunnelAngle += (0.1 + trebleLevel * 0.85 + beatPulse * 0.5) * dtSec;
+  // 1. A soft depth gradient sells the idea that the viewer is looking into
+  // an actual passage rather than at a stack of circles.
+  const voidR = aperture * (1.2 + warp * 0.4);
+  const voidHue = currentHue(0.08);
+  const voidGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, voidR);
+  voidGrad.addColorStop(
+    0,
+    `hsla(${voidHue}, 80%, ${10 + energy * 10}%, ${0.32 + deep * 0.12})`
+  );
+  voidGrad.addColorStop(
+    0.45,
+    `hsla(${currentHue(0.35)}, 75%, 12%, ${0.12 + energy * 0.08})`
+  );
+  voidGrad.addColorStop(1, "transparent");
+  ctx.fillStyle = voidGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, voidR, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Low-intensity feature: Atmospheric Cosmic Nebula at the vanishing point
-  // Pronounced threshold: HUD and nebula remain clean and steady for energy < 0.42,
-  // then dramatically glitch and shatter when entering warp speed!
-  const inLowRegime = energy < 0.42 && beatPulse < 0.45;
-  const hudAlpha = inLowRegime
-    ? Math.max(0, 1 - Math.pow(energy / 0.42, 2.0))
-    : 0;
-  if (hudAlpha > 0.05) {
-    const nebR = maxR * 0.52;
-    const nebGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, nebR);
-    const nebHue = (currentHue(0) + 35) % 360;
-    nebGrad.addColorStop(0, `hsla(${nebHue}, 70%, 50%, ${0.28 * hudAlpha})`);
-    nebGrad.addColorStop(
-      0.5,
-      `hsla(${(nebHue + 40) % 360}, 60%, 25%, ${0.14 * hudAlpha})`
-    );
-    nebGrad.addColorStop(1, "transparent");
-    ctx.fillStyle = nebGrad;
+  // 2. Passing tunnel markers. Their spacing stretches during quiet music
+  // and compresses into a rush during intense sections.
+  const markerCount = 12;
+  for (let m = 0; m < markerCount; m++) {
+    const z = (m / markerCount + tunnelZOffset) % 1;
+    const depth = Math.pow(z, 2.25 - warp * 0.65);
+    if (depth < 0.012) continue;
+    const r = aperture * depth;
+    const rot = tunnelAngle * 0.45 + z * 1.8;
+    const alpha = (1 - z) * (0.04 + energy * 0.11) + beat * 0.08;
+    const sides = 6;
     ctx.beginPath();
-    ctx.arc(cx, cy, nebR, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Futuristic Navigation Reticle / Calibrated Horizon Ring
-    ctx.save();
-    const reticleR = maxR * 0.16;
-    ctx.strokeStyle = `hsla(${currentHue(0)}, 80%, 75%, ${0.24 * hudAlpha})`;
-    ctx.lineWidth = 0.8;
-    ctx.beginPath();
-    ctx.arc(cx, cy, reticleR, 0, Math.PI * 2);
-    // 4 precision crosshair ticks
-    for (let a = 0; a < 4; a++) {
-      const ang = tunnelAngle * 0.5 + (a * Math.PI) / 2;
-      const x1 = cx + Math.cos(ang) * (reticleR - 5);
-      const y1 = cy + Math.sin(ang) * (reticleR - 5);
-      const x2 = cx + Math.cos(ang) * (reticleR + 7);
-      const y2 = cy + Math.sin(ang) * (reticleR + 7);
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
+    for (let i = 0; i <= sides; i++) {
+      const a = rot + (i / sides) * Math.PI * 2;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
     }
+    ctx.strokeStyle = `hsla(${currentHue(z)}, 85%, 68%, ${alpha})`;
+    ctx.lineWidth = 0.7 + depth * 1.5 + beat * 0.8;
+    if (energy > 0.35) applyGlow(ctx.strokeStyle, 4 + energy * 5);
     ctx.stroke();
-    ctx.restore();
   }
 
-  // 2. Stars: tiny peaceful dots when quiet, stretching into warp lasers on high intensity
-  // Pronounced star threshold:
-  // Below threshold: 100% crisp pinpoint stars drifting peacefully
-  // Above threshold: Instant hyperdrive warp laser streaks!
-  const isWarp = energy > 0.38 || beatPulse > 0.42;
-  const streakLength = isWarp
-    ? Math.pow(energy, 1.5) * 0.28 + beatPulse * 0.1
-    : 0;
-
-  for (let s of tunnelStars) {
-    s.z -= currentSpeed * s.speed;
-    if (s.z <= 0.02) {
-      s.z += 1.0;
-      s.x = (Math.random() - 0.5) * 2;
-      s.y = (Math.random() - 0.5) * 2;
-    }
-
-    const z1 = Math.pow(s.z, 2.0);
-    const sx1 = cx + (s.x / z1) * (canvas.width * 0.22);
-    const sy1 = cy + (s.y / z1) * (canvas.height * 0.22);
-
-    if (
-      sx1 >= -50 &&
-      sx1 <= canvas.width + 50 &&
-      sy1 >= -50 &&
-      sy1 <= canvas.height + 50
-    ) {
-      const starAlpha = (1 - s.z) * (0.2 + energy * 0.5 + beatPulse * 0.4);
-
-      if (streakLength > 0.015) {
-        // High intensity: hyperdrive laser streak
-        const z2 = Math.pow(Math.min(1.0, s.z + streakLength), 2.0);
-        const sx2 = cx + (s.x / z2) * (canvas.width * 0.22);
-        const sy2 = cy + (s.y / z2) * (canvas.height * 0.22);
-
-        ctx.strokeStyle = `hsla(${currentHue(s.z)}, 95%, ${80 + beatPulse * 15}%, ${starAlpha})`;
-        ctx.lineWidth = s.size * (1 - s.z * 0.6) * (0.8 + beatPulse * 0.8);
-        applyGlow(ctx.strokeStyle, 4 + beatPulse * 8);
-        ctx.beginPath();
-        ctx.moveTo(sx1, sy1);
-        ctx.lineTo(sx2, sy2);
-        ctx.stroke();
-      } else {
-        // Low intensity: peaceful, round pinpoint stars drifting in the void
-        const starR = s.size * (1 - s.z * 0.6) * 0.65;
-        ctx.fillStyle = `hsla(${currentHue(s.z)}, 80%, 75%, ${starAlpha * 0.7})`;
-        ctx.beginPath();
-        ctx.arc(sx1, sy1, starR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-  }
-
-  // 3. Pre-calculate ring coordinates with per-vertex FFT spectrum displacement
+  // 3. Frequency-shaped tunnel walls. Bass controls breathing, mids make
+  // individual wall sections protrude, treble twists the corridor.
   const ringPoints = [];
+  const depthExponent = 3.15 - warp * 1.0;
+  const deformScale = 0.08 + mids * 0.35 + warp * 0.4 + beat * 0.28;
 
   for (let r = 0; r < TUNNEL_RINGS; r++) {
-    const rawZ = (r / TUNNEL_RINGS + tunnelZOffset) % 1.0;
-    const zDepth = Math.pow(rawZ, depthExp);
-    if (zDepth < 0.005) {
+    const rawZ = (r / TUNNEL_RINGS + tunnelZOffset) % 1;
+    const depth = Math.pow(rawZ, depthExponent);
+    if (depth < 0.004) {
       ringPoints.push(null);
       continue;
     }
 
-    const ringRadius = zDepth * maxR;
-    const ringRot = tunnelAngle + (1 - rawZ) * 2.2;
+    const ringRadius = Math.max(baseRadius * 0.22, depth * aperture);
+    const ringRot = tunnelAngle + (1 - rawZ) * (1.4 + treble * 2.8);
     const points = [];
 
-    // Pronounced deformation threshold:
-    // Rings remain pristine and smooth below threshold,
-    // aggressively rippling into audio shockwaves above threshold
-    const deformScale = 0.08 + Math.pow(energy, 1.6) * 0.85 + beatPulse * 0.35;
-
     for (let seg = 0; seg < TUNNEL_SEGMENTS; seg++) {
-      const normSeg =
-        seg < TUNNEL_SEGMENTS / 2
-          ? seg / (TUNNEL_SEGMENTS / 2)
-          : (TUNNEL_SEGMENTS - seg) / (TUNNEL_SEGMENTS / 2);
-      const binIdx = Math.floor(normSeg * (bufferLength * 0.38));
-      const rawAmp = Math.pow(
-        applyValueHandling(freqData[binIdx] / 255, state.valueHandling),
+      const angle = (seg / TUNNEL_SEGMENTS) * Math.PI * 2 + ringRot;
+      const norm = seg / TUNNEL_SEGMENTS;
+      const bin = Math.floor(norm * bufferLength * 0.44);
+      const target = Math.pow(
+        applyValueHandling(freqData[bin] / 255, state.valueHandling),
         0.82
       );
+      tunnelGrid[r][seg] = smoothTowards(tunnelGrid[r][seg], target, remaining);
 
-      tunnelGrid[r][seg] = smoothTowards(tunnelGrid[r][seg], rawAmp, remaining);
-      const v = tunnelGrid[r][seg];
-
-      const deformedR = ringRadius * (0.94 + v * deformScale);
-      const angle = (seg / TUNNEL_SEGMENTS) * Math.PI * 2 + ringRot;
+      const audio = tunnelGrid[r][seg];
+      const wallWave =
+        Math.sin(seg * 0.72 + rawZ * 10 - time * (0.8 + energy * 1.5)) *
+        (0.018 + mids * 0.035 + warp * 0.04);
+      const breathing = bass * 0.055 + beat * 0.11;
+      const radialWarp = Math.max(
+        0.72,
+        1 + breathing + wallWave + audio * deformScale
+      );
+      const radius = ringRadius * radialWarp;
 
       points.push({
-        x: cx + Math.cos(angle) * deformedR,
-        y: cy + Math.sin(angle) * deformedR,
-        v,
+        x: cx + Math.cos(angle) * radius,
+        y: cy + Math.sin(angle) * radius,
+        v: audio,
       });
     }
-    ringPoints.push({ points, rawZ, zDepth });
+    ringPoints.push({ points, rawZ, depth });
   }
 
-  // 4. Draw illuminated tunnel wall panels between adjacent rings (Tron Grid Glow)
-  // Pronounced wall panel threshold:
-  // Dark and sleek during low/medium intensity,
-  // igniting with intense neon screen glow during high-intensity drops
-  if (energy > 0.38 || beatPulse > 0.42) {
-    ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    for (let r = 0; r < TUNNEL_RINGS - 1; r++) {
-      const ringA = ringPoints[r];
-      const ringB = ringPoints[r + 1];
-      if (!ringA || !ringB) continue;
+  // 4. Selective wall facets. They become visible as music fills the tunnel,
+  // but remain sparse enough that the tunnel silhouette is still legible.
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  for (let r = 0; r < TUNNEL_RINGS - 1; r++) {
+    const a = ringPoints[r];
+    const b = ringPoints[r + 1];
+    if (!a || !b) continue;
 
-      for (let seg = 0; seg < TUNNEL_SEGMENTS; seg += 2) {
-        const nextSeg = (seg + 1) % TUNNEL_SEGMENTS;
-        const vAvg = (ringA.points[seg].v + ringB.points[seg].v) / 2;
-        if (vAvg < 0.28 && beatPulse < 0.42) continue;
+    for (let seg = 0; seg < TUNNEL_SEGMENTS; seg += 2) {
+      const next = (seg + 1) % TUNNEL_SEGMENTS;
+      const v = (a.points[seg].v + b.points[seg].v) * 0.5;
+      const visibility = (v - 0.28) * 1.7 + energy * 0.22 + beat * 0.32;
+      if (visibility <= 0.03) continue;
 
-        const panelAlpha =
-          Math.min(0.45, vAvg * 0.48 + beatPulse * 0.3) * (1 - ringA.rawZ);
-        const hue = currentHue(ringA.rawZ);
-
-        ctx.fillStyle = `hsla(${hue}, 90%, 55%, ${panelAlpha})`;
-        ctx.beginPath();
-        ctx.moveTo(ringA.points[seg].x, ringA.points[seg].y);
-        ctx.lineTo(ringA.points[nextSeg].x, ringA.points[nextSeg].y);
-        ctx.lineTo(ringB.points[nextSeg].x, ringB.points[nextSeg].y);
-        ctx.lineTo(ringB.points[seg].x, ringB.points[seg].y);
-        ctx.closePath();
-        ctx.fill();
-      }
+      const alpha = Math.min(0.3, visibility * (0.18 + a.depth * 0.35));
+      ctx.fillStyle = `hsla(${currentHue(a.rawZ + (seg / TUNNEL_SEGMENTS) * 0.12)}, 88%, ${54 + energy * 16}%, ${alpha})`;
+      ctx.beginPath();
+      ctx.moveTo(a.points[seg].x, a.points[seg].y);
+      ctx.lineTo(a.points[next].x, a.points[next].y);
+      ctx.lineTo(b.points[next].x, b.points[next].y);
+      ctx.lineTo(b.points[seg].x, b.points[seg].y);
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.restore();
   }
+  ctx.restore();
 
-  // 5. Longitudinal perspective rails
-  // Whisper-thin threads when quiet; bright neon highway beams when loud
-  const railAlpha = 0.08 + Math.pow(energy, 1.4) * 0.5 + beatPulse * 0.35;
-  ctx.lineWidth = 0.7 + Math.pow(energy, 1.4) * 1.8 + beatPulse * 1.8;
-  const rails = 16;
-  const railStep = TUNNEL_SEGMENTS / rails;
-
+  // 5. Long perspective seams make the tunnel feel continuous. Their
+  // brightness is frequency-dependent rather than uniformly neon.
+  const rails = 20;
   for (let rl = 0; rl < rails; rl++) {
-    const segIdx = Math.floor(rl * railStep);
+    const seg = Math.floor((rl / rails) * TUNNEL_SEGMENTS);
     ctx.beginPath();
     let started = false;
-
     for (let r = 0; r < TUNNEL_RINGS; r++) {
       const ring = ringPoints[r];
       if (!ring) continue;
-      const pt = ring.points[segIdx];
+      const pt = ring.points[seg];
       if (!started) {
         ctx.moveTo(pt.x, pt.y);
         started = true;
@@ -1166,23 +1099,21 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
         ctx.lineTo(pt.x, pt.y);
       }
     }
-
-    ctx.strokeStyle = `hsla(${currentHue(rl / rails)}, 90%, ${55 + energy * 20}%, ${railAlpha})`;
-    if (energy > 0.25)
-      applyGlow(ctx.strokeStyle, 6 + energy * 10 + beatPulse * 8);
+    const alpha = 0.035 + energy * 0.11 + mids * 0.12 + beat * 0.13;
+    ctx.strokeStyle = `hsla(${currentHue(rl / rails)}, 90%, 64%, ${Math.min(0.42, alpha)})`;
+    ctx.lineWidth = 0.55 + energy * 1.2 + beat * 1.4;
+    if (energy > 0.45) applyGlow(ctx.strokeStyle, 4 + energy * 7);
     ctx.stroke();
   }
 
-  // 6. Concentric tunnel rings
-  // Thin, delicate geometric wireframes when quiet; thick saturated glowing arcs when loud
+  // 6. Rings are deliberately lighter than the wall deformation. Music is
+  // read through their shape and spacing, not just their brightness.
   for (let r = 0; r < TUNNEL_RINGS; r++) {
     const ring = ringPoints[r];
     if (!ring) continue;
-    const { points, rawZ, zDepth } = ring;
-
-    const baseRingAlpha = Math.min(1, Math.sin(rawZ * Math.PI) * 1.5);
-    const ringAlpha = baseRingAlpha * (0.22 + Math.pow(energy, 1.3) * 0.78);
-    const hue = currentHue(rawZ);
+    const { points, rawZ, depth } = ring;
+    const visibility = Math.sin(rawZ * Math.PI) * (0.14 + energy * 0.5);
+    if (visibility < 0.015) continue;
 
     ctx.beginPath();
     for (let i = 0; i <= TUNNEL_SEGMENTS; i++) {
@@ -1191,51 +1122,40 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       else ctx.lineTo(pt.x, pt.y);
     }
     ctx.closePath();
-
-    ctx.strokeStyle = `hsla(${hue}, 95%, ${50 + energy * 25 + beatPulse * 15}%, ${ringAlpha})`;
-    ctx.lineWidth =
-      (0.7 + zDepth * 3.0) * (0.5 + Math.pow(energy, 1.3) * 0.8) +
-      Math.pow(energy, 1.5) * 2.8 +
-      beatPulse * 2.0;
-    if (energy > 0.2)
-      applyGlow(ctx.strokeStyle, 6 + energy * 12 + beatPulse * 10);
+    ctx.strokeStyle = `hsla(${currentHue(rawZ)}, 92%, ${54 + energy * 22}%, ${visibility})`;
+    ctx.lineWidth = 0.55 + depth * 2.0 + energy * 1.1 + beat * 1.4;
+    if (energy > 0.28) applyGlow(ctx.strokeStyle, 3 + energy * 8);
     ctx.stroke();
   }
 
-  // 7. Shockwave blast rings erupting on beats
-  if (beatPulse > 0.42) {
-    const prog1 = Math.pow(1 - beatPulse, 0.75);
-    const prog2 = Math.pow(1 - beatPulse, 1.1);
-    const shockwaveR1 = maxR * (0.15 + prog1 * 0.85);
-    const shockwaveR2 = maxR * (0.08 + prog2 * 0.65);
-
+  // 7. Beats propagate down the tunnel as a compressed pulse rather than a
+  // generic fullscreen flash: the geometry itself appears to move toward us.
+  if (beatPulse > 0.22) {
+    const pulseDepth = Math.pow(1 - beatPulse, 0.72);
+    const pulseR = baseRadius + aperture * (0.25 + pulseDepth * 0.85);
     ctx.beginPath();
-    ctx.arc(cx, cy, shockwaveR1, 0, Math.PI * 2);
-    ctx.strokeStyle = `hsla(${currentHue(0)}, 95%, 88%, ${beatPulse * 0.75})`;
-    ctx.lineWidth = 2.5 + beatPulse * 6;
-    applyGlow(ctx.strokeStyle, 26);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, shockwaveR2, 0, Math.PI * 2);
-    ctx.strokeStyle = `hsla(${currentHue(0.2)}, 90%, 75%, ${beatPulse * 0.45})`;
-    ctx.lineWidth = 1.5 + beatPulse * 3;
+    ctx.arc(cx, cy, pulseR, 0, Math.PI * 2);
+    ctx.strokeStyle = `hsla(${currentHue(0.02)}, 95%, 86%, ${beatPulse * 0.55})`;
+    ctx.lineWidth = 1.5 + beatPulse * 4.5;
+    applyGlow(ctx.strokeStyle, 12 + beatPulse * 12);
     ctx.stroke();
   }
 
-  // 8. Pulsing vanishing point singularity in center
-  // Low intensity: tiny 4px calm jewel in infinite distance with subtle breathing
-  // High intensity: huge 45px blazing supernova core
-  const lowPulse = Math.sin(Date.now() * 0.003) * 0.8;
-  const centerR =
-    Math.max(2.5, 4 + lowPulse * (1 - energy)) +
-    Math.pow(energy, 1.6) * 20 +
-    Math.pow(bassLevel, 1.5) * 24 +
-    beatPulse * 26;
+  // 8. At high intensity the vanishing point becomes an actual destination:
+  // a small luminous aperture with a dark center, preserving the tunnel read.
+  const coreR = 3 + bass * 8 + Math.pow(energy, 1.7) * 10 + beat * 12;
   ctx.beginPath();
-  ctx.arc(cx, cy, centerR, 0, Math.PI * 2);
-  ctx.fillStyle = `hsla(${currentHue(0)}, 95%, ${70 + energy * 18 + beatPulse * 12}%, ${0.4 + energy * 0.5 + beatPulse * 0.1})`;
-  applyGlow(ctx.fillStyle, 8 + energy * 26 + beatPulse * 20);
+  ctx.arc(cx, cy, coreR * 1.8, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, ${0.08 + energy * 0.16})`;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
+  ctx.fillStyle = `hsla(${currentHue(0.04)}, 95%, ${68 + energy * 20}%, ${0.45 + energy * 0.35})`;
+  applyGlow(ctx.fillStyle, 7 + energy * 18 + beat * 12);
+  ctx.fill();
+  ctx.fillStyle = `hsla(${currentHue(0.12)}, 80%, 8%, ${0.55 + energy * 0.2})`;
+  ctx.beginPath();
+  ctx.arc(cx, cy, coreR * 0.52, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.shadowBlur = 0;
