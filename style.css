@@ -1404,7 +1404,7 @@ body {
    own quiet space / geometry. */
 #mediaOverlay.mode-bars[data-position="auto"] .mediaCard {
   left: 50%;
-  top: clamp(1.25rem, 7vh, 5rem);
+  top: clamp(3.75rem, 10vh, 7rem);
   bottom: auto;
   transform: translateX(-50%);
   justify-content: center;
