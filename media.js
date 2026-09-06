@@ -30,6 +30,50 @@ const mediaCopy = mediaOverlay.querySelector(".mediaCopy");
 const mediaArtist = mediaOverlay.querySelector(".mediaArtist");
 const mediaTitle = mediaOverlay.querySelector(".mediaTitle");
 
+// Render media text as per-character spans so the outline can use the exact
+// renderer palette at each position. CSS text-stroke itself cannot consume a
+// gradient, so a single solid stroke color can never reproduce the renderer's
+// spatial/rainbow coloring.
+const mediaTextCache = { title: "", artist: "" };
+
+function setMediaText(element, text, cacheKey) {
+  const value = String(text || "");
+  if (mediaTextCache[cacheKey] === value) return;
+  mediaTextCache[cacheKey] = value;
+  element.replaceChildren();
+  for (const char of Array.from(value)) {
+    const span = document.createElement("span");
+    span.className = "mediaTextChar";
+    span.textContent = char;
+    element.appendChild(span);
+  }
+}
+
+function updateMediaRendererColors() {
+  if (typeof currentHue !== "function" || typeof themeCssColor !== "function")
+    return;
+
+  const paintText = (element, text, kind) => {
+    const chars = element.querySelectorAll(".mediaTextChar");
+    if (!chars.length) return;
+    const last = Math.max(1, chars.length - 1);
+    chars.forEach((char, index) => {
+      // This is deliberately the renderer's own spatial hue function.
+      // Rainbow therefore traverses the same full ROYGBIV arc, Color Cycle
+      // follows the same hueShift/spread, and regular themes use their stops.
+      const offset = index / last;
+      const stroke = themeCssColor(currentHue(offset), 95, 68, 1);
+      const glow = themeCssColor(currentHue(offset), 95, 72, 0.34);
+      char.style.setProperty("--media-char-stroke", stroke);
+      char.style.setProperty("--media-char-glow", glow);
+      char.style.setProperty("--media-char-index", index);
+    });
+  };
+
+  paintText(mediaTitle, mediaTitle.textContent, "title");
+  paintText(mediaArtist, mediaArtist.textContent, "artist");
+}
+
 const MEDIA_DISPLAYS = {
   title: { cover: false, title: true, artist: false },
   "title-artist": { cover: false, title: true, artist: true },
@@ -37,6 +81,14 @@ const MEDIA_DISPLAYS = {
   "cover-title": { cover: true, title: true, artist: false },
   "cover-title-artist": { cover: true, title: true, artist: true },
 };
+
+let lastMediaThemeKey = null;
+
+function syncMediaThemeColors() {
+  // The media outline is intentionally painted per character from the exact
+  // renderer hue/color helpers. Do not derive it from UI CSS accent values.
+  updateMediaRendererColors();
+}
 
 const MEDIA_POSITION_GROUPS = {
   focus: [
@@ -139,6 +191,7 @@ function setMediaMetadataEnabled(enabled) {
 }
 
 function updateMediaLayout() {
+  syncMediaThemeColors();
   const mode = MODES[state.mode] || "bars";
   mediaOverlay.className = `mode-${mode}`;
   syncMediaPositionOptions();
@@ -207,8 +260,8 @@ function updateMediaMetadata(metadata) {
     mediaArt.classList.remove("loaded");
   }
 
-  mediaTitle.textContent = next?.title || "";
-  mediaArtist.textContent = next?.artist || "";
+  setMediaText(mediaTitle, next?.title || "", "title");
+  setMediaText(mediaArtist, next?.artist || "", "artist");
 
   const changed = previousKey !== nextKey;
   if (changed) mediaOverlay.classList.add("media-updated");
@@ -224,4 +277,8 @@ if (window.electronAPI?.onMediaMetadata) {
 // Keep the composition attached to mode changes made by hotkeys/auto-cycle.
 function refreshMediaForMode() {
   updateMediaLayout();
+}
+
+function refreshMediaThemeColors() {
+  syncMediaThemeColors();
 }

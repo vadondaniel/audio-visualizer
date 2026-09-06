@@ -77,6 +77,12 @@ function loop(timestamp = performance.now()) {
       360;
   }
 
+  // Media metadata uses the renderer palette and this exact hue-cycle clock,
+  // so its colors stay visually locked to the actual visualization.
+  if (typeof syncMediaThemeColors === "function") {
+    syncMediaThemeColors();
+  }
+
   const clearTimer = diagnosticCall("beginClear");
   clearFrame();
   diagnosticCall("endClear", clearTimer);

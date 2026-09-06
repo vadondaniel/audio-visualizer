@@ -55,9 +55,15 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
   // Central focus: when media art is available, let radial use the same
   // focal treatment as cascade rather than showing a generic color disc.
   const focusR = baseR * 0.8;
+  const mediaDisplayConfig =
+    typeof MEDIA_DISPLAYS !== "undefined"
+      ? MEDIA_DISPLAYS[state.mediaDisplay] ||
+        MEDIA_DISPLAYS["cover-title-artist"]
+      : null;
   const currentMediaArt =
     typeof mediaState !== "undefined" &&
     state.mediaMetadataEnabled &&
+    Boolean(mediaDisplayConfig?.cover) &&
     mediaState.metadata?.thumbnailDataUrl &&
     mediaState.thumbnailImage?.complete &&
     mediaState.thumbnailImage.naturalWidth > 0 &&

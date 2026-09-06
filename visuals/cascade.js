@@ -385,9 +385,15 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.arc(cx, cy, discBaseR - 3, 0, Math.PI * 2);
   ctx.clip();
 
+  const mediaDisplayConfig =
+    typeof MEDIA_DISPLAYS !== "undefined"
+      ? MEDIA_DISPLAYS[state.mediaDisplay] ||
+        MEDIA_DISPLAYS["cover-title-artist"]
+      : null;
   const currentMediaArt =
     typeof mediaState !== "undefined" &&
     state.mediaMetadataEnabled &&
+    Boolean(mediaDisplayConfig?.cover) &&
     mediaState.metadata?.thumbnailDataUrl &&
     mediaState.thumbnailImage?.complete &&
     mediaState.thumbnailImage.naturalWidth > 0 &&
