@@ -640,7 +640,27 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       continue;
     }
 
-    const hue = currentHue(p.hueOffset + p.z * 0.02);
+    const theme = THEMES[state.theme];
+    let hueOffset = p.hueOffset + p.z * 0.02;
+    if (theme.rainbow) {
+      // A plain rainbow offset gave the three particle bands only a few
+      // dominant hues (roughly red/cyan/magenta). Spread the spectrum over
+      // each particle's actual position instead, with a small depth/band
+      // perturbation so nearby particles still form coherent color clusters.
+      const angle01 =
+        (Math.atan2(p.y - cy, p.x - cx) + Math.PI) / (Math.PI * 2);
+      const radius01 = Math.min(
+        1,
+        Math.hypot(p.x - cx, p.y - cy) / (minDim * 0.72)
+      );
+      hueOffset =
+        angle01 * 0.72 +
+        radius01 * 0.18 +
+        p.hueOffset * 0.1 +
+        p.z * 0.07 +
+        particlePhase * 0.0015;
+    }
+    const hue = currentHue(hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
     const depthScale = 0.58 + p.z * 0.72;
     const r =
@@ -658,7 +678,17 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       ctx.stroke();
     }
 
-    ctx.fillStyle = `hsla(${hue}, 96%, ${66 + p.z * 16}%, ${Math.min(1, alpha)})`;
+    const rainbowBoost = theme.rainbow
+      ? 4 + Math.sin(((hue * Math.PI) / 180) * 3) * 3
+      : 0;
+    const lightness = Math.min(
+      84,
+      66 + p.z * 16 + rainbowBoost + trebleLevel * 4
+    );
+    const saturation = theme.rainbow
+      ? Math.min(100, 88 + p.z * 8 + trebleLevel * 4)
+      : 96;
+    ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${Math.min(1, alpha)})`;
     if (glow) applyGlow(ctx.fillStyle, 5 + r * 2.8);
     ctx.beginPath();
     ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
