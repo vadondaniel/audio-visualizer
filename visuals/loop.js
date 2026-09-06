@@ -135,5 +135,4 @@ function loop(timestamp = performance.now()) {
   const trailTimer = diagnosticCall("beginTrail");
   renderTrailHistory(timestamp);
   diagnosticCall("endTrail", trailTimer);
-  diagnosticCall("endFrame");
 }

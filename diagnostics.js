@@ -9,7 +9,6 @@ const diagnostics = (() => {
 
   const frameMs = new Float64Array(SAMPLE_COUNT);
   const audioMs = new Float64Array(SAMPLE_COUNT);
-  const clearMs = new Float64Array(SAMPLE_COUNT);
   const backgroundMs = new Float64Array(SAMPLE_COUNT);
   const fxMs = new Float64Array(SAMPLE_COUNT);
   const modeMs = new Float64Array(SAMPLE_COUNT);
@@ -17,8 +16,7 @@ const diagnostics = (() => {
   const trailCaptureMs = new Float64Array(SAMPLE_COUNT);
   const trailCompositeMs = new Float64Array(SAMPLE_COUNT);
   const presentMs = new Float64Array(SAMPLE_COUNT);
-  const callbackOtherMs = new Float64Array(SAMPLE_COUNT);
-  const frameGapMs = new Float64Array(SAMPLE_COUNT);
+  const unaccountedMs = new Float64Array(SAMPLE_COUNT);
 
   let index = 0;
   let sampleCount = 0;
@@ -27,34 +25,11 @@ const diagnostics = (() => {
   let running = false;
   let refreshEstimate = 60;
   let frameOpen = 0;
-  let lastCallbackEnd = 0;
   let currentSlot = 0;
   let profile = null;
   let lastProfile = null;
   let ui = null;
   let gpuInfo = null;
-  let canvasInstrumentationInstalled = false;
-  let canvasInstrumentationRefs = [];
-  let activeCanvasPhase = "other";
-  const CANVAS_OPS = [
-    "clearRect",
-    "fillRect",
-    "strokeRect",
-    "drawImage",
-    "beginPath",
-    "closePath",
-    "arc",
-    "fill",
-    "stroke",
-    "save",
-    "restore",
-    "setTransform",
-    "translate",
-    "rotate",
-    "scale",
-    "createLinearGradient",
-    "createRadialGradient",
-  ];
 
   const PROFILE_KEYS = [
     "mode",
@@ -94,7 +69,6 @@ const diagnostics = (() => {
 
   const PHASE_NAMES = [
     "frame",
-    "clear",
     "audio",
     "background",
     "fx",
@@ -103,8 +77,7 @@ const diagnostics = (() => {
     "trailCapture",
     "trailComposite",
     "present",
-    "callbackOther",
-    "frameGap",
+    "unaccounted",
   ];
 
   function makeMetric() {
@@ -268,7 +241,6 @@ const diagnostics = (() => {
       slowFrames: 0,
       particleCountTotal: 0,
       trailFramesTotal: 0,
-      canvasOps: Object.fromEntries(CANVAS_OPS.map((name) => [name, 0])),
     };
   }
 
@@ -284,43 +256,9 @@ const diagnostics = (() => {
     return bucket;
   }
 
-  function installCanvasInstrumentation() {
-    if (
-      canvasInstrumentationInstalled ||
-      typeof CanvasRenderingContext2D === "undefined"
-    )
-      return;
-    canvasInstrumentationInstalled = true;
-    for (const name of CANVAS_OPS) {
-      const original = CanvasRenderingContext2D.prototype[name];
-      if (typeof original !== "function") continue;
-      const wrapped = function (...args) {
-        if (profile) {
-          const bucket = ensureProfileBucket();
-          if (
-            bucket &&
-            Object.prototype.hasOwnProperty.call(bucket.canvasOps, name)
-          ) {
-            bucket.canvasOps[name]++;
-          }
-        }
-        return original.apply(this, args);
-      };
-      try {
-        Object.defineProperty(wrapped, "name", {
-          value: original.name || name,
-          configurable: true,
-        });
-      } catch {}
-      CanvasRenderingContext2D.prototype[name] = wrapped;
-      canvasInstrumentationRefs.push({ name, original });
-    }
-  }
-
   function addSampleToBucket(bucket, slot) {
     const values = {
       frame: frameMs[slot],
-      clear: clearMs[slot],
       audio: audioMs[slot],
       background: backgroundMs[slot],
       fx: fxMs[slot],
@@ -329,8 +267,7 @@ const diagnostics = (() => {
       trailCapture: trailCaptureMs[slot],
       trailComposite: trailCompositeMs[slot],
       present: presentMs[slot],
-      callbackOther: callbackOtherMs[slot],
-      frameGap: frameGapMs[slot],
+      unaccounted: unaccountedMs[slot],
     };
     bucket.samples++;
     bucket.durationMs += values.frame;
@@ -381,10 +318,7 @@ const diagnostics = (() => {
           aggregate = { samples: 0, cpu: makeMetric(), memory: makeMetric() };
           profile.processMetrics.set(key, aggregate);
         }
-        addMetric(
-          aggregate.cpu,
-          Number(metric.cpu?.percentCPUUsage ?? metric.cpu?.percent) || 0
-        );
+        addMetric(aggregate.cpu, Number(metric.cpu?.percent) || 0);
         addMetric(
           aggregate.memory,
           Number(metric.memory?.workingSetSize || 0) / 1024
@@ -496,12 +430,6 @@ const diagnostics = (() => {
     result.avgTrailFrames = bucket.samples
       ? bucket.trailFramesTotal / bucket.samples
       : 0;
-    result.canvasOpsPerFrame = {};
-    for (const [name, count] of Object.entries(bucket.canvasOps)) {
-      result.canvasOpsPerFrame[name] = bucket.samples
-        ? count / bucket.samples
-        : 0;
-    }
     return result;
   }
 
@@ -634,7 +562,6 @@ const diagnostics = (() => {
 
   function reset() {
     frameMs.fill(0);
-    clearMs.fill(0);
     audioMs.fill(0);
     backgroundMs.fill(0);
     fxMs.fill(0);
@@ -643,15 +570,11 @@ const diagnostics = (() => {
     trailCaptureMs.fill(0);
     trailCompositeMs.fill(0);
     presentMs.fill(0);
-    callbackOtherMs.fill(0);
-    frameGapMs.fill(0);
+    unaccountedMs.fill(0);
     index = 0;
     sampleCount = 0;
     slowFrames = 0;
     rafLast = 0;
-    frameOpen = 0;
-    lastCallbackEnd = 0;
-    activeCanvasPhase = "other";
   }
 
   function startProfile() {
@@ -668,7 +591,6 @@ const diagnostics = (() => {
       nextProcessSamplePerfMs: performance.now(),
     };
     running = true;
-    installCanvasInstrumentation();
     updateProfileUi();
     return true;
   }
@@ -689,11 +611,16 @@ const diagnostics = (() => {
   function tickStart(timestamp) {
     if (!running && !profile) return;
 
-    const now = performance.now();
-
     if (rafLast > 0) {
+      if (frameOpen)
+        push(
+          unaccountedMs,
+          Math.max(0, performance.now() - frameOpen),
+          currentSlot
+        );
       if (profile) {
         pushProfileSample(currentSlot);
+        const now = performance.now();
         if (now >= profile.nextProcessSamplePerfMs) {
           profile.nextProcessSamplePerfMs = now + 1000;
           sampleProcessMetrics();
@@ -706,100 +633,64 @@ const diagnostics = (() => {
       push(frameMs, dt, currentSlot);
       estimateRefresh(dt);
       if (dt > frameBudget() * 1.75) slowFrames++;
-
-      // Time between our previous JS frame ending and this callback starting.
-      // This is scheduler/vsync/idle time, not renderer work.
-      const gap = lastCallbackEnd > 0 ? Math.max(0, now - lastCallbackEnd) : 0;
-      push(frameGapMs, gap, currentSlot);
     } else {
       currentSlot = index;
     }
 
     rafLast = timestamp;
-    frameOpen = now;
+    frameOpen = performance.now();
   }
 
-  function endFrame() {
-    if (!frameOpen) return;
-    const now = performance.now();
-    const callbackDuration = Math.max(0, now - frameOpen);
-    const measuredBase =
-      audioMs[currentSlot] +
-      backgroundMs[currentSlot] +
-      fxMs[currentSlot] +
-      modeMs[currentSlot] +
-      trailMs[currentSlot] +
-      (typeof clearMs !== "undefined" ? clearMs[currentSlot] : 0);
-    push(
-      callbackOtherMs,
-      Math.max(0, callbackDuration - measuredBase),
-      currentSlot
-    );
-    lastCallbackEnd = now;
-    frameOpen = 0;
+  function beginPhase() {
+    return running || profile ? performance.now() : 0;
   }
-
-  function beginPhase(name) {
-    if (!(running || profile)) return null;
-    const token = { start: performance.now(), previous: activeCanvasPhase };
-    activeCanvasPhase = name;
-    return token;
-  }
-  function endPhase(buffer, token) {
-    if (!token) return;
-    push(buffer, performance.now() - token.start, currentSlot);
-    activeCanvasPhase = token.previous;
-  }
-  function beginClear() {
-    return beginPhase("clear");
-  }
-  function endClear(start) {
-    endPhase(clearMs, start);
+  function endPhase(buffer, start) {
+    if (start) push(buffer, performance.now() - start, currentSlot);
   }
   function beginAudio() {
-    return beginPhase("audio");
+    return beginPhase();
   }
   function endAudio(start) {
     endPhase(audioMs, start);
   }
   function beginBackground() {
-    return beginPhase("background");
+    return beginPhase();
   }
   function endBackground(start) {
     endPhase(backgroundMs, start);
   }
   function beginFx() {
-    return beginPhase("fx");
+    return beginPhase();
   }
   function endFx(start) {
     endPhase(fxMs, start);
   }
   function beginRender() {
-    return beginPhase("mode");
+    return beginPhase();
   }
   function endRender(start) {
     endPhase(modeMs, start);
   }
   function beginTrail() {
-    return beginPhase("trail");
+    return beginPhase();
   }
   function endTrail(start) {
     endPhase(trailMs, start);
   }
   function beginTrailCapture() {
-    return beginPhase("trailCapture");
+    return beginPhase();
   }
   function endTrailCapture(start) {
     endPhase(trailCaptureMs, start);
   }
   function beginTrailComposite() {
-    return beginPhase("trailComposite");
+    return beginPhase();
   }
   function endTrailComposite(start) {
     endPhase(trailCompositeMs, start);
   }
   function beginPresent() {
-    return beginPhase("present");
+    return beginPhase();
   }
   function endPresent(start) {
     endPhase(presentMs, start);
@@ -900,9 +791,6 @@ const diagnostics = (() => {
     init,
     start,
     tickStart,
-    endFrame,
-    beginClear,
-    endClear,
     beginAudio,
     endAudio,
     beginBackground,

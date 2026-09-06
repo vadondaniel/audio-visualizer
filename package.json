@@ -8,7 +8,8 @@
     "dist": "electron-builder --win portable",
     "test": "jest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "benchmark": "electron benchmark.js"
   },
   "devDependencies": {
     "electron": "^44.2.0",
