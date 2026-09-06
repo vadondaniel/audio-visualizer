@@ -407,6 +407,39 @@
     };
   }
 
+  async function traceStart(meta) {
+    if (
+      !params.renderTracing ||
+      typeof window.electronAPI?.benchmarkStartRenderTrace !== "function"
+    )
+      return false;
+    try {
+      const ok = await window.electronAPI.benchmarkStartRenderTrace(meta);
+      if (ok) {
+        performance.mark("benchmark-render-start");
+        return true;
+      }
+    } catch (error) {
+      console.warn("[benchmark] Rendering trace start failed:", error);
+    }
+    return false;
+  }
+
+  async function traceStop(meta) {
+    if (
+      !params.renderTracing ||
+      typeof window.electronAPI?.benchmarkStopRenderTrace !== "function"
+    )
+      return null;
+    try {
+      performance.mark("benchmark-render-end");
+      return await window.electronAPI.benchmarkStopRenderTrace(meta);
+    } catch (error) {
+      console.warn("[benchmark] Rendering trace stop failed:", error);
+      return { available: false, error: error?.message || String(error) };
+    }
+  }
+
   async function runMode(
     modeName,
     scenarioName,
@@ -438,16 +471,30 @@
     timeData = new Uint8Array(bufferLength);
     audio.resetClock();
     await sleepActive(params.warmupMs);
+    const tracingStarted = await traceStart({
+      mode: modeName,
+      scenario: scenarioName,
+      repeat,
+    });
     diagnostics.startProfile();
     audio.resetClock();
     await sleepActive(params.durationMs);
     const profile = diagnostics.stopProfile();
+    const rendering = tracingStarted
+      ? await traceStop({ mode: modeName, scenario: scenarioName, repeat })
+      : null;
     const avg = profile?.buckets?.[0]?.frame?.avg;
     const p95 = profile?.buckets?.[0]?.frame?.p95;
     console.log(
       `[benchmark] PROGRESS — TIMING ${progressIndex}/${progressTotal} done · ${modeName} [${scenarioName}/${repeat}] avg=${Number.isFinite(avg) ? avg.toFixed(2) : "?"}ms p95=${Number.isFinite(p95) ? p95.toFixed(2) : "?"}ms · ${displayLabel()}`
     );
-    return { mode: modeName, scenario: scenarioName, repeat, profile };
+    return {
+      mode: modeName,
+      scenario: scenarioName,
+      repeat,
+      profile,
+      rendering,
+    };
   }
 
   function shuffle(array, rng) {
@@ -576,6 +623,21 @@
         fftSize: 2048,
         sampleRate: 48000,
         scenarios,
+      },
+      renderingMeasurement: {
+        enabled: Boolean(params.renderTracing),
+        traceCategorySet: [
+          "blink.user_timing",
+          "cc",
+          "compositor",
+          "gpu",
+          "viz",
+          "disabled-by-default-skia",
+          "disabled-by-default-skia.gpu",
+          "disabled-by-default-viz.gpu_composite_time",
+          "disabled-by-default-display.framedisplayed",
+        ],
+        note: "Trace durations are summed Chromium/Skia/GPU/compositor work across threads; overlapping events can exceed wall-clock frame time. Raster work is per isolated mode run, so it is attributable to that mode's rendering workload.",
       },
       results,
       operationCounts: operationResults,
