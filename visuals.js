@@ -906,6 +906,8 @@ let tunnelTrebleSmoothed = 0;
 let tunnelBassPrev = 0;
 let tunnelMidPrev = 0;
 let tunnelTreblePrev = 0;
+let tunnelDropPulses = [];
+let tunnelDropCooldown = 0;
 
 const TUNNEL_RINGS = 34;
 const TUNNEL_SEGMENTS = 48;
@@ -965,8 +967,38 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   );
   tunnelPulse = Math.max(
     tunnelPulse * Math.exp(-6.4 * dtSec),
-    beat,
+    beat * 0.72,
     Math.min(1, drop)
+  );
+
+  // Drops are discrete spatial events layered over the continuous tunnel motion.
+  // A strong rising transient launches a bright pulse from the viewer's side of
+  // the tunnel toward the vanishing point. The cooldown prevents sustained loud
+  // passages from turning into a permanent pulse train.
+  tunnelDropCooldown = Math.max(0, tunnelDropCooldown - dtSec);
+  const dropStrength = Math.min(1, drop * 0.92 + beat * 0.34);
+  if (tunnelDropCooldown <= 0 && dropStrength > 0.22) {
+    tunnelDropPulses.push({
+      phase: 0.98,
+      strength: dropStrength,
+      width: 0.042,
+    });
+    if (dropStrength > 0.62) {
+      tunnelDropPulses.push({
+        phase: 0.94,
+        strength: dropStrength * 0.58,
+        width: 0.07,
+      });
+    }
+    tunnelDropCooldown = 0.16 + (1 - dropStrength) * 0.26;
+  }
+  for (const pulse of tunnelDropPulses) {
+    pulse.phase -= dtSec * (0.38 + pulse.strength * 0.72);
+    pulse.width = Math.min(0.13, pulse.width + dtSec * 0.02);
+    pulse.strength *= Math.exp(-0.18 * dtSec);
+  }
+  tunnelDropPulses = tunnelDropPulses.filter(
+    (pulse) => pulse.phase > -0.08 && pulse.strength > 0.03
   );
 
   // Each frequency dimension owns different spatial qualities. The territories
@@ -1272,8 +1304,8 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   }
   ctx.restore();
 
-  // Beats create a travelling front along the tunnel depth. It changes the
-  // structure around it without becoming a second central visual.
+  // Beat pulses: the regular beat can still highlight one ring, while a real
+  // drop gets its own travelling wavefront that visibly moves through depth.
   if (tunnelPulse > 0.06) {
     let nearest = null;
     let nearestDelta = Infinity;
@@ -1286,7 +1318,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
     }
 
     if (nearest) {
-      const alpha = Math.min(0.95, 0.32 + tunnelPulse * 0.5 + mids * 0.16);
+      const alpha = Math.min(0.9, 0.24 + tunnelPulse * 0.42 + mids * 0.12);
       ctx.save();
       ctx.beginPath();
       for (let seg = 0; seg <= TUNNEL_SEGMENTS; seg++) {
@@ -1295,17 +1327,56 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
         else ctx.lineTo(pt.x, pt.y);
       }
       ctx.closePath();
-      ctx.strokeStyle = `hsla(${currentHue(tunnelPulsePhase)}, 96%, 80%, ${alpha})`;
-      ctx.lineWidth =
-        1.5 +
-        tunnelPulse * 3.1 +
-        activeBass * 0.8 +
-        peakBass * 1.3 +
-        drop * 1.4;
-      applyGlow(ctx.strokeStyle, 3 + tunnelPulse * 6);
+      ctx.strokeStyle = `hsla(${currentHue(tunnelPulsePhase)}, 96%, 76%, ${alpha})`;
+      ctx.lineWidth = 1.2 + tunnelPulse * 2.4 + bass * 1.2;
+      applyGlow(ctx.strokeStyle, 2 + tunnelPulse * 5);
       ctx.stroke();
       ctx.restore();
     }
+  }
+
+  for (const pulse of tunnelDropPulses) {
+    let nearest = null;
+    let nearestDelta = Infinity;
+    for (const ring of rings) {
+      const delta = Math.abs(ring.phase - pulse.phase);
+      if (delta < nearestDelta) {
+        nearest = ring;
+        nearestDelta = delta;
+      }
+    }
+    if (!nearest) continue;
+
+    const pulseAlpha = Math.min(1, pulse.strength * 1.1);
+    ctx.save();
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    for (let seg = 0; seg <= TUNNEL_SEGMENTS; seg++) {
+      const pt = nearest.points[seg % TUNNEL_SEGMENTS];
+      if (seg === 0) ctx.moveTo(pt.x, pt.y);
+      else ctx.lineTo(pt.x, pt.y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = `hsla(${currentHue(0.04 + pulse.phase * 0.16)}, 100%, 82%, ${pulseAlpha})`;
+    ctx.lineWidth = 3.2 + pulse.strength * 5.5 + bass * 2.2;
+    applyGlow(ctx.strokeStyle, 5 + pulse.strength * 9);
+    ctx.stroke();
+
+    // A softer adjacent ring makes the event read as a travelling pressure wave
+    // instead of a single flashing outline.
+    if (pulse.width > 0.045) {
+      ctx.globalAlpha = pulseAlpha * 0.34;
+      ctx.lineWidth *= 0.46;
+      ctx.beginPath();
+      for (let seg = 0; seg <= TUNNEL_SEGMENTS; seg++) {
+        const pt = nearest.points[seg % TUNNEL_SEGMENTS];
+        if (seg === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   ctx.shadowBlur = 0;
