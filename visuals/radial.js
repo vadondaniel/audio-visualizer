@@ -52,13 +52,46 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
     ctx.stroke();
   }
 
-  // pulsing center circle
+  // Central focus: when media art is available, let radial use the same
+  // focal treatment as cascade rather than showing a generic color disc.
+  const focusR = baseR * 0.8;
+  const currentMediaArt =
+    typeof mediaState !== "undefined" &&
+    state.mediaMetadataEnabled &&
+    mediaState.metadata?.thumbnailDataUrl &&
+    mediaState.thumbnailImage?.complete &&
+    mediaState.thumbnailImage.naturalWidth > 0 &&
+    mediaState.thumbnailImage.naturalHeight > 0
+      ? mediaState.thumbnailImage
+      : null;
+
+  ctx.save();
   ctx.beginPath();
-  ctx.arc(cx, cy, baseR * 0.8, 0, Math.PI * 2);
-  ctx.fillStyle = themeCssColor(currentHue(0), 90, 60, 0.15);
-  ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = themeCssColor(currentHue(0), 90, 70, 0.5);
+  ctx.arc(cx, cy, focusR, 0, Math.PI * 2);
+  ctx.clip();
+  if (currentMediaArt) {
+    const imgSize = focusR * 2.04;
+    ctx.drawImage(
+      currentMediaArt,
+      cx - imgSize / 2,
+      cy - imgSize / 2,
+      imgSize,
+      imgSize
+    );
+  } else {
+    const focusGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, focusR);
+    focusGrad.addColorStop(0, themeCssColor(currentHue(0), 90, 60, 0.48));
+    focusGrad.addColorStop(1, themeCssColor(currentHue(0.15), 90, 26, 0.24));
+    ctx.fillStyle = focusGrad;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, focusR, 0, Math.PI * 2);
+  ctx.lineWidth = 2.4;
+  ctx.strokeStyle = themeCssColor(currentHue(0), 90, 70, 0.76);
+  applyGlow(ctx.strokeStyle, 10);
   ctx.stroke();
 
   ctx.shadowBlur = 0;

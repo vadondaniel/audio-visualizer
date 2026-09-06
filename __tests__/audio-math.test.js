@@ -139,13 +139,13 @@ describe("computeHue", () => {
 
   test("rainbow (static) theme spreads offset across the full spectrum", () => {
     const theme = { rainbow: true };
-    expect(computeHue(theme, 999, 0.25)).toBe(90); // no rotation, shift ignored
+    expect(computeHue(theme, 999, 0.25)).toBe(75); // no rotation, shift ignored
   });
 
   test("rainbow + cycle theme rotates the spread over time", () => {
     const theme = { rainbow: true, cycle: true };
-    expect(computeHue(theme, 45, 0.25)).toBe(135);
-    expect(computeHue(theme, 350, 0.25)).toBe(80); // wraps at 360
+    expect(computeHue(theme, 45, 0.25)).toBe(120);
+    expect(computeHue(theme, 350, 0.25)).toBe(65); // wraps at 360
   });
 
   test("non-rainbow hue themes can disable their spatial gradient", () => {

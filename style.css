@@ -155,7 +155,8 @@
   /* Type. System sans for reading, a monospace stack reserved for
            numeric readouts and key shortcuts — gives the control surface a
            slight instrument-panel feel without switching the whole UI. */
-  --font-sans: -apple-system, "Segoe UI", "Inter", Roboto, Arial, sans-serif;
+  --font-sans:
+    "Segoe UI Variable", "Segoe UI", Inter, Roboto, Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
 
   /* Layout */
@@ -1273,8 +1274,8 @@ body {
 #mediaOverlay .mediaArtWrap {
   position: relative;
   flex: 0 0 auto;
-  width: clamp(56px, 6vw, 84px);
-  height: clamp(56px, 6vw, 84px);
+  width: clamp(120px, 11vw, 184px);
+  height: clamp(120px, 11vw, 184px);
   overflow: hidden;
   border-radius: calc(var(--radius-sm) * 1.05);
   background: rgba(8, 8, 12, 0.36);
@@ -1300,10 +1301,10 @@ body {
 
 #mediaOverlay .mediaCopy {
   min-width: 0;
-  max-width: 100%;
+  max-width: min(100%, 60rem);
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 0.65vw, 10px);
+  gap: clamp(2px, 0.25vw, 5px);
 }
 
 #mediaOverlay .mediaTitle,
@@ -1312,16 +1313,12 @@ body {
   max-width: 100%;
 }
 
-/* Media identity is part of the visualizer, so the lettering uses the same
-   live theme colors as the rest of the UI.  The outline remains visible even
-   when the active theme is bright, while the shadow separates it from busy
-   visualizer content. */
 #mediaOverlay .mediaTitle {
   display: block;
   overflow-wrap: anywhere;
   word-break: break-word;
   text-wrap: balance;
-  font-family: var(--font-sans);
+  font-family: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
   font-size: clamp(24px, 3.5vw, 54px);
   line-height: 1.16;
   font-weight: 760;
@@ -1341,7 +1338,7 @@ body {
 #mediaOverlay .mediaArtist {
   overflow-wrap: anywhere;
   word-break: break-word;
-  font-family: var(--font-sans);
+  font-family: "Bahnschrift", "Segoe UI Variable", "Segoe UI", sans-serif;
   font-size: clamp(17px, 1.55vw, 23px);
   line-height: 1.3;
   font-weight: 650;
@@ -1360,9 +1357,10 @@ body {
   display: none !important;
 }
 
-/* Cascade: identity sits as an independent lockup well outside the focal
-   disc. Album artwork itself is rendered by cascade.js inside that disc. */
-#mediaOverlay.mode-cascade .mediaCard {
+/* Cascade and radial share a focal composition: their metadata belongs
+   outside the circular focus, while the artwork itself lives in the focus. */
+#mediaOverlay.mode-cascade .mediaCard,
+#mediaOverlay.mode-radial .mediaCard {
   left: 50%;
   width: min(78rem, calc(100vw - (var(--edge-gap) * 2)));
   transform: translateX(-50%);
@@ -1370,56 +1368,221 @@ body {
   text-align: center;
 }
 
-#mediaOverlay.mode-cascade .mediaArtWrap {
+#mediaOverlay.mode-cascade .mediaArtWrap,
+#mediaOverlay.mode-radial .mediaArtWrap {
   display: none !important;
 }
-#mediaOverlay.mode-cascade .mediaCopy {
+
+#mediaOverlay.mode-cascade .mediaCopy,
+#mediaOverlay.mode-radial .mediaCopy {
   align-items: center;
-  width: min(100%, calc(100vw - (var(--edge-gap) * 2)));
-  max-width: min(78rem, calc(100vw - (var(--edge-gap) * 2)));
-  gap: clamp(7px, 0.8vw, 12px);
+  width: min(100%, 78rem);
+  max-width: min(100%, 78rem);
+  gap: 2px;
   overflow: visible;
 }
-#mediaOverlay.mode-cascade .mediaTitle {
+
+#mediaOverlay.mode-cascade .mediaTitle,
+#mediaOverlay.mode-radial .mediaTitle {
   font-size: clamp(28px, 4.05vw, 62px);
   line-height: 1.16;
   letter-spacing: -0.036em;
 }
-#mediaOverlay.mode-cascade .mediaArtist {
-  font-size: clamp(17px, 1.35vw, 21px);
+
+#mediaOverlay.mode-cascade .mediaArtist,
+#mediaOverlay.mode-radial .mediaArtist {
+  font-size: clamp(18px, 1.5vw, 24px);
 }
 
-#mediaOverlay.mode-cascade[data-position="below"] .mediaCard {
+#mediaOverlay.mode-cascade[data-position="below"] .mediaCard,
+#mediaOverlay.mode-radial[data-position="below"] .mediaCard {
   top: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
 }
 
-#mediaOverlay.mode-cascade[data-position="above"] .mediaCard {
+#mediaOverlay.mode-cascade[data-position="above"] .mediaCard,
+#mediaOverlay.mode-radial[data-position="above"] .mediaCard {
   bottom: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
 }
 
-/* Peripheral modes: quiet metadata at the edge, with the same theme outline
-   language so it belongs to the visualizer rather than looking like UI chrome. */
-#mediaOverlay.mode-bars .mediaCard,
-#mediaOverlay.mode-waveform .mediaCard,
-#mediaOverlay.mode-waves .mediaCard,
-#mediaOverlay.mode-aurora .mediaCard {
-  left: var(--edge-gap);
-  bottom: var(--edge-gap);
+/* Free-mode "Best fit" is intentionally mode-aware. It is not an alias for
+   one of the compass positions; each visual gets an anchor chosen around its
+   own quiet space / geometry. */
+#mediaOverlay.mode-bars[data-position="auto"] .mediaCard {
+  left: 50%;
+  top: clamp(1.25rem, 7vh, 5rem);
+  bottom: auto;
+  transform: translateX(-50%);
+  justify-content: center;
+  text-align: center;
 }
 
-#mediaOverlay.mode-particles .mediaCard,
-#mediaOverlay.mode-tunnel .mediaCard,
-#mediaOverlay.mode-kaleidoscope .mediaCard,
-#mediaOverlay.mode-radial .mediaCard {
-  right: var(--edge-gap);
-  bottom: var(--edge-gap);
+#mediaOverlay.mode-waveform[data-position="auto"] .mediaCard {
+  left: clamp(1.25rem, 4vw, 5rem);
+  top: 63%;
+  bottom: auto;
+}
+
+#mediaOverlay.mode-waves[data-position="auto"] .mediaCard {
+  left: clamp(1.25rem, 4vw, 5rem);
+  bottom: clamp(1rem, 5vh, 3.5rem);
+}
+
+#mediaOverlay.mode-aurora[data-position="auto"] .mediaCard {
+  right: clamp(1.25rem, 4vw, 5rem);
+  bottom: clamp(1.25rem, 6vh, 4.5rem);
+  top: auto;
   flex-direction: row-reverse;
   text-align: right;
 }
 
-#mediaOverlay.mode-radial .mediaCard,
-#mediaOverlay.mode-kaleidoscope .mediaCard {
-  bottom: max(var(--edge-gap), 5vh);
+#mediaOverlay.mode-particles[data-position="auto"] .mediaCard {
+  left: clamp(1.25rem, 4vw, 5rem);
+  top: 62%;
+  bottom: auto;
+}
+
+#mediaOverlay.mode-tunnel[data-position="auto"] .mediaCard {
+  right: clamp(1.25rem, 4vw, 5rem);
+  top: 18%;
+  bottom: auto;
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+#mediaOverlay.mode-kaleidoscope[data-position="auto"] .mediaCard {
+  left: 50%;
+  top: 8%;
+  bottom: auto;
+  transform: translateX(-50%);
+  justify-content: center;
+  text-align: center;
+}
+
+#mediaOverlay.mode-free .mediaCard {
+  width: min(46rem, calc(100vw - (var(--edge-gap) * 2)));
+}
+
+#mediaOverlay.mode-bars[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="top-left"] .mediaCard {
+  left: var(--edge-gap);
+  top: var(--edge-gap);
+  bottom: auto;
+  right: auto;
+  text-align: left;
+  flex-direction: row;
+}
+
+#mediaOverlay.mode-bars[data-position="top"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="top"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="top"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="top"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="top"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="top"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="top"] .mediaCard {
+  left: 50%;
+  top: var(--edge-gap);
+  bottom: auto;
+  right: auto;
+  transform: translateX(-50%);
+  justify-content: center;
+}
+
+#mediaOverlay.mode-bars[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="top-right"] .mediaCard {
+  right: var(--edge-gap);
+  top: var(--edge-gap);
+  bottom: auto;
+  left: auto;
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+#mediaOverlay.mode-bars[data-position="right"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="right"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="right"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="right"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="right"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="right"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="right"] .mediaCard {
+  right: var(--edge-gap);
+  top: 50%;
+  bottom: auto;
+  left: auto;
+  transform: translateY(-50%);
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+#mediaOverlay.mode-bars[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="bottom-right"] .mediaCard {
+  right: var(--edge-gap);
+  bottom: var(--edge-gap);
+  top: auto;
+  left: auto;
+  text-align: right;
+  flex-direction: row-reverse;
+}
+
+#mediaOverlay.mode-bars[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="bottom"] .mediaCard {
+  left: 50%;
+  bottom: var(--edge-gap);
+  top: auto;
+  right: auto;
+  transform: translateX(-50%);
+  justify-content: center;
+  text-align: center;
+}
+
+#mediaOverlay.mode-bars[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="bottom-left"] .mediaCard {
+  left: var(--edge-gap);
+  bottom: var(--edge-gap);
+  top: auto;
+  right: auto;
+  text-align: left;
+  flex-direction: row;
+}
+
+#mediaOverlay.mode-bars[data-position="left"] .mediaCard,
+#mediaOverlay.mode-waveform[data-position="left"] .mediaCard,
+#mediaOverlay.mode-waves[data-position="left"] .mediaCard,
+#mediaOverlay.mode-aurora[data-position="left"] .mediaCard,
+#mediaOverlay.mode-particles[data-position="left"] .mediaCard,
+#mediaOverlay.mode-kaleidoscope[data-position="left"] .mediaCard,
+#mediaOverlay.mode-tunnel[data-position="left"] .mediaCard {
+  left: var(--edge-gap);
+  top: 50%;
+  bottom: auto;
+  right: auto;
+  transform: translateY(-50%);
+  text-align: left;
+  flex-direction: row;
 }
 
 #mediaOverlay.text-only .mediaCard {
@@ -1451,26 +1614,20 @@ body {
   #mediaOverlay .mediaCard {
     max-width: calc(100vw - 28px);
   }
-  #mediaOverlay.mode-bars .mediaCard,
-  #mediaOverlay.mode-waveform .mediaCard,
-  #mediaOverlay.mode-waves .mediaCard,
-  #mediaOverlay.mode-aurora .mediaCard {
-    left: 14px;
-    bottom: 14px;
+  #mediaOverlay .mediaArtWrap {
+    width: clamp(88px, 22vw, 124px);
+    height: clamp(88px, 22vw, 124px);
   }
-  #mediaOverlay.mode-particles .mediaCard,
-  #mediaOverlay.mode-tunnel .mediaCard {
-    right: 14px;
-    top: 14px;
-    bottom: auto;
-  }
-  #mediaOverlay.mode-cascade .mediaCard {
+  #mediaOverlay.mode-cascade .mediaCard,
+  #mediaOverlay.mode-radial .mediaCard {
     width: calc(100vw - (var(--edge-gap) * 2));
   }
-  #mediaOverlay.mode-cascade[data-position="below"] .mediaCard {
+  #mediaOverlay.mode-cascade[data-position="below"] .mediaCard,
+  #mediaOverlay.mode-radial[data-position="below"] .mediaCard {
     top: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
   }
-  #mediaOverlay.mode-cascade[data-position="above"] .mediaCard {
+  #mediaOverlay.mode-cascade[data-position="above"] .mediaCard,
+  #mediaOverlay.mode-radial[data-position="above"] .mediaCard {
     bottom: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
   }
 }

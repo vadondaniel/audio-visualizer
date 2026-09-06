@@ -54,7 +54,10 @@
   function computeHue(theme, hueShift, offset = 0, gradientEnabled = true) {
     if (theme.rainbow) {
       const rotation = theme.cycle ? hueShift : 0;
-      return (offset * 360 + rotation) % 360;
+      // A visual rainbow runs through ROYGBIV rather than wrapping violet back
+      // through red at the far edge. Keep the static rainbow fixed; only the
+      // explicit Rainbow Cycle theme rotates it.
+      return (offset * 300 + rotation) % 360;
     }
     if (theme.colorCycle) {
       const spread =

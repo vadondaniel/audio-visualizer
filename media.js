@@ -38,6 +38,50 @@ const MEDIA_DISPLAYS = {
   "cover-title-artist": { cover: true, title: true, artist: true },
 };
 
+const MEDIA_POSITION_GROUPS = {
+  focus: [
+    { value: "above", label: "Above focus" },
+    { value: "below", label: "Below focus" },
+  ],
+  free: [
+    { value: "auto", label: "Best fit" },
+    { value: "top-left", label: "Top left" },
+    { value: "top", label: "Top" },
+    { value: "top-right", label: "Top right" },
+    { value: "right", label: "Right" },
+    { value: "bottom-right", label: "Bottom right" },
+    { value: "bottom", label: "Bottom" },
+    { value: "bottom-left", label: "Bottom left" },
+    { value: "left", label: "Left" },
+  ],
+};
+
+function isFocusMediaMode(mode) {
+  return mode === "cascade" || mode === "radial";
+}
+
+function syncMediaPositionOptions() {
+  const mode = MODES[state.mode] || "bars";
+  const options = isFocusMediaMode(mode)
+    ? MEDIA_POSITION_GROUPS.focus
+    : MEDIA_POSITION_GROUPS.free;
+  const current = state.mediaTextPosition;
+  mediaTextPositionSelect.replaceChildren(
+    ...options.map(({ value, label }) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      return option;
+    })
+  );
+
+  const allowed = new Set(options.map((option) => option.value));
+  if (!allowed.has(current)) {
+    state.mediaTextPosition = isFocusMediaMode(mode) ? "below" : "auto";
+  }
+  mediaTextPositionSelect.value = state.mediaTextPosition;
+}
+
 function mediaHasContent() {
   if (!state.mediaMetadataEnabled || !mediaState.metadata) return false;
   const m = mediaState.metadata;
@@ -50,6 +94,7 @@ function applyMediaMetadataUi() {
   const enabled = Boolean(state.mediaMetadataEnabled);
   mediaMetadataCheckbox.checked = enabled;
   mediaDisplayRow.hidden = !enabled;
+  syncMediaPositionOptions();
   const display =
     MEDIA_DISPLAYS[state.mediaDisplay] || MEDIA_DISPLAYS["cover-title-artist"];
   mediaTextPositionRow.hidden = !enabled || !(display.title || display.artist);
@@ -68,12 +113,14 @@ function setMediaMetadataEnabled(enabled) {
 function updateMediaLayout() {
   const mode = MODES[state.mode] || "bars";
   mediaOverlay.className = `mode-${mode}`;
+  syncMediaPositionOptions();
 
   const display =
     MEDIA_DISPLAYS[state.mediaDisplay] || MEDIA_DISPLAYS["cover-title-artist"];
   const metadata = mediaState.metadata;
+  const position = state.mediaTextPosition || "auto";
   mediaOverlay.dataset.display = state.mediaDisplay;
-  mediaOverlay.dataset.position = state.mediaTextPosition || "below";
+  mediaOverlay.dataset.position = position;
 
   // Cascade owns the visual focus itself. Album art is drawn into the canvas
   // there, while this DOM layer is reserved for the typographic lockup.
