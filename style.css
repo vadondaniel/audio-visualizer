@@ -1260,21 +1260,6 @@ body {
   --media-glow-color: rgba(var(--accent-rgb), 0.36);
 }
 
-#mediaOverlay .mediaCard::before {
-  content: "";
-  position: absolute;
-  inset: -3rem -4rem;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(var(--accent-rgb), 0.15),
-    rgba(var(--accent-2-rgb), 0.08) 40%,
-    transparent 74%
-  );
-  filter: blur(26px);
-  opacity: 0.52;
-  z-index: -1;
-}
-
 #mediaOverlay .mediaArtWrap {
   position: relative;
   flex: 0 0 auto;
@@ -1353,10 +1338,11 @@ body {
   -webkit-text-stroke: clamp(2.25px, 0.24vw, 3.25px) var(--media-char-stroke);
   paint-order: stroke fill;
   text-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.82),
-    0 0 2px var(--media-char-stroke),
-    0 0 12px var(--media-char-glow),
-    0 0 26px var(--media-char-glow);
+    0 1px 1px rgba(0, 0, 0, 0.95),
+    0 0 3px rgba(0, 0, 0, 0.92),
+    0 0 7px rgba(0, 0, 0, 0.72),
+    0 0 8px var(--media-char-glow),
+    0 0 16px var(--media-char-glow);
 }
 
 #mediaOverlay .mediaArtist .mediaTextChar {
