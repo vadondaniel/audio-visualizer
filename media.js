@@ -60,12 +60,40 @@ function isFocusMediaMode(mode) {
   return mode === "cascade" || mode === "radial";
 }
 
+const MEDIA_POSITION_VALUES = new Set([
+  "auto",
+  "above",
+  "below",
+  "top-left",
+  "top",
+  "top-right",
+  "right",
+  "bottom-right",
+  "bottom",
+  "bottom-left",
+  "left",
+]);
+
+function getMediaPosition(mode = MODES[state.mode] || "bars") {
+  return (
+    state.mediaTextPositions?.[mode] ||
+    (isFocusMediaMode(mode) ? "below" : "auto")
+  );
+}
+
+function setMediaPosition(mode, position) {
+  if (!MEDIA_POSITION_VALUES.has(position)) return;
+  if (!state.mediaTextPositions || typeof state.mediaTextPositions !== "object")
+    state.mediaTextPositions = {};
+  state.mediaTextPositions[mode] = position;
+}
+
 function syncMediaPositionOptions() {
   const mode = MODES[state.mode] || "bars";
   const options = isFocusMediaMode(mode)
     ? MEDIA_POSITION_GROUPS.focus
     : MEDIA_POSITION_GROUPS.free;
-  const current = state.mediaTextPosition;
+  const current = getMediaPosition(mode);
   mediaTextPositionSelect.replaceChildren(
     ...options.map(({ value, label }) => {
       const option = document.createElement("option");
@@ -77,9 +105,9 @@ function syncMediaPositionOptions() {
 
   const allowed = new Set(options.map((option) => option.value));
   if (!allowed.has(current)) {
-    state.mediaTextPosition = isFocusMediaMode(mode) ? "below" : "auto";
+    setMediaPosition(mode, isFocusMediaMode(mode) ? "below" : "auto");
   }
-  mediaTextPositionSelect.value = state.mediaTextPosition;
+  mediaTextPositionSelect.value = getMediaPosition(mode);
 }
 
 function mediaHasContent() {
@@ -118,7 +146,7 @@ function updateMediaLayout() {
   const display =
     MEDIA_DISPLAYS[state.mediaDisplay] || MEDIA_DISPLAYS["cover-title-artist"];
   const metadata = mediaState.metadata;
-  const position = state.mediaTextPosition || "auto";
+  const position = getMediaPosition(mode);
   mediaOverlay.dataset.display = state.mediaDisplay;
   mediaOverlay.dataset.position = position;
 

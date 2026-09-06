@@ -37,7 +37,17 @@ const state = {
   particleStyle: "flow", // "flow" | "burst" | "vortex"
   mediaMetadataEnabled: false,
   mediaDisplay: "cover-title-artist", // "title" | "title-artist" | "cover" | "cover-title" | "cover-title-artist"
-  mediaTextPosition: "below", // "above" | "below" relative to the visual focus
+  mediaTextPositions: {
+    bars: "top",
+    radial: "below",
+    waveform: "auto",
+    particles: "auto",
+    kaleidoscope: "auto",
+    tunnel: "auto",
+    waves: "auto",
+    aurora: "auto",
+    cascade: "below",
+  },
 };
 
 // ---------- settings persistence ----------
@@ -74,7 +84,7 @@ const PERSISTED_KEYS = [
   "particleStyle",
   "mediaMetadataEnabled",
   "mediaDisplay",
-  "mediaTextPosition",
+  "mediaTextPositions",
 ];
 
 function saveSettings() {
@@ -111,8 +121,29 @@ function loadSettings() {
     saved = null;
   }
   // Keep the earlier media-position key readable so existing settings do not reset.
-  if (saved && saved.mediaTextPosition == null && saved.mediaArtistPosition) {
-    saved.mediaTextPosition = saved.mediaArtistPosition;
+  if (saved) {
+    if (saved.mediaTextPositions == null) {
+      saved.mediaTextPositions = {};
+    }
+    if (
+      saved.mediaTextPositions &&
+      typeof saved.mediaTextPositions === "object"
+    ) {
+      // Migrate the old single-position setting into the current mode only;
+      // future mode switches now retain independent positions.
+      const legacy =
+        saved.mediaTextPosition === "above" ||
+        saved.mediaTextPosition === "below"
+          ? saved.mediaTextPosition
+          : saved.mediaArtistPosition === "above" ||
+              saved.mediaArtistPosition === "below"
+            ? saved.mediaArtistPosition
+            : null;
+      if (legacy && saved.mediaTextPositions.cascade == null)
+        saved.mediaTextPositions.cascade = legacy;
+      if (legacy && saved.mediaTextPositions.radial == null)
+        saved.mediaTextPositions.radial = legacy;
+    }
   }
   Object.assign(
     state,
@@ -152,8 +183,6 @@ function loadSettings() {
     mediaMetadataCheckbox.checked = state.mediaMetadataEnabled;
   if (typeof mediaDisplaySelect !== "undefined")
     mediaDisplaySelect.value = state.mediaDisplay;
-  if (typeof mediaTextPositionSelect !== "undefined")
-    mediaTextPositionSelect.value = state.mediaTextPosition;
   if (typeof applyMediaMetadataUi === "function") applyMediaMetadataUi();
   updateSliderLabels();
   updateBgRowsVisibility();

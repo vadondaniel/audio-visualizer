@@ -402,7 +402,9 @@ mediaDisplaySelect.addEventListener("change", (e) => {
 });
 
 mediaTextPositionSelect.addEventListener("change", (e) => {
-  state.mediaTextPosition = e.target.value;
+  const mode = MODES[state.mode] || "bars";
+  if (typeof setMediaPosition === "function")
+    setMediaPosition(mode, e.target.value);
   updateMediaLayout();
   saveSettings();
 });

@@ -235,10 +235,27 @@
     )
       state.mediaDisplay = saved.mediaDisplay;
     if (
-      saved.mediaTextPosition === "above" ||
-      saved.mediaTextPosition === "below"
-    )
-      state.mediaTextPosition = saved.mediaTextPosition;
+      saved.mediaTextPositions &&
+      typeof saved.mediaTextPositions === "object"
+    ) {
+      const allowed = new Set([
+        "auto",
+        "above",
+        "below",
+        "top-left",
+        "top",
+        "top-right",
+        "right",
+        "bottom-right",
+        "bottom",
+        "bottom-left",
+        "left",
+      ]);
+      for (const [mode, position] of Object.entries(saved.mediaTextPositions)) {
+        if (typeof mode === "string" && allowed.has(position))
+          state.mediaTextPositions[mode] = position;
+      }
+    }
     if (
       saved.valueHandling === "exponential" ||
       saved.valueHandling === "logarithmic" ||
