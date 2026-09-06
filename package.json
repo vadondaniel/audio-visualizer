@@ -20,6 +20,9 @@
   "build": {
     "appId": "com.ceavan.audiovisualizer",
     "productName": "Audio Visualizer",
+    "asarUnpack": [
+      "media-watcher.ps1"
+    ],
     "win": {
       "target": "portable",
       "icon": "icon.ico"
@@ -43,6 +46,7 @@
       "media-watcher.ps1",
       "visuals.js",
       "visuals/**/*",
+      "media.js",
       "ui.js",
       "icon.png",
       "icon.ico"

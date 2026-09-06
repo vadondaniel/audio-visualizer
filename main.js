@@ -28,6 +28,9 @@ function startMediaWatcher() {
   if (process.platform !== "win32" || mediaWatcher) return;
 
   stopMediaWatcher();
+  const watcherPath = app.isPackaged
+    ? path.join(process.resourcesPath, "app.asar.unpacked", "media-watcher.ps1")
+    : path.join(__dirname, "media-watcher.ps1");
   mediaWatcher = spawn(
     "powershell.exe",
     [
@@ -37,7 +40,7 @@ function startMediaWatcher() {
       "-ExecutionPolicy",
       "Bypass",
       "-File",
-      path.join(__dirname, "media-watcher.ps1"),
+      watcherPath,
     ],
     { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
   );
