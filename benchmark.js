@@ -208,9 +208,27 @@ function traceRenderingMeasurement(filePath) {
     canvasFlush: { durationUs: 0, count: 0 },
   };
   const topEvents = new Map();
+  const primitiveRules = [
+    ["drawPath", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawPath/i],
+    ["drawRect", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawRect/i],
+    ["drawArc", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawArc/i],
+    ["drawPoints", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawPoints/i],
+    ["drawLine", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawLine/i],
+    ["drawCircle", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawCircle/i],
+    ["drawOval", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawOval/i],
+    ["drawRRect", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawRRect/i],
+    ["drawImage", /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawImage/i],
+    [
+      "drawVertices",
+      /(?:SkCanvas::|Device::|SurfaceDrawContext::)drawVertices/i,
+    ],
+    ["saveLayer", /SkCanvas::saveLayer/i],
+    ["blur", /blur|gaussianblur|imagefilter/i],
+  ];
+  const primitives = new Map();
 
   const rasterName =
-    /raster|rastertask|rasterizer|paintcanvas|canvas2d|record.*picture|draw.*picture|skia/i;
+    /raster|rastertask|rasterizer|paintcanvas|canvas2d|record.*picture|draw.*picture/i;
   const gpuName =
     /gpu|grcontext|commandbuffer|d3d|angle|glcontext|submit.*frame|swap/i;
   const compositorName =
@@ -267,6 +285,31 @@ function traceRenderingMeasurement(filePath) {
       sums.skia.durationUs += durUs;
       sums.skia.count++;
     }
+
+    for (const [primitive, pattern] of primitiveRules) {
+      if (!pattern.test(String(event.name || ""))) continue;
+      const bucket = primitives.get(primitive) || {
+        name: primitive,
+        skiaDurationUs: 0,
+        gpuDurationUs: 0,
+        durationUs: 0,
+        count: 0,
+        skiaCount: 0,
+        gpuCount: 0,
+      };
+      bucket.count++;
+      bucket.durationUs += durUs;
+      if (cat.includes("skia")) {
+        bucket.skiaDurationUs += durUs;
+        bucket.skiaCount++;
+      }
+      if (cat.includes("gpu")) {
+        bucket.gpuDurationUs += durUs;
+        bucket.gpuCount++;
+      }
+      primitives.set(primitive, bucket);
+      break;
+    }
     if (
       rasterName.test(name) &&
       (cat.includes("skia") ||
@@ -303,6 +346,19 @@ function traceRenderingMeasurement(filePath) {
       ? (hi - lo) / 1000
       : null;
   const toMetric = (value) => Number((value / 1000).toFixed(3));
+  const primitiveBreakdown = [...primitives.values()]
+    .sort((a, b) => b.durationUs - a.durationUs)
+    .map((item) => ({
+      name: item.name,
+      count: item.count,
+      skiaCount: item.skiaCount,
+      gpuCount: item.gpuCount,
+      totalMs: toMetric(item.durationUs),
+      skiaMs: toMetric(item.skiaDurationUs),
+      gpuMs: toMetric(item.gpuDurationUs),
+      avgUs: item.count ? Number((item.durationUs / item.count).toFixed(3)) : 0,
+    }));
+
   const hottestEvents = [...topEvents.values()]
     .sort((a, b) => b.durationUs - a.durationUs)
     .slice(0, 20)
@@ -336,6 +392,7 @@ function traceRenderingMeasurement(filePath) {
       ms: toMetric(sums.canvasFlush.durationUs),
       count: sums.canvasFlush.count,
     },
+    primitiveBreakdown,
     hottestEvents,
   };
 }
@@ -654,6 +711,83 @@ function printSummary(result) {
         tracing?.compositor?.ms != null
           ? `${tracing.compositor.ms.toFixed(2)} ms`.padEnd(15)
           : "n/a".padEnd(15),
+      ].join("")
+    );
+  }
+
+  const aggregate = new Map();
+  for (const item of result.results || []) {
+    const rendering = item.rendering;
+    if (!rendering?.available) continue;
+    let agg = aggregate.get(item.mode);
+    if (!agg) {
+      agg = {
+        mode: item.mode,
+        runs: 0,
+        frameMs: 0,
+        rasterMs: 0,
+        skiaMs: 0,
+        gpuMs: 0,
+        compositorMs: 0,
+        primitives: new Map(),
+      };
+      aggregate.set(item.mode, agg);
+    }
+    agg.runs++;
+    for (const key of ["raster", "skia", "gpu", "compositor"]) {
+      agg[`${key}Ms`] += Number(rendering[key]?.ms) || 0;
+    }
+    for (const primitive of rendering.primitiveBreakdown || []) {
+      const p = agg.primitives.get(primitive.name) || {
+        name: primitive.name,
+        count: 0,
+        totalMs: 0,
+        skiaMs: 0,
+        gpuMs: 0,
+        skiaCount: 0,
+        gpuCount: 0,
+      };
+      p.count += Number(primitive.count) || 0;
+      p.skiaCount += Number(primitive.skiaCount) || 0;
+      p.gpuCount += Number(primitive.gpuCount) || 0;
+      p.totalMs += Number(primitive.totalMs) || 0;
+      p.skiaMs += Number(primitive.skiaMs) || 0;
+      p.gpuMs += Number(primitive.gpuMs) || 0;
+      agg.primitives.set(primitive.name, p);
+    }
+  }
+
+  console.log("\nRender primitive breakdown (averaged per trace run)");
+  const renderHeader = [
+    "Mode",
+    "Raster",
+    "Skia",
+    "GPU",
+    "Top primitive",
+    "GPU calls/run",
+    "GPU ms/run",
+  ]
+    .map((value) => value.padEnd(18))
+    .join("");
+  console.log(renderHeader);
+  console.log("-".repeat(renderHeader.length));
+  for (const agg of [...aggregate.values()].sort(
+    (a, b) => b.gpuMs / b.runs - a.gpuMs / a.runs
+  )) {
+    const top = [...agg.primitives.values()].sort(
+      (a, b) => b.gpuMs + b.skiaMs - (a.gpuMs + a.skiaMs)
+    )[0];
+    console.log(
+      [
+        agg.mode.padEnd(18),
+        `${(agg.rasterMs / agg.runs).toFixed(0)} ms`.padEnd(18),
+        `${(agg.skiaMs / agg.runs).toFixed(0)} ms`.padEnd(18),
+        `${(agg.gpuMs / agg.runs).toFixed(0)} ms`.padEnd(18),
+        (top?.name || "—").padEnd(18),
+        `${Math.round((top?.gpuCount || 0) / agg.runs).toLocaleString()}`.padEnd(
+          18
+        ),
+        `${((top?.gpuMs || 0) / agg.runs).toFixed(0)} ms`.padEnd(18),
       ].join("")
     );
   }

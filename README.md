@@ -125,21 +125,3 @@ this, it will download some extra tooling, so it may take a minute.
   `F`/`T`/`Esc` shortcuts.
 
 The synthetic time-domain signal is deterministic but intentionally shaped like an audio waveform (multiple harmonics + envelope + texture) so waveform mode is visually representative of the normal renderer. It is not intended to reproduce any specific recording.
-
-## Chromium rendering measurements
-
-The benchmark can record Chromium tracing data for every timing run. Rendering traces cover Canvas/Skia, GPU, compositor, and presentation categories; the trace is segmented by an in-renderer `benchmark-render-start` / `benchmark-render-end` pair so the reported rendering workload belongs to the isolated mode/scenario run. Raw trace files are deleted after parsing by default.
-
-Rendering tracing is enabled by default. Disable it with:
-
-```powershell
-npm run benchmark -- --render-trace=false
-```
-
-Keep the raw Chromium traces under `benchmark-traces\` with:
-
-```powershell
-npm run benchmark -- --render-trace=true --keep-traces=true
-```
-
-The JSON result adds `rendering` to every timing result, including summed raster/Skia/GPU/compositor trace work, event counts, presentation events, and the hottest trace event names. Summed trace durations are thread work and can overlap; they are not expected to add up to the frame wall-clock time.

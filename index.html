@@ -8,6 +8,44 @@
   </head>
 
   <body>
+    <div id="benchmarkHud" aria-live="polite">
+      <div class="benchmarkHudHeader">
+        <span class="benchmarkHudTitle">RENDER BENCHMARK</span>
+        <span id="benchmarkHudStatus">Preparing…</span>
+      </div>
+      <div class="benchmarkHudProgress">
+        <div id="benchmarkHudProgressBar"></div>
+      </div>
+      <div class="benchmarkHudRun">
+        <strong id="benchmarkHudRun">Waiting…</strong>
+        <span id="benchmarkHudDisplay">—</span>
+      </div>
+      <div class="benchmarkHudGrid">
+        <div>
+          <span>Progress</span><strong id="benchmarkHudProgress">0 / 0</strong>
+        </div>
+        <div><span>FPS</span><strong id="benchmarkHudFps">—</strong></div>
+        <div><span>Frame</span><strong id="benchmarkHudFrame">—</strong></div>
+        <div><span>P95</span><strong id="benchmarkHudP95">—</strong></div>
+        <div><span>Mode JS</span><strong id="benchmarkHudJs">—</strong></div>
+        <div><span>Slow</span><strong id="benchmarkHudSlow">—</strong></div>
+      </div>
+      <div class="benchmarkHudTrace">
+        <div>
+          <span>Last trace</span
+          ><strong id="benchmarkHudTraceStatus">waiting</strong>
+        </div>
+        <div>
+          <span>Raster / Skia / GPU</span
+          ><strong id="benchmarkHudTraceCost">—</strong>
+        </div>
+        <div>
+          <span>Top primitive</span
+          ><strong id="benchmarkHudPrimitive">—</strong>
+        </div>
+      </div>
+    </div>
+
     <div id="bgLayer">
       <canvas id="bgCanvas"></canvas>
     </div>

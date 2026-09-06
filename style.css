@@ -4,6 +4,115 @@
   box-sizing: border-box;
 }
 
+/* ---------- benchmark HUD ---------- */
+#benchmarkHud {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 9999;
+  width: min(460px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(8, 8, 12, 0.78);
+  backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+  display: none;
+}
+
+#benchmarkHud.active {
+  display: block;
+}
+
+.benchmarkHudHeader,
+.benchmarkHudRun,
+.benchmarkHudTrace > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.benchmarkHudTitle {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+#benchmarkHudStatus {
+  color: var(--ink-dim);
+  text-align: right;
+}
+
+.benchmarkHudProgress {
+  height: 4px;
+  margin: 10px 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+#benchmarkHudProgressBar {
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  transition: width 120ms linear;
+}
+
+.benchmarkHudRun {
+  margin-bottom: 10px;
+}
+.benchmarkHudRun strong {
+  font-size: 12px;
+}
+.benchmarkHudRun span {
+  color: var(--ink-faint);
+}
+
+.benchmarkHudGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.benchmarkHudGrid > div,
+.benchmarkHudTrace {
+  padding: 7px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.benchmarkHudGrid span,
+.benchmarkHudTrace span {
+  display: block;
+  color: var(--ink-faint);
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.benchmarkHudGrid strong,
+.benchmarkHudTrace strong {
+  display: block;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.benchmarkHudTrace {
+  margin-top: 7px;
+}
+
+.benchmarkHudTrace > div + div {
+  margin-top: 5px;
+}
+
 /* ---------- design tokens ---------- */
 :root {
   /* Palette. --bg-default also appears as the bgColorInput value in

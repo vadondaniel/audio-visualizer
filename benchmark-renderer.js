@@ -291,6 +291,131 @@
   let displaySettling = false;
   let displayChangePauseTimer = null;
 
+  const benchmarkHud = {
+    root: null,
+    status: null,
+    progressBar: null,
+    run: null,
+    display: null,
+    progress: null,
+    fps: null,
+    frame: null,
+    p95: null,
+    js: null,
+    slow: null,
+    traceStatus: null,
+    traceCost: null,
+    primitive: null,
+    timingDone: 0,
+    opsDone: 0,
+    total: 0,
+    startedAt: 0,
+  };
+
+  function initBenchmarkHud(total = 0) {
+    benchmarkHud.root = document.getElementById("benchmarkHud");
+    if (!benchmarkHud.root) return;
+    benchmarkHud.status = document.getElementById("benchmarkHudStatus");
+    benchmarkHud.progressBar = document.getElementById(
+      "benchmarkHudProgressBar"
+    );
+    benchmarkHud.run = document.getElementById("benchmarkHudRun");
+    benchmarkHud.display = document.getElementById("benchmarkHudDisplay");
+    benchmarkHud.progress = document.getElementById("benchmarkHudProgress");
+    benchmarkHud.fps = document.getElementById("benchmarkHudFps");
+    benchmarkHud.frame = document.getElementById("benchmarkHudFrame");
+    benchmarkHud.p95 = document.getElementById("benchmarkHudP95");
+    benchmarkHud.js = document.getElementById("benchmarkHudJs");
+    benchmarkHud.slow = document.getElementById("benchmarkHudSlow");
+    benchmarkHud.traceStatus = document.getElementById(
+      "benchmarkHudTraceStatus"
+    );
+    benchmarkHud.traceCost = document.getElementById("benchmarkHudTraceCost");
+    benchmarkHud.primitive = document.getElementById("benchmarkHudPrimitive");
+    benchmarkHud.total = total;
+    benchmarkHud.timingDone = 0;
+    benchmarkHud.opsDone = 0;
+    benchmarkHud.startedAt = performance.now();
+    benchmarkHud.root.classList.add("active");
+  }
+
+  function benchmarkHudProgressText() {
+    const ops = params.operationCounts
+      ? ` · ops ${benchmarkHud.opsDone}/${benchmarkHud.total}`
+      : "";
+    return `timing ${benchmarkHud.timingDone}/${benchmarkHud.total}${ops}`;
+  }
+
+  function updateBenchmarkHud(extra = {}) {
+    if (!benchmarkHud.root) return;
+    const stats =
+      typeof diagnostics?.current === "function" ? diagnostics.current() : null;
+    const elapsed = Math.max(0, performance.now() - benchmarkHud.startedAt);
+    const percent = benchmarkHud.total
+      ? Math.min(
+          100,
+          ((benchmarkHud.timingDone +
+            (params.operationCounts ? benchmarkHud.opsDone : 0)) /
+            (benchmarkHud.total * (params.operationCounts ? 2 : 1))) *
+            100
+        )
+      : 0;
+    benchmarkHud.status.textContent =
+      extra.status ||
+      `${benchmarkHudProgressText()} · ${(elapsed / 1000).toFixed(0)}s`;
+    benchmarkHud.progress.textContent = benchmarkHudProgressText();
+    benchmarkHud.progressBar.style.width = `${percent.toFixed(2)}%`;
+    benchmarkHud.display.textContent = displayLabel();
+    if (stats) {
+      benchmarkHud.fps.textContent = Number.isFinite(stats.fps)
+        ? stats.fps.toFixed(0)
+        : "—";
+      benchmarkHud.frame.textContent = Number.isFinite(stats.avgFrame)
+        ? `${stats.avgFrame.toFixed(2)} ms`
+        : "—";
+      benchmarkHud.p95.textContent = Number.isFinite(stats.p95Frame)
+        ? `${stats.p95Frame.toFixed(2)} ms`
+        : "—";
+      benchmarkHud.js.textContent = Number.isFinite(stats.avgRender)
+        ? `${stats.avgRender.toFixed(2)} ms`
+        : "—";
+      benchmarkHud.slow.textContent = Number.isFinite(stats.slowFrames)
+        ? String(stats.slowFrames)
+        : "—";
+    }
+    if (extra.run) benchmarkHud.run.textContent = extra.run;
+    if (extra.trace === null) {
+      benchmarkHud.traceStatus.textContent = "not captured";
+      benchmarkHud.traceCost.textContent = "—";
+      benchmarkHud.primitive.textContent = "—";
+    } else if (extra.trace?.available) {
+      benchmarkHud.traceStatus.textContent = `${extra.trace.traceWindowMs?.toFixed(0) || "?"} ms trace`;
+      benchmarkHud.traceCost.textContent = `${extra.trace.raster.ms.toFixed(0)} / ${extra.trace.skia.ms.toFixed(0)} / ${extra.trace.gpu.ms.toFixed(0)} ms`;
+      const top = extra.trace.primitiveBreakdown?.[0];
+      benchmarkHud.primitive.textContent = top
+        ? `${top.name} · ${top.count.toLocaleString()} · ${top.gpuMs.toFixed(0)} ms GPU`
+        : "none";
+    }
+  }
+
+  let benchmarkHudTimer = null;
+  function startBenchmarkHud(total) {
+    initBenchmarkHud(total);
+    if (benchmarkHudTimer) clearInterval(benchmarkHudTimer);
+    updateBenchmarkHud({
+      status: `preparing · ${total} timing${params.operationCounts ? ` + ${total} ops` : ""}`,
+    });
+    benchmarkHudTimer = setInterval(() => updateBenchmarkHud(), 250);
+  }
+
+  function finishBenchmarkHud(status = "complete") {
+    updateBenchmarkHud({ status });
+    if (benchmarkHudTimer) {
+      clearInterval(benchmarkHudTimer);
+      benchmarkHudTimer = null;
+    }
+  }
+
   function displayLabel(info = benchmarkDisplayInfo) {
     if (!info) return "display unknown";
     const hz = Number(info.displayFrequency);
@@ -354,6 +479,7 @@
   }
 
   window.__setBenchmarkDisplayInfo = setDisplayInfo;
+  if (benchmarkDisplayInfo) setDisplayInfo(benchmarkDisplayInfo);
 
   function onVisibilityChange() {
     benchmarkVisible = !document.hidden;
@@ -395,6 +521,11 @@
       Math.max(250, Number(params.operationDurationMs) || 1000)
     );
     const counts = counter.stop();
+    benchmarkHud.opsDone = Math.max(benchmarkHud.opsDone, progressIndex);
+    updateBenchmarkHud({
+      status: `ops ${progressIndex}/${progressTotal} done`,
+      run: `${modeName} · ${scenarioName} · repeat ${repeat} · operation count`,
+    });
     console.log(
       `[benchmark] PROGRESS — OPS ${progressIndex}/${progressTotal} done · ${modeName} [${scenarioName}/${repeat}]`
     );
@@ -483,6 +614,12 @@
     const rendering = tracingStarted
       ? await traceStop({ mode: modeName, scenario: scenarioName, repeat })
       : null;
+    benchmarkHud.timingDone = Math.max(benchmarkHud.timingDone, progressIndex);
+    updateBenchmarkHud({
+      status: `timing ${progressIndex}/${progressTotal} done`,
+      run: `${modeName} · ${scenarioName} · repeat ${repeat} · timing`,
+      trace: rendering,
+    });
     const avg = profile?.buckets?.[0]?.frame?.avg;
     const p95 = profile?.buckets?.[0]?.frame?.p95;
     console.log(
@@ -543,6 +680,7 @@
       }
     }
 
+    startBenchmarkHud(runPlan.length);
     console.log(
       `[benchmark] PROGRESS — 0/${runPlan.length} timing · ${params.operationCounts ? `0/${runPlan.length} ops · ` : ""}${displayLabel()}`
     );
@@ -582,6 +720,7 @@
     }
 
     window.__benchmarkRunning = false;
+    finishBenchmarkHud("complete · results ready");
     return {
       type: "audio-visualizer-benchmark",
       generatedAt: new Date().toISOString(),
