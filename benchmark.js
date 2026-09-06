@@ -10,45 +10,65 @@ const fs = require("fs");
 
 const args = new Map();
 
-// npm 11 parses unknown `--foo=bar` arguments as npm config and exposes them
-// as npm_config_foo instead of reliably forwarding them through the command
-// line. Read both sources so `npm run benchmark -- --foo=bar` works across
-// npm/Electron versions.
-const rawArgv = [
-  ...process.argv.slice(2),
-  ...(process.env.npm_config_argv
-    ? (() => {
-        try {
-          const parsed = JSON.parse(process.env.npm_config_argv);
-          return Array.isArray(parsed?.original) ? parsed.original : [];
-        } catch {
-          return [];
-        }
-      })()
-    : []),
-];
+function addArg(name, value) {
+  if (!name) return;
+  args.set(String(name).replace(/^--/, ""), value);
+}
 
-for (let i = 0; i < rawArgv.length; i++) {
-  const arg = rawArgv[i];
-  if (arg === "--") continue;
-  if (!arg.startsWith("--")) continue;
-  const body = arg.slice(2);
-  const eq = body.indexOf("=");
-  if (eq >= 0) {
-    args.set(body.slice(0, eq), body.slice(eq + 1));
-  } else {
-    const next = rawArgv[i + 1];
-    if (next && !next.startsWith("--")) {
-      args.set(body, next);
-      i++;
-    } else {
-      args.set(body, "true");
+function parseArgToken(arg, next) {
+  if (typeof arg !== "string") return false;
+
+  // Normal command-line form: --foo=value / --foo value
+  if (arg.startsWith("--")) {
+    const body = arg.slice(2);
+    const eq = body.indexOf("=");
+    if (eq >= 0) {
+      addArg(body.slice(0, eq), body.slice(eq + 1));
+      return false;
     }
+    if (next !== undefined && !String(next).startsWith("--")) {
+      addArg(body, next);
+      return true;
+    }
+    addArg(body, "true");
+    return false;
+  }
+
+  // npm 11 on Windows currently strips --prefixed script args before they
+  // reach process.argv. Positional key=value arguments are not interpreted by
+  // npm, so accept them as an npm-safe equivalent:
+  //   npm run benchmark -- repeats=1 scenarios=mixed trace=false
+  const eq = arg.indexOf("=");
+  if (eq > 0) {
+    addArg(arg.slice(0, eq), arg.slice(eq + 1));
+  }
+  return false;
+}
+
+// Prefer arguments that actually reached the Node process.
+const forwardedArgv = process.argv.slice(2);
+for (let i = 0; i < forwardedArgv.length; i++) {
+  i += parseArgToken(forwardedArgv[i], forwardedArgv[i + 1]) ? 1 : 0;
+}
+
+// Older npm versions may expose the original script arguments here. This is
+// supplementary only; it is not required on npm versions that forward argv.
+if (process.env.npm_config_argv) {
+  try {
+    const parsed = JSON.parse(process.env.npm_config_argv);
+    const original = Array.isArray(parsed?.original) ? parsed.original : [];
+    for (let i = 0; i < original.length; i++) {
+      i += parseArgToken(original[i], original[i + 1]) ? 1 : 0;
+    }
+  } catch {
+    // Ignore malformed/missing legacy npm_config_argv.
   }
 }
 
-// npm 11 can consume unknown script flags as npm config variables. Merge
-// those variables in after CLI parsing, but only for benchmark-specific keys.
+// npm 11 may expose stripped unknown flags as npm_config_* variables. These
+// are useful for numeric/string options, but they cannot reliably represent
+// an explicit `--foo=false`: npm can coerce an unknown boolean flag to `true`.
+// Therefore env fallback never overrides an argument already parsed above.
 const npmOptionNames = [
   "duration",
   "warmup",
@@ -62,14 +82,20 @@ const npmOptionNames = [
   "trails",
   "repeats",
   "scenarios",
+  "modes",
+  "mode",
   "ops",
   "operation-counts",
   "seed",
+  "render-trace",
+  "trace",
+  "no-trace",
+  "keep-traces",
 ];
 for (const name of npmOptionNames) {
   const envName = `npm_config_${name.replace(/-/g, "_")}`;
   if (process.env[envName] !== undefined && !args.has(name)) {
-    args.set(name, process.env[envName]);
+    addArg(name, process.env[envName]);
   }
 }
 
@@ -97,10 +123,27 @@ const scenarios = (args.get("scenarios") || "mixed")
   .split(/[\s,]+/)
   .map((value) => value.trim())
   .filter(Boolean);
+const requestedModes = (args.get("modes") ?? args.get("mode") ?? "all")
+  .split(/[\s,]+/)
+  .map((value) => value.trim())
+  .filter(Boolean);
 const operationCounts =
-  args.get("ops") === "true" || args.get("operation-counts") === "true";
+  args.get("ops") === undefined && args.get("operation-counts") === undefined
+    ? true
+    : args.get("ops") === "true" || args.get("operation-counts") === "true";
 const seed = Math.floor(numberArg("seed", 20260906, 0, 0x7fffffff));
-const renderTracing = args.get("render-trace") !== "false";
+const traceArg = args.get("render-trace") ?? args.get("trace");
+const noTraceArg = args.get("no-trace");
+const renderTracing =
+  noTraceArg !== undefined
+    ? !["true", "1", "on", "yes"].includes(
+        String(noTraceArg).trim().toLowerCase()
+      )
+    : traceArg === undefined
+      ? false
+      : !["false", "0", "off", "no"].includes(
+          String(traceArg).trim().toLowerCase()
+        );
 const keepTraceFiles = args.get("keep-traces") === "true";
 const traceDir = path.join(process.cwd(), "benchmark-traces");
 
@@ -564,6 +607,7 @@ function createWindow() {
       waveformStyle,
       repeats,
       scenarios,
+      requestedModes,
       operationCounts,
       seed,
       renderTracing,
@@ -574,7 +618,7 @@ function createWindow() {
     try {
       if (lastProgressLine) process.stdout.write("\n");
       console.log(
-        `Parsed benchmark args: repeats=${repeats}, scenarios=${scenarios.join(",")}, ops=${operationCounts ? "true" : "false"}, waveform=${waveformStyle}, seed=${seed}`
+        `Parsed benchmark args: repeats=${repeats}, scenarios=${scenarios.join(",")}, modes=${requestedModes.join(",")}, ops=${operationCounts ? "true" : "false"}, trace=${renderTracing ? "true" : "false"}, waveform=${waveformStyle}, seed=${seed}`
       );
 
       await mainWindow.webContents.executeJavaScript(
@@ -601,6 +645,7 @@ function createWindow() {
         repeats,
         scenarios,
         operationCounts,
+        requestedModes,
         seed,
         renderTracing,
         keepTraceFiles,
@@ -641,7 +686,7 @@ function printSummary(result) {
     `Measurement: ${durationMs / 1000}s per mode + ${warmupMs / 1000}s warmup · Chromium rendering trace: ${renderTracing ? "on" : "off"}`
   );
   console.log(
-    `Scenarios: ${scenarios.join(", ")} · repeats: ${repeats} · randomized order: yes · operation counts: ${operationCounts ? "yes" : "no"}`
+    `Modes: ${requestedModes.includes("all") ? "all" : requestedModes.join(", ")} · scenarios: ${scenarios.join(", ")} · repeats: ${repeats} · randomized order: yes · operation counts: ${operationCounts ? "yes" : "no"}`
   );
   console.log(
     `Baseline: glow ${result.baseline.glowIntensity}, trails ${result.baseline.trailsEnabled ? "on" : "off"}, waveform ${result.baseline.waveformStyle || waveformStyle}, background ${result.baseline.background}`

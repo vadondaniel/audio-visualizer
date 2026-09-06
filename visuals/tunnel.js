@@ -318,19 +318,32 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       const hue = currentHue((g / TUNNEL_WALL_GROUPS) * 0.88 + aDepth * 0.12);
 
       ctx.fillStyle = `hsla(${hue}, 82%, ${42 + treble * 10}%, ${alpha})`;
+      // Each sector is a single connected quad-strip instead of one path
+      // sub-path per facet. The old version emitted 4 independent edges for
+      // every facet (1,392 sub-paths across the wall); those explode into a
+      // large number of Skia path/tessellation operations despite only ~348
+      // Canvas fill() calls. A connected strip preserves the 12-sector
+      // faceting while removing the redundant internal edges.
       ctx.beginPath();
-      for (let seg = startSeg; seg < endSeg; seg++) {
-        const next = seg + 1 === TUNNEL_SEGMENTS ? 0 : seg + 1;
-        const ia = tunnelIndex(r, seg);
-        const ib = tunnelIndex(r, next);
-        const ic = tunnelIndex(r + 1, next);
-        const id = tunnelIndex(r + 1, seg);
-        ctx.moveTo(tunnelX[ia], tunnelY[ia]);
+      let seg = startSeg;
+      let ia = tunnelIndex(r, seg);
+      let ib = tunnelIndex(r + 1, seg);
+      ctx.moveTo(tunnelX[ia], tunnelY[ia]);
+      ctx.lineTo(tunnelX[ib], tunnelY[ib]);
+      for (seg = startSeg + 1; seg < endSeg; seg++) {
+        ia = tunnelIndex(r, seg);
+        ib = tunnelIndex(r + 1, seg);
         ctx.lineTo(tunnelX[ib], tunnelY[ib]);
-        ctx.lineTo(tunnelX[ic], tunnelY[ic]);
-        ctx.lineTo(tunnelX[id], tunnelY[id]);
-        ctx.closePath();
       }
+      const finalA = tunnelIndex(r, endSeg % TUNNEL_SEGMENTS);
+      const finalB = tunnelIndex(r + 1, endSeg % TUNNEL_SEGMENTS);
+      ctx.lineTo(tunnelX[finalB], tunnelY[finalB]);
+      ctx.lineTo(tunnelX[finalA], tunnelY[finalA]);
+      for (seg = endSeg - 1; seg >= startSeg; seg--) {
+        ia = tunnelIndex(r, seg);
+        ctx.lineTo(tunnelX[ia], tunnelY[ia]);
+      }
+      ctx.closePath();
       ctx.fill();
     }
   }

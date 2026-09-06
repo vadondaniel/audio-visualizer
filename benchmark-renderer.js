@@ -669,10 +669,31 @@
     const operationResults = [];
     const runPlan = [];
     let planIndex = 0;
+    const requestedModes = Array.isArray(params.requestedModes)
+      ? params.requestedModes
+      : ["all"];
+    const availableModes = new Set(MODE_NAMES);
+    const modeSelection = requestedModes.includes("all")
+      ? MODE_NAMES.slice()
+      : requestedModes.filter((mode) => availableModes.has(mode));
+    const invalidModes = requestedModes.filter(
+      (mode) => mode !== "all" && !availableModes.has(mode)
+    );
+    if (!modeSelection.length) {
+      window.__benchmarkRunning = false;
+      throw new Error(
+        `No valid visual modes selected. Requested: ${JSON.stringify(requestedModes)}. Available: ${MODE_NAMES.join(", ")}`
+      );
+    }
+    if (invalidModes.length) {
+      console.warn(
+        `[benchmark] Ignoring unknown mode(s): ${invalidModes.join(", ")}`
+      );
+    }
     for (let repeat = 1; repeat <= repeats; repeat++) {
       for (const scenario of scenarios) {
         const modes = shuffle(
-          MODE_NAMES.slice(),
+          modeSelection.slice(),
           makeRng(seed + repeat * 1009 + scenario.length * 37)
         );
         for (const mode of modes)
