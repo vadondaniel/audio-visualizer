@@ -11,7 +11,7 @@ $getAwaiter = ([System.WindowsRuntimeSystemExtensions].GetMember('GetAwaiter') |
     $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
   } | Select-Object -First 1)
 
-function Await-WinRt($operation, [type]$resultType) {
+function Get-WinRtResult($operation, [type]$resultType) {
   return $getAwaiter.MakeGenericMethod($resultType).Invoke($null, @($operation)).GetResult()
 }
 
@@ -26,7 +26,7 @@ $lastKey = $null
 
 while ($true) {
   try {
-    $manager = Await-WinRt ($managerType::RequestAsync()) $managerType
+    $manager = Get-WinRtResult ($managerType::RequestAsync()) $managerType
     $session = $manager.GetCurrentSession()
 
     $snapshot = [ordered]@{
@@ -47,47 +47,66 @@ while ($true) {
       $playback = $session.GetPlaybackInfo()
       $snapshot.playing = ([string]$playback.PlaybackStatus -eq 'Playing')
 
-      $props = Await-WinRt ($session.TryGetMediaPropertiesAsync()) $mediaType
+      $props = Get-WinRtResult ($session.TryGetMediaPropertiesAsync()) $mediaType
       if ($props) {
         $snapshot.title = [string]$props.Title
         $snapshot.artist = [string]$props.Artist
         $snapshot.album = [string]$props.AlbumTitle
         $snapshot.albumArtist = [string]$props.AlbumArtist
 
-        if ($props.Thumbnail) {
+        if ($null -ne $props.Thumbnail) {
           try {
-            $stream = Await-WinRt ($props.Thumbnail.OpenReadAsync()) $streamType
-            $size = [uint64]$stream.Size
+            $stream = Get-WinRtResult ($props.Thumbnail.OpenReadAsync()) $streamType
+            # Read this before closing the WinRT stream below. Some Windows
+            # media providers invalidate ContentType during/after cleanup.
+            $mime = [string]$stream.ContentType
             # Album art is normally tiny; cap pathological payloads so a broken
             # session can never flood stdout or the renderer.
-            if ($size -gt 0 -and $size -le 4194304) {
-              # Convert the WinRT input stream to a normal .NET stream and
-              # copy it into memory. This is substantially less fragile than
-              # driving DataReader.LoadAsync through PowerShell's WinRT type
-              # adapter, especially for GSMTC thumbnail streams.
-              $input = $stream.GetInputStreamAt(0)
-              $managedStream = [System.IO.WindowsRuntimeStreamExtensions]::AsStreamForRead($input)
-              try {
-                $memory = New-Object System.IO.MemoryStream
-                $managedStream.CopyTo($memory)
-                $bytes = $memory.ToArray()
-                $memory.Dispose()
-              } finally {
-                $managedStream.Dispose()
-                $input.Close()
-                $stream.Close()
-              }
-              if ($bytes.Length -ne [int]$size) {
-                throw "Thumbnail stream returned an unexpected byte count ($($bytes.Length) vs $size)."
-              }
-              $mime = [string]$stream.ContentType
-              if ([string]::IsNullOrWhiteSpace($mime)) { $mime = 'image/jpeg' }
-              $snapshot.thumbnailDataUrl = 'data:' + $mime + ';base64,' + [Convert]::ToBase64String($bytes)
+            # Some Spotify streams report Size=0 even though they contain
+            # readable image bytes, so do not use Size as an availability gate.
+            $randomAccessStreamType = [Windows.Storage.Streams.IRandomAccessStream]
+            $asStreamMethod = [System.IO.WindowsRuntimeStreamExtensions].GetMethod(
+              'AsStream', [type[]]@($randomAccessStreamType))
+            $managedStream = $asStreamMethod.Invoke($null, @($stream))
+            try {
+              $memory = New-Object System.IO.MemoryStream
+              $managedStream.CopyTo($memory)
+              $bytes = $memory.ToArray()
+              $memory.Dispose()
+            } finally {
+              $managedStream.Dispose()
             }
+            if ($bytes.Length -eq 0 -or $bytes.Length -gt 4194304) {
+              throw "Thumbnail stream returned an invalid byte count ($($bytes.Length))."
+            }
+            if ([string]::IsNullOrWhiteSpace($mime)) {
+              # GSMTC occasionally omits ContentType. Use the common image
+              # signatures so Chromium receives a valid data URL anyway.
+              if ($bytes.Length -ge 8 -and
+                  $bytes[0] -eq 0x89 -and $bytes[1] -eq 0x50 -and
+                  $bytes[2] -eq 0x4e -and $bytes[3] -eq 0x47) {
+                $mime = 'image/png'
+              } elseif ($bytes.Length -ge 3 -and
+                  $bytes[0] -eq 0xff -and $bytes[1] -eq 0xd8 -and
+                  $bytes[2] -eq 0xff) {
+                $mime = 'image/jpeg'
+              } elseif ($bytes.Length -ge 6 -and
+                  [System.Text.Encoding]::ASCII.GetString($bytes, 0, 6) -eq 'GIF89a' -or
+                  $bytes.Length -ge 6 -and
+                  [System.Text.Encoding]::ASCII.GetString($bytes, 0, 6) -eq 'GIF87a') {
+                $mime = 'image/gif'
+              } else {
+                $mime = 'image/jpeg'
+              }
+            }
+            $snapshot.thumbnailDataUrl = 'data:' + $mime + ';base64,' + [Convert]::ToBase64String($bytes)
           } catch {
             # Metadata remains useful without album art.
+            [Console]::Error.WriteLine(('Thumbnail read error: ' + $_.Exception.Message))
+            [Console]::Error.Flush()
           }
         }
+
       }
     }
 
@@ -107,6 +126,8 @@ while ($true) {
   } catch {
     if ($lastKey -ne 'error') {
       $lastKey = 'error'
+      [Console]::Error.WriteLine(('Media watcher error: ' + $_.Exception.Message))
+      [Console]::Error.Flush()
       [Console]::Out.WriteLine('{"available":false,"playing":false,"title":null,"artist":null,"album":null,"albumArtist":null,"thumbnailDataUrl":null,"sourceApp":null}')
       [Console]::Out.Flush()
     }
