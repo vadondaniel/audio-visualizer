@@ -1,6 +1,6 @@
 {
   "name": "audio-visualizer",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
   "scripts": {
@@ -39,6 +39,7 @@
       "audio.js",
       "wake-lock.js",
       "visuals.js",
+      "visuals/**/*",
       "ui.js",
       "icon.png",
       "icon.ico"
