@@ -335,6 +335,96 @@ function getParticleStyle() {
 }
 
 const particleShockwaves = [];
+// Additional spectral descriptors for particle-mode dimensionality. These are
+// deliberately low-cost: one linear scan of the analyser buffer per frame.
+const particleAudio = {
+  subBass: 0,
+  bass: 0,
+  mids: 0,
+  presence: 0,
+  air: 0,
+  centroid: 0.5,
+  flux: 0,
+  contrast: 0,
+  prevSpectrum: null,
+};
+
+function updateParticleAudioFeatures() {
+  if (!freqData || !bufferLength) return particleAudio;
+
+  // Approximate spectral regions without assuming a particular sample rate.
+  // fftSize is 2048 in the audio engine, so these map closely to musical bands.
+  const nyquist = audioCtx?.sampleRate ? audioCtx.sampleRate * 0.5 : 24000;
+  const hzPerBin = nyquist / bufferLength;
+  const bands = [
+    [28, 90],
+    [90, 250],
+    [250, 2000],
+    [2000, 6000],
+    [6000, 16000],
+  ];
+  const sums = [0, 0, 0, 0, 0];
+  const counts = [0, 0, 0, 0, 0];
+  let weighted = 0;
+  let total = 0;
+  let flux = 0;
+  let peak = 0;
+
+  if (
+    !particleAudio.prevSpectrum ||
+    particleAudio.prevSpectrum.length !== bufferLength
+  ) {
+    particleAudio.prevSpectrum = new Uint8Array(bufferLength);
+  }
+
+  for (let i = 1; i < bufferLength; i++) {
+    const v = freqData[i] / 255;
+    if (v <= 0) {
+      particleAudio.prevSpectrum[i] = 0;
+      continue;
+    }
+
+    const hz = i * hzPerBin;
+    for (let b = 0; b < bands.length; b++) {
+      if (hz >= bands[b][0] && hz < bands[b][1]) {
+        sums[b] += v;
+        counts[b]++;
+        break;
+      }
+    }
+
+    weighted += hz * v;
+    total += v;
+    peak = Math.max(peak, v);
+    const previous = particleAudio.prevSpectrum[i] / 255;
+    if (v > previous) flux += v - previous;
+    particleAudio.prevSpectrum[i] = freqData[i];
+  }
+
+  const raw = sums.map((sum, i) => (counts[i] ? sum / counts[i] : 0));
+  const rawCentroid =
+    total > 0 ? weighted / total / nyquist : particleAudio.centroid;
+  const rawFlux = Math.min(1, flux / Math.max(12, bufferLength * 0.045));
+  const mean = total / Math.max(1, bufferLength - 1);
+  const rawContrast = Math.min(
+    1,
+    Math.max(0, (peak - mean) / Math.max(0.08, peak))
+  );
+  const smooth = 0.12;
+  const attack = 0.28;
+
+  particleAudio.subBass += (raw[0] - particleAudio.subBass) * smooth;
+  particleAudio.bass += (raw[1] - particleAudio.bass) * smooth;
+  particleAudio.mids += (raw[2] - particleAudio.mids) * smooth;
+  particleAudio.presence += (raw[3] - particleAudio.presence) * smooth;
+  particleAudio.air += (raw[4] - particleAudio.air) * smooth;
+  particleAudio.centroid += (rawCentroid - particleAudio.centroid) * smooth;
+  particleAudio.flux += (rawFlux - particleAudio.flux) * attack;
+  particleAudio.contrast += (rawContrast - particleAudio.contrast) * smooth;
+
+  return particleAudio;
+}
+
 let energyNow = 0;
 let energyTrend = 0;
 let particlePhase = 0;
@@ -565,7 +655,6 @@ function beginParticleBatch() {
 
 function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   const dt = elapsedMs / FRAME_MS;
-  particlePhase += dt * (0.55 + trebleLevel * 1.9 + beatPulse * 1.4);
 
   const rawEnergy = applyValueHandling(
     bassLevel * 0.48 + midLevel * 0.3 + trebleLevel * 0.22,
@@ -595,12 +684,37 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
   energyNow += (normalized - energyNow) * Math.min(1, fastFactor * dt);
   energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
+  const audio = updateParticleAudioFeatures();
+  const dimensionalBass = Math.min(1, bassLevel * 0.58 + audio.subBass * 0.82);
+  const dimensionalMid = Math.min(
+    1,
+    midLevel * 0.48 + audio.mids * 0.88 + audio.presence * 0.22
+  );
+  const dimensionalTreble = Math.min(
+    1,
+    trebleLevel * 0.46 + audio.presence * 0.56 + audio.air * 0.78
+  );
+  const brightness = Math.min(1, audio.centroid * 1.5);
+  const transient = Math.min(1, audio.flux * 1.55 + beatPulse * 0.72);
+  const contrast = Math.min(1, audio.contrast * 1.25);
+
+  particlePhase +=
+    dt * (0.48 + trebleLevel * 1.25 + brightness * 1.05 + beatPulse * 1.4);
+
   const levels = [bassLevel, midLevel, trebleLevel];
   const SPAWN_RATE = 88 * Math.pow(state.particleDensity, 1.15);
   const AMBIENT_FLOOR = 0.045;
   for (let b = 0; b < 3; b++) {
+    const bandLevel =
+      b === 0
+        ? Math.min(1, levels[b] * 0.62 + dimensionalBass * 0.7)
+        : b === 1
+          ? Math.min(1, levels[b] * 0.64 + dimensionalMid * 0.6)
+          : Math.min(1, levels[b] * 0.58 + dimensionalTreble * 0.72);
     const rate =
-      (AMBIENT_FLOOR + levels[b] * (b === 0 ? 0.95 : 1.15)) * SPAWN_RATE;
+      (AMBIENT_FLOOR + bandLevel * (b === 0 ? 0.9 : 1.08)) *
+      SPAWN_RATE *
+      (0.82 + contrast * 0.26);
     bandSpawnAccum[b] += rate * (dt / 60);
     while (bandSpawnAccum[b] >= 1) {
       spawnBandParticle(PARTICLE_BANDS[b], levels[b]);
@@ -615,7 +729,9 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
 
   const decayScale = 1.55 - energyTrend * 0.9;
   const style = getParticleStyle();
-  const speedScale = (0.28 + energyNow * 2.95) * style.speed;
+  const speedScale =
+    (0.24 + energyNow * 2.45 + dimensionalBass * 0.52 + transient * 0.48) *
+    style.speed;
   const cx = canvas.width / 2;
   const cy = canvas.height / 2;
   const minDim = Math.min(canvas.width, canvas.height);
@@ -678,12 +794,22 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     const vortex =
       p.orbitStrength *
       (0.8 + Math.min(2.5, 180 / dist)) *
-      (0.7 + energyNow * 1.8);
+      (0.62 + energyNow * 1.45 + dimensionalMid * 1.25 + brightness * 0.42);
     p.vx += (nx * 0.018 + tangentX * vortex) * dt;
     p.vy += (ny * 0.018 + tangentY * vortex) * dt;
 
     const returnForce =
-      Math.min(0.11, (dist / minDim) * 0.065) * (0.75 + energyNow);
+      Math.min(0.12, (dist / minDim) * 0.065) *
+      (0.7 + energyNow * 0.82 + dimensionalBass * 0.45);
+
+    // Midrange controls the spiral plane, while spectral flux adds short-lived
+    // turbulence so drums and sharp attacks change the geometry rather than just
+    // making everything brighter.
+    const turbulence =
+      (0.008 + transient * 0.026 + contrast * 0.012) *
+      Math.sin(p.twinkle * 1.7 + particlePhase + p.hueOffset * 17);
+    p.vx += (-ny * turbulence + nx * turbulence * 0.35) * dt;
+    p.vy += (nx * turbulence + ny * turbulence * 0.35) * dt;
     p.vx -= nx * returnForce * dt;
     p.vy -= ny * returnForce * dt;
 
@@ -691,7 +817,10 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     p.y += p.vy * speedScale * dt;
     p.vx *= Math.pow(p.drag, dt);
     p.vy *= Math.pow(p.drag, dt);
-    p.twinkle += p.twinkleSpeed * dt * (1 + trebleLevel * 2.5);
+    p.twinkle +=
+      p.twinkleSpeed *
+      dt *
+      (1 + trebleLevel * 1.8 + dimensionalTreble * 1.4 + transient * 0.85);
     p.life -= p.decay * decayScale * dt;
 
     const margin = minDim * 0.13;
@@ -722,17 +851,26 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
         angle01 * 0.72 +
         radius01 * 0.18 +
         p.hueOffset * 0.1 +
-        p.z * 0.07 +
-        particlePhase * 0.0015;
+        p.z * (0.055 + brightness * 0.04) +
+        dimensionalMid * 0.055 +
+        dimensionalTreble * 0.035 +
+        particlePhase * (0.0012 + brightness * 0.0009);
     }
 
     const hue = currentHue(hueOffset);
     const shimmer = 0.72 + Math.sin(p.twinkle) * 0.28;
-    const depthScale = 0.58 + p.z * 0.72;
+    const depthScale =
+      0.5 + p.z * (0.72 + dimensionalBass * 0.22) + brightness * 0.08;
     const r =
-      p.size * depthScale * (0.28 + energyNow * 1.15) * (0.58 + p.life * 0.62);
+      p.size *
+      depthScale *
+      (0.26 + energyNow * 0.96 + dimensionalTreble * 0.34 + transient * 0.22) *
+      (0.58 + p.life * 0.62);
     const alpha =
-      p.life * shimmer * (0.48 + energyNow * 0.92) * (0.72 + p.z * 0.35);
+      p.life *
+      shimmer *
+      (0.46 + energyNow * 0.78 + dimensionalTreble * 0.26 + contrast * 0.12) *
+      (0.68 + p.z * 0.36);
 
     // Tiny particles contribute little visually at peak intensity. Keep simulating
     // them, but skip their canvas representation when they fall below visibility.
@@ -859,7 +997,12 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     }
   }
 
-  drawParticleCore(bassLevel, midLevel, trebleLevel, energyNow);
+  drawParticleCore(
+    Math.min(1, bassLevel * 0.7 + dimensionalBass * 0.5),
+    Math.min(1, midLevel * 0.65 + dimensionalMid * 0.55),
+    Math.min(1, trebleLevel * 0.62 + dimensionalTreble * 0.52),
+    Math.min(1, energyNow * 0.72 + transient * 0.2 + contrast * 0.08)
+  );
   ctx.globalCompositeOperation = "source-over";
 }
 
