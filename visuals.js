@@ -1,67 +1,44 @@
 // ---------- helpers ----------
 function currentHue(offset = 0) {
+  const theme = THEMES[state.theme];
+  // Monochrome themes still use the normal color-producing render paths.
+  // Encode the spatial offset as a pseudo-hue so themeCssColor can turn it
+  // into a subtle black/white gradient without a post-render image filter.
+  if (theme?.monochrome === "white" || theme?.monochrome === "black") {
+    const gradientEnabled = state.colorGradientEnabled !== false;
+    if (!gradientEnabled) return 0;
+    return Math.min(1, Math.max(0, offset)) * 360;
+  }
+
   return computeHue(
-    THEMES[state.theme],
+    theme,
     state.hueShift,
     offset,
-    THEMES[state.theme]?.alwaysGradient || state.colorGradientEnabled !== false
+    theme?.alwaysGradient || state.colorGradientEnabled !== false
   );
 }
 
-let monochromeCanvas = null;
-
-function applyMonochromeTheme() {
+function themeCssColor(hue, saturation = 90, lightness = 60, alpha = 1) {
   const theme = THEMES[state.theme];
-  if (theme?.monochrome !== "white" && theme?.monochrome !== "black") return;
-
-  const W = renderCanvas.width;
-  const H = renderCanvas.height;
-  if (!W || !H) return;
-
-  if (!monochromeCanvas) monochromeCanvas = document.createElement("canvas");
-  if (monochromeCanvas.width !== W || monochromeCanvas.height !== H) {
-    monochromeCanvas.width = W;
-    monochromeCanvas.height = H;
-  }
-
-  const monoCtx = monochromeCanvas.getContext("2d");
-  monoCtx.clearRect(0, 0, W, H);
-
-  const gradientEnabled = state.colorGradientEnabled !== false;
-  const isWhite = theme.monochrome === "white";
-  let fillStyle;
-
-  if (!gradientEnabled) {
-    fillStyle = isWhite ? "#ffffff" : "#000000";
-  } else {
-    const grad = monoCtx.createLinearGradient(0, 0, W, 0);
-    // The primary endpoint stays absolute; the secondary endpoint only
-    // introduces a restrained amount of gray.
-    if (isWhite) {
-      grad.addColorStop(0, "#ffffff");
-      grad.addColorStop(1, "#dddddd");
-    } else {
-      grad.addColorStop(0, "#000000");
-      grad.addColorStop(1, "#222222");
+  if (theme?.monochrome === "white" || theme?.monochrome === "black") {
+    if (state.colorGradientEnabled === false) {
+      const value = theme.monochrome === "white" ? 255 : 0;
+      return `rgba(${value}, ${value}, ${value}, ${alpha})`;
     }
-    fillStyle = grad;
+
+    // A modest luminance-only spread: the base theme color remains the
+    // endpoint, while spatial variation is introduced by the offset encoded
+    // in currentHue(). No canvas readback or second canvas is required.
+    const position = ((((Number(hue) || 0) % 360) + 360) % 360) / 360;
+    const maxShift = theme.monochrome === "white" ? 50 : 48;
+    const value =
+      theme.monochrome === "white"
+        ? Math.round(255 - position * maxShift)
+        : Math.round(position * maxShift);
+    return `rgba(${value}, ${value}, ${value}, ${alpha})`;
   }
 
-  monoCtx.fillStyle = fillStyle;
-  monoCtx.fillRect(0, 0, W, H);
-  monoCtx.globalCompositeOperation = "destination-in";
-  monoCtx.drawImage(renderCanvas, 0, 0);
-  monoCtx.globalCompositeOperation = "source-over";
-
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-  ctx.drawImage(monochromeCanvas, 0, 0);
-  ctx.restore();
-}
-
-function currentThemeRenderFilter() {
-  return "none";
+  return `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha})`;
 }
 
 function applyGlow(color, blur) {
@@ -141,9 +118,7 @@ function renderTrailHistory(timestamp) {
     displayCtx.setTransform(1, 0, 0, 1, 0, 0);
     displayCtx.globalAlpha = 1;
     displayCtx.clearRect(0, 0, canvas.width, canvas.height);
-    displayCtx.filter = currentThemeRenderFilter();
     displayCtx.drawImage(renderCanvas, 0, 0);
-    displayCtx.filter = "none";
     displayCtx.restore();
     if (typeof diagnostics !== "undefined")
       diagnostics.endPresent(presentStart);
@@ -177,7 +152,6 @@ function renderTrailHistory(timestamp) {
   displayCtx.globalCompositeOperation = "source-over";
   displayCtx.globalAlpha = 1;
   displayCtx.clearRect(0, 0, canvas.width, canvas.height);
-  displayCtx.filter = currentThemeRenderFilter();
   for (const frame of trailFrames) {
     displayCtx.globalAlpha = TrailMath.trailOpacity(
       timestamp - frame.timestamp,
@@ -189,7 +163,6 @@ function renderTrailHistory(timestamp) {
     displayCtx.globalAlpha = 1;
     displayCtx.drawImage(renderCanvas, 0, 0);
   }
-  displayCtx.filter = "none";
   displayCtx.restore();
   if (typeof diagnostics !== "undefined")
     diagnostics.endTrailComposite(compositeStart);

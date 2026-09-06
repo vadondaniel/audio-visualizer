@@ -101,11 +101,16 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
   const skyThemeHue = currentHue(0.1);
   airglowGrad.addColorStop(
     0,
-    `hsla(${skyThemeHue + 60}, 85%, 45%, ${0.06 + intensity * 0.16 + beatPulse * 0.08})`
+    themeCssColor(
+      skyThemeHue + 60,
+      85,
+      45,
+      0.06 + intensity * 0.16 + beatPulse * 0.08
+    )
   );
   airglowGrad.addColorStop(
     0.5,
-    `hsla(${skyThemeHue + 20}, 90%, 35%, ${0.04 + intensity * 0.12})`
+    themeCssColor(skyThemeHue + 20, 90, 35, 0.04 + intensity * 0.12)
   );
   airglowGrad.addColorStop(1, "rgba(2, 6, 18, 0)");
   ctx.fillStyle = airglowGrad;
@@ -210,21 +215,21 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
         (pleat === 0 ? 0.2 : 0.12) + intensity * 0.38 + beatPulse * 0.16;
       curtainGrad.addColorStop(
         0,
-        `hsla(${baseCurtainHue}, 96%, 68%, ${alphaBase * 0.9})`
+        themeCssColor(baseCurtainHue, 96, 68, alphaBase * 0.9)
       );
       curtainGrad.addColorStop(
         0.28,
-        `hsla(${baseCurtainHue}, 92%, 60%, ${alphaBase * 0.75})`
+        themeCssColor(baseCurtainHue, 92, 60, alphaBase * 0.75)
       );
       curtainGrad.addColorStop(
         0.65,
-        `hsla(${midCurtainHue}, 90%, 54%, ${alphaBase * 0.5})`
+        themeCssColor(midCurtainHue, 90, 54, alphaBase * 0.5)
       );
       curtainGrad.addColorStop(
         0.92,
-        `hsla(${topCurtainHue}, 85%, 48%, ${alphaBase * 0.22})`
+        themeCssColor(topCurtainHue, 85, 48, alphaBase * 0.22)
       );
-      curtainGrad.addColorStop(1, `hsla(${topCurtainHue}, 85%, 45%, 0)`);
+      curtainGrad.addColorStop(1, themeCssColor(topCurtainHue, 85, 45, 0));
 
       ctx.fillStyle = curtainGrad;
       ctx.fill();
@@ -251,17 +256,17 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
           );
           rayGrad.addColorStop(
             0,
-            `hsla(${baseCurtainHue}, 98%, 78%, ${rayAlpha})`
+            themeCssColor(baseCurtainHue, 98, 78, rayAlpha)
           );
           rayGrad.addColorStop(
             0.3,
-            `hsla(${baseCurtainHue}, 95%, 68%, ${rayAlpha * 0.8})`
+            themeCssColor(baseCurtainHue, 95, 68, rayAlpha * 0.8)
           );
           rayGrad.addColorStop(
             0.7,
-            `hsla(${midCurtainHue}, 92%, 58%, ${rayAlpha * 0.5})`
+            themeCssColor(midCurtainHue, 92, 58, rayAlpha * 0.5)
           );
-          rayGrad.addColorStop(1, `hsla(${topCurtainHue}, 88%, 50%, 0)`);
+          rayGrad.addColorStop(1, themeCssColor(topCurtainHue, 88, 50, 0));
 
           ctx.strokeStyle = rayGrad;
           ctx.lineWidth = 1.6;
@@ -285,11 +290,11 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
           1,
           0.35 + intensity * 0.55 + beatPulse * 0.25
         );
-        ctx.strokeStyle = `hsla(${baseCurtainHue}, 100%, 82%, ${edgeAlpha})`;
+        ctx.strokeStyle = themeCssColor(baseCurtainHue, 100, 82, edgeAlpha);
         ctx.lineWidth =
           1.4 + (c === 2 ? 1.6 : 0.6) + intensity * 1.2 + beatPulse * 1.2;
         applyGlow(
-          `hsla(${baseCurtainHue}, 100%, 75%, ${edgeAlpha})`,
+          themeCssColor(baseCurtainHue, 100, 75, edgeAlpha),
           10 + intensity * 14 + c * 4
         );
         ctx.stroke();
@@ -314,7 +319,7 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
       (0.25 + trebleLevel * 0.5 + intensity * 0.3);
     if (sparkAlpha > 0.04) {
       const sparkHue = currentHue(sp.x);
-      ctx.fillStyle = `hsla(${sparkHue}, 95%, 85%, ${sparkAlpha})`;
+      ctx.fillStyle = themeCssColor(sparkHue, 95, 85, sparkAlpha);
       ctx.beginPath();
       ctx.arc(
         sp.x * W,
@@ -336,7 +341,7 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
   skyVignette.addColorStop(0, "rgba(2, 6, 18, 0)");
   skyVignette.addColorStop(
     1,
-    `hsla(${floorHue}, 80%, 20%, ${0.08 + intensity * 0.12 + beatPulse * 0.08})`
+    themeCssColor(floorHue, 80, 20, 0.08 + intensity * 0.12 + beatPulse * 0.08)
   );
   ctx.fillStyle = skyVignette;
   ctx.fillRect(0, H * 0.75, W, H * 0.25);

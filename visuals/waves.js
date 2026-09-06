@@ -168,11 +168,11 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
       canvas.height
     );
     // At surface: luminous translucent neon
-    grad.addColorStop(0, `hsla(${layerHue}, 90%, 65%, 0.42)`);
+    grad.addColorStop(0, themeCssColor(layerHue, 90, 65, 0.42));
     // At mid-depth: rich oceanic body
-    grad.addColorStop(0.45, `hsla(${layerHue}, 85%, 42%, 0.18)`);
+    grad.addColorStop(0.45, themeCssColor(layerHue, 85, 42, 0.18));
     // At deep floor: deep oceanic floor
-    grad.addColorStop(1, `hsla(${layerHue}, 80%, 15%, 0.02)`);
+    grad.addColorStop(1, themeCssColor(layerHue, 80, 15, 0.02));
     ctx.fillStyle = grad;
     ctx.fill();
 
@@ -186,7 +186,7 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
     }
     ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
 
-    ctx.strokeStyle = `hsl(${layerHue}, 95%, 72%)`;
+    ctx.strokeStyle = themeCssColor(layerHue, 95, 72, 1);
     ctx.lineWidth = 1.8 + l * 0.4 + punchBass * 1.6 + beatPulse * 1.2;
     applyGlow(ctx.strokeStyle, 12 + punchBass * 12);
     ctx.stroke();
@@ -199,7 +199,7 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
             0.85,
             (pts[i].crestAmp - 0.28) * 2.2 + beatPulse * 0.45
           );
-          ctx.fillStyle = `hsla(${layerHue}, 95%, 92%, ${foamAlpha})`;
+          ctx.fillStyle = themeCssColor(layerHue, 95, 92, foamAlpha);
           ctx.beginPath();
           ctx.arc(pts[i].x, pts[i].y, 2.2 + beatPulse * 2.4, 0, Math.PI * 2);
           ctx.fill();
@@ -256,7 +256,12 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
       alphaBase + Math.sin(sp.twinkle) * 0.35 + beatPulse * 0.25
     );
 
-    ctx.fillStyle = `hsla(${layerHue}, 95%, ${sp.airborne ? 92 : 82}%, ${sporeAlpha})`;
+    ctx.fillStyle = themeCssColor(
+      layerHue,
+      95,
+      sp.airborne ? 92 : 82,
+      sporeAlpha
+    );
     applyGlow(ctx.fillStyle, sp.airborne ? 16 : 8);
     ctx.beginPath();
     ctx.arc(

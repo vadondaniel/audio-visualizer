@@ -317,7 +317,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       );
       const hue = currentHue((g / TUNNEL_WALL_GROUPS) * 0.88 + aDepth * 0.12);
 
-      ctx.fillStyle = `hsla(${hue}, 82%, ${42 + treble * 10}%, ${alpha})`;
+      ctx.fillStyle = themeCssColor(hue, 82, 42 + treble * 10, alpha);
       // Each sector is a single connected quad-strip instead of one path
       // sub-path per facet. The old version emitted 4 independent edges for
       // every facet (1,392 sub-paths across the wall); those explode into a
@@ -370,10 +370,12 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       tunnelDepthEnergy[Math.floor((rail / railCount) * TUNNEL_RINGS)];
   }
   const avgRailEnergy = railEnergyTotal / Math.max(1, railCount);
-  ctx.strokeStyle = `hsla(${currentHue(treble * 0.08)}, 88%, ${51 + treble * 10}%, ${Math.min(
-    0.86,
-    0.28 + avgRailEnergy * 0.46 + peakTreble * 0.26
-  )})`;
+  ctx.strokeStyle = themeCssColor(
+    currentHue(treble * 0.08),
+    88,
+    51 + treble * 10,
+    Math.min(0.86, 0.28 + avgRailEnergy * 0.46 + peakTreble * 0.26)
+  );
   ctx.lineWidth = 0.8 + treble * 1.55 + avgRailEnergy * 1.2;
   ctx.stroke();
   ctx.restore();
@@ -392,10 +394,12 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
   }
   const baseRingEnergy =
     tunnelDepthEnergy[0] * 0.18 + tunnelDepthEnergy[TUNNEL_RINGS - 1] * 0.35;
-  ctx.strokeStyle = `hsla(${currentHue(0.08)}, 92%, ${54 + treble * 10}%, ${Math.min(
-    0.9,
-    0.38 + baseRingEnergy + activeBass * 0.12 + peakBass * 0.18
-  )})`;
+  ctx.strokeStyle = themeCssColor(
+    currentHue(0.08),
+    92,
+    54 + treble * 10,
+    Math.min(0.9, 0.38 + baseRingEnergy + activeBass * 0.12 + peakBass * 0.18)
+  );
   ctx.lineWidth = 0.9 + activeBass * 0.42 + peakBass * 0.82 + treble * 0.45;
   ctx.shadowBlur = 0;
   ctx.stroke();
@@ -423,7 +427,12 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       else ctx.lineTo(tunnelX[idx], tunnelY[idx]);
     }
     ctx.closePath();
-    ctx.strokeStyle = `hsla(${currentHue(tunnelPhase[r] * 0.82 + localEnergy * 0.18)}, 92%, ${54 + treble * 10}%, ${alpha})`;
+    ctx.strokeStyle = themeCssColor(
+      currentHue(tunnelPhase[r] * 0.82 + localEnergy * 0.18),
+      92,
+      54 + treble * 10,
+      alpha
+    );
     ctx.lineWidth =
       0.95 +
       depth * 1.2 +
@@ -456,7 +465,12 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       else ctx.lineTo(tunnelX[idx], tunnelY[idx]);
     }
     ctx.closePath();
-    ctx.strokeStyle = `hsla(${currentHue(tunnelPulsePhase)}, 96%, 76%, ${alpha})`;
+    ctx.strokeStyle = themeCssColor(
+      currentHue(tunnelPulsePhase),
+      96,
+      76,
+      alpha
+    );
     ctx.lineWidth = 1.2 + tunnelPulse * 2.4 + bass * 1.2;
     applyGlow(ctx.strokeStyle, 2 + tunnelPulse * 5);
     ctx.stroke();
@@ -486,7 +500,12 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
       else ctx.lineTo(tunnelX[idx], tunnelY[idx]);
     }
     ctx.closePath();
-    ctx.strokeStyle = `hsla(${currentHue(0.04 + pulse.phase * 0.16)}, 100%, 82%, ${pulseAlpha})`;
+    ctx.strokeStyle = themeCssColor(
+      currentHue(0.04 + pulse.phase * 0.16),
+      100,
+      82,
+      pulseAlpha
+    );
     ctx.lineWidth = 3.2 + pulse.strength * 5.5 + bass * 2.2;
     applyGlow(ctx.strokeStyle, 5 + pulse.strength * 9);
     ctx.stroke();

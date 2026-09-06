@@ -75,7 +75,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
       ctx.moveTo(0, 0);
       ctx.arc(0, 0, r, aStart, aEnd);
       ctx.closePath();
-      ctx.fillStyle = `hsla(${hue}, 90%, ${55 + v * 15}%, ${0.35 + v * 0.55})`;
+      ctx.fillStyle = themeCssColor(hue, 90, 55 + v * 15, 0.35 + v * 0.55);
       applyGlow(ctx.fillStyle, 10);
       ctx.fill();
     }
@@ -85,7 +85,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   if (kaleidoFlash > 0.02) {
     ctx.beginPath();
     ctx.arc(cx, cy, maxR * (0.15 + (1 - kaleidoFlash) * 0.55), 0, Math.PI * 2);
-    ctx.strokeStyle = `hsla(${currentHue(0)}, 90%, 70%, ${kaleidoFlash * 0.6})`;
+    ctx.strokeStyle = themeCssColor(currentHue(0), 90, 70, kaleidoFlash * 0.6);
     ctx.lineWidth = 3 + kaleidoFlash * 4;
     applyGlow(ctx.strokeStyle, 20);
     ctx.stroke();
@@ -94,7 +94,7 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
   const coreR = maxR * coreRFrac * (1 + bassLevel * 0.7 + kaleidoFlash * 0.6);
   ctx.beginPath();
   ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
-  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 65%, 0.6)`;
+  ctx.fillStyle = themeCssColor(currentHue(0), 90, 65, 0.6);
   applyGlow(ctx.fillStyle, 16);
   ctx.fill();
 

@@ -43,7 +43,7 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
     const y2 = cy + Math.sin(angle) * (baseR + len);
 
     const hue = currentHue(normalized);
-    ctx.strokeStyle = `hsl(${hue}, 90%, 60%)`;
+    ctx.strokeStyle = themeCssColor(hue, 90, 60, 1);
     ctx.lineWidth = 2.4;
     applyGlow(ctx.strokeStyle, 10);
     ctx.beginPath();
@@ -55,10 +55,10 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
   // pulsing center circle
   ctx.beginPath();
   ctx.arc(cx, cy, baseR * 0.8, 0, Math.PI * 2);
-  ctx.fillStyle = `hsla(${currentHue(0)}, 90%, 60%, 0.15)`;
+  ctx.fillStyle = themeCssColor(currentHue(0), 90, 60, 0.15);
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = `hsla(${currentHue(0)}, 90%, 70%, 0.5)`;
+  ctx.strokeStyle = themeCssColor(currentHue(0), 90, 70, 0.5);
   ctx.stroke();
 
   ctx.shadowBlur = 0;

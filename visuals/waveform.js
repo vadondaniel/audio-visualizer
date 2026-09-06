@@ -9,7 +9,7 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
     for (let s = 0; s <= stops; s++) {
       gradient.addColorStop(
         s / stops,
-        `hsla(${currentHue(s / stops)}, 90%, 60%, ${alpha})`
+        themeCssColor(currentHue(s / stops), 90, 60, alpha)
       );
     }
     return gradient;
@@ -36,7 +36,7 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
   } else {
-    applyGlow(`hsl(${currentHue(0.5)}, 90%, 60%)`, 16);
+    applyGlow(themeCssColor(currentHue(0.5), 90, 60, 1), 16);
   }
 
   const slice = canvas.width / bufferLength;

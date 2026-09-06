@@ -94,7 +94,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
 
     if (pAlpha > 0.04) {
       const pHue = currentHue(p.distFrac);
-      ctx.fillStyle = `hsla(${pHue}, 90%, 75%, ${pAlpha})`;
+      ctx.fillStyle = themeCssColor(pHue, 90, 75, pAlpha);
       applyGlow(ctx.fillStyle, 8);
       ctx.beginPath();
       ctx.arc(px, py, p.size * (1 + beatPulse * 0.4), 0, Math.PI * 2);
@@ -229,7 +229,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   const cascadeRingStyle = (alpha, lightness) => {
     const theme = THEMES[state.theme];
     if (!theme.rainbow) {
-      return `hsla(${themeHue}, 100%, ${lightness}%, ${alpha})`;
+      return themeCssColor(themeHue, 100, lightness, alpha);
     }
 
     // The contour is circular, so a conic gradient follows its geometry.
@@ -240,7 +240,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     for (let s = 0; s <= stops; s++) {
       gradient.addColorStop(
         s / stops,
-        `hsla(${currentHue(s / stops)}, 100%, ${lightness}%, ${alpha})`
+        themeCssColor(currentHue(s / stops), 100, lightness, alpha)
       );
     }
     return gradient;
@@ -254,7 +254,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     if (swAlpha < 0.02) continue;
 
     traceContour(sw.offset, false);
-    ctx.strokeStyle = `hsla(${currentHue(swFrac * 0.3)}, 95%, 72%, ${swAlpha})`;
+    ctx.strokeStyle = themeCssColor(currentHue(swFrac * 0.3), 95, 72, swAlpha);
     ctx.lineWidth = Math.max(
       1.2,
       2.8 * (1 - swFrac) * (1 + sw.intensity * 0.5)
@@ -300,7 +300,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   traceContour(0);
   ctx.strokeStyle = THEMES[state.theme].rainbow
     ? cascadeRingStyle(0.9, 70)
-    : `hsla(${accentHue}, 100%, 70%, 0.9)`;
+    : themeCssColor(accentHue, 100, 70, 0.9);
   ctx.lineWidth = 2.6 + beatPulse * 1.0;
   applyGlow(
     THEMES[state.theme].rainbow ? "rgba(255, 255, 255, 0.7)" : ctx.strokeStyle,
@@ -319,7 +319,12 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     const py = cy + Math.sin(pt.angle) * peakR;
     const peakAlpha = Math.min(1, (pt.sustainedAmp - 10) / 25);
 
-    ctx.fillStyle = `hsla(${(themeHue + 40) % 360}, 100%, 85%, ${peakAlpha * 0.9})`;
+    ctx.fillStyle = themeCssColor(
+      (themeHue + 40) % 360,
+      100,
+      85,
+      peakAlpha * 0.9
+    );
     applyGlow(ctx.fillStyle, 6);
     ctx.beginPath();
     ctx.arc(px, py, 2.0 + beatPulse * 1.0, 0, Math.PI * 2);
@@ -334,7 +339,7 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   ctx.arc(cx, cy, discBaseR, 0, Math.PI * 2);
   ctx.fillStyle = "#080811";
   ctx.fill();
-  ctx.strokeStyle = `hsla(${themeHue}, 90%, 65%, 0.85)`;
+  ctx.strokeStyle = themeCssColor(themeHue, 90, 65, 0.85);
   ctx.lineWidth = 2.8 + beatPulse * 1.8;
   applyGlow(ctx.strokeStyle, 12 + beatPulse * 8);
   ctx.stroke();
@@ -357,8 +362,11 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   } else {
     // Futuristic EDM Speaker Disc fallback
     const discGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, discBaseR);
-    discGrad.addColorStop(0, `hsla(${themeHue}, 95%, 45%, 0.9)`);
-    discGrad.addColorStop(0.5, `hsla(${(themeHue + 40) % 360}, 90%, 25%, 0.7)`);
+    discGrad.addColorStop(0, themeCssColor(themeHue, 95, 45, 0.9));
+    discGrad.addColorStop(
+      0.5,
+      themeCssColor((themeHue + 40) % 360, 90, 25, 0.7)
+    );
     discGrad.addColorStop(1, "#04040a");
     ctx.fillStyle = discGrad;
     ctx.fill();
@@ -366,7 +374,12 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     for (let g = 1; g <= 4; g++) {
       ctx.beginPath();
       ctx.arc(cx, cy, (discBaseR * g) / 5, 0, Math.PI * 2);
-      ctx.strokeStyle = `hsla(${themeHue}, 80%, 70%, ${0.25 + beatPulse * 0.25})`;
+      ctx.strokeStyle = themeCssColor(
+        themeHue,
+        80,
+        70,
+        0.25 + beatPulse * 0.25
+      );
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }

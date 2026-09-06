@@ -27,7 +27,7 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
       heightScale *
       (0.82 + bassLevel * 0.2 + midLevel * 0.12 + beatPulse * 0.15);
     const hue = currentHue(i / barCount);
-    ctx.fillStyle = `hsl(${hue}, 90%, ${50 + v * 20}%)`;
+    ctx.fillStyle = themeCssColor(hue, 90, 50 + v * 20, 1);
     applyGlow(ctx.fillStyle, 14);
 
     if (isCenter) {

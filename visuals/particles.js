@@ -266,7 +266,7 @@ function drawParticleSpectrum(bassLevel, midLevel, trebleLevel, radius) {
     const alpha = 0.14 + v * 0.34 + energy * 0.08;
     const hue = currentHue(t + particlePhase * 0.006);
 
-    ctx.fillStyle = `hsla(${hue}, 96%, 72%, ${Math.min(0.65, alpha)})`;
+    ctx.fillStyle = themeCssColor(hue, 96, 72, Math.min(0.65, alpha));
     if (r > 1.2) applyGlow(ctx.fillStyle, 4 + v * 5);
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -290,11 +290,11 @@ function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
   ctx.globalCompositeOperation = "lighter";
 
   const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR);
-  halo.addColorStop(0, `hsla(${hue}, 100%, 86%, ${0.5 + energy * 0.22})`);
-  halo.addColorStop(0.08, `hsla(${hue}, 100%, 70%, ${0.26 + energy * 0.24})`);
+  halo.addColorStop(0, themeCssColor(hue, 100, 86, 0.5 + energy * 0.22));
+  halo.addColorStop(0.08, themeCssColor(hue, 100, 70, 0.26 + energy * 0.24));
   halo.addColorStop(
     0.32,
-    `hsla(${currentHue(0.18)}, 95%, 58%, ${0.08 + midLevel * 0.11})`
+    themeCssColor(currentHue(0.18), 95, 58, 0.08 + midLevel * 0.11)
   );
   halo.addColorStop(1, "rgba(0, 0, 0, 0)");
   ctx.fillStyle = halo;
@@ -302,7 +302,12 @@ function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
 
   for (let ring = 0; ring < 3; ring++) {
     const r = coreR * (1.9 + ring * 1.85 + beatPulse * (1.2 + ring * 0.7));
-    ctx.strokeStyle = `hsla(${currentHue(0.48 + ring * 0.1)}, 100%, 72%, ${0.16 + energy * 0.14 - ring * 0.035})`;
+    ctx.strokeStyle = themeCssColor(
+      currentHue(0.48 + ring * 0.1),
+      100,
+      72,
+      0.16 + energy * 0.14 - ring * 0.035
+    );
     ctx.lineWidth = 1.1 + beatPulse * (1.3 - ring * 0.25);
     applyGlow(ctx.strokeStyle, 7 + beatPulse * 5);
     ctx.beginPath();
@@ -313,12 +318,12 @@ function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
 
   const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
   core.addColorStop(0, "rgba(255, 255, 255, 0.96)");
-  core.addColorStop(0.16, `hsla(${hue}, 100%, 86%, 0.96)`);
+  core.addColorStop(0.16, themeCssColor(hue, 100, 86, 0.96));
   core.addColorStop(
     0.62,
-    `hsla(${currentHue(0.82)}, 100%, 62%, ${0.72 + beatPulse * 0.18})`
+    themeCssColor(currentHue(0.82), 100, 62, 0.72 + beatPulse * 0.18)
   );
-  core.addColorStop(1, `hsla(${currentHue(0.15)}, 100%, 48%, 0)`);
+  core.addColorStop(1, themeCssColor(currentHue(0.15), 100, 48, 0));
   ctx.fillStyle = core;
   ctx.beginPath();
   ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
@@ -447,7 +452,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     }
     const hue = currentHue(wave.hueOffset);
     const alpha = Math.min(0.42, wave.life * 0.55);
-    ctx.strokeStyle = `hsla(${hue}, 95%, 70%, ${alpha})`;
+    ctx.strokeStyle = themeCssColor(hue, 95, 70, alpha);
     ctx.lineWidth = wave.width * wave.life;
     ctx.shadowBlur = (12 + wave.life * 9) * state.glowIntensity;
     ctx.shadowColor = ctx.strokeStyle;
@@ -615,7 +620,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     if (hasPath) {
       const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
       ctx.shadowBlur = 0;
-      ctx.strokeStyle = `hsla(${hue}, 92%, 68%, 0.22)`;
+      ctx.strokeStyle = themeCssColor(hue, 92, 68, 0.22);
       ctx.lineWidth = Math.max(0.75, 1.0 + energyNow * 0.8);
       ctx.stroke();
     }
@@ -639,7 +644,12 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       if (!hasPath) continue;
       const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
       const lightness = Math.min(84, 71 + rainbowBoost + trebleLevel * 4);
-      ctx.fillStyle = `hsla(${hue}, ${theme.rainbow ? 96 : 92}%, ${lightness}%, ${alpha})`;
+      ctx.fillStyle = themeCssColor(
+        hue,
+        theme.rainbow ? 96 : 92,
+        lightness,
+        alpha
+      );
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
       ctx.fill();
@@ -662,7 +672,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
     }
     if (!hasGlow) continue;
     const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
-    ctx.fillStyle = `hsla(${hue}, 100%, 72%, 0.28)`;
+    ctx.fillStyle = themeCssColor(hue, 100, 72, 0.28);
     const glow = Math.min(18, 3 + maxR * 1.8) * state.glowIntensity;
     ctx.shadowBlur = glow;
     ctx.shadowColor = ctx.fillStyle;
@@ -687,7 +697,7 @@ function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
       }
       if (hasPath) {
         const hue = (hb + 0.5) * (360 / PARTICLE_HUE_BINS);
-        ctx.strokeStyle = `hsla(${hue}, 100%, 82%, 0.34)`;
+        ctx.strokeStyle = themeCssColor(hue, 100, 82, 0.34);
         ctx.lineWidth = 0.7;
         ctx.stroke();
       }
