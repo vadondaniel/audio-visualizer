@@ -23,6 +23,7 @@ $mediaType = [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMed
 $streamType = [Windows.Storage.Streams.IRandomAccessStreamWithContentType]
 
 $lastKey = $null
+$lastThumbnailErrorKey = $null
 
 while ($true) {
   try {
@@ -60,10 +61,10 @@ while ($true) {
             # Read this before closing the WinRT stream below. Some Windows
             # media providers invalidate ContentType during/after cleanup.
             $mime = [string]$stream.ContentType
-            # Album art is normally tiny; cap pathological payloads so a broken
-            # session can never flood stdout or the renderer.
-            # Some Spotify streams report Size=0 even though they contain
-            # readable image bytes, so do not use Size as an availability gate.
+            # Do not impose a tiny byte cap here. Some media providers (notably
+            # readers/ebooks) can expose perfectly valid cover art several MB in size.
+            # The stream is already bounded by the provider and is only embedded in
+            # a snapshot when the metadata actually changes.
             $randomAccessStreamType = [Windows.Storage.Streams.IRandomAccessStream]
             $asStreamMethod = [System.IO.WindowsRuntimeStreamExtensions].GetMethod(
               'AsStream', [type[]]@($randomAccessStreamType))
@@ -76,7 +77,7 @@ while ($true) {
             } finally {
               $managedStream.Dispose()
             }
-            if ($bytes.Length -eq 0 -or $bytes.Length -gt 4194304) {
+            if ($bytes.Length -eq 0 -or $bytes.Length -gt 16777216) {
               throw "Thumbnail stream returned an invalid byte count ($($bytes.Length))."
             }
             if ([string]::IsNullOrWhiteSpace($mime)) {
@@ -100,10 +101,21 @@ while ($true) {
               }
             }
             $snapshot.thumbnailDataUrl = 'data:' + $mime + ';base64,' + [Convert]::ToBase64String($bytes)
+            $lastThumbnailErrorKey = $null
           } catch {
-            # Metadata remains useful without album art.
-            [Console]::Error.WriteLine(('Thumbnail read error: ' + $_.Exception.Message))
-            [Console]::Error.Flush()
+            # Metadata remains useful without album art. Do not spam the same
+            # error every polling cycle while a provider is transitioning media.
+            $thumbnailErrorKey = (
+              [string]$snapshot.sourceApp + '|' +
+              [string]$snapshot.title + '|' +
+              [string]$snapshot.artist + '|' +
+              [string]$snapshot.album
+            )
+            if ($thumbnailErrorKey -ne $lastThumbnailErrorKey) {
+              $lastThumbnailErrorKey = $thumbnailErrorKey
+              [Console]::Error.WriteLine(('Thumbnail read error: ' + $_.Exception.Message))
+              [Console]::Error.Flush()
+            }
           }
         }
 
