@@ -122,8 +122,13 @@
     const validBgTypes = ["color", "image", "nebula", "stars", "grid"];
     if (validBgTypes.includes(saved.bgType)) state.bgType = saved.bgType;
     if (saved.bgColor) state.bgColor = saved.bgColor;
-    if (saved.bgImageDataUrl) state.bgImageDataUrl = saved.bgImageDataUrl;
-    if (saved.bgImageName) state.bgImageName = saved.bgImageName;
+    if (
+      typeof saved.bgImageDataUrl === "string" ||
+      saved.bgImageDataUrl === null
+    )
+      state.bgImageDataUrl = saved.bgImageDataUrl;
+    if (typeof saved.bgImageName === "string" || saved.bgImageName === null)
+      state.bgImageName = saved.bgImageName;
     if (
       Number.isFinite(saved.bgBrightness) &&
       saved.bgBrightness >= 0.2 &&
@@ -150,7 +155,7 @@
       state.theme = saved.theme;
     if (typeof saved.colorGradientEnabled === "boolean")
       state.colorGradientEnabled = saved.colorGradientEnabled;
-    if (saved.autoCycle) state.autoCycle = true;
+    if (typeof saved.autoCycle === "boolean") state.autoCycle = saved.autoCycle;
     if (typeof saved.smoothingEnabled === "boolean")
       state.smoothingEnabled = saved.smoothingEnabled;
     if (saved.radialMode === "mirrored" || saved.radialMode === "full")
@@ -192,12 +197,30 @@
       saved.trailDuration <= 600
     )
       state.trailDuration = saved.trailDuration;
+    if (
+      Number.isFinite(saved.trailMaxFps) &&
+      saved.trailMaxFps >= 15 &&
+      saved.trailMaxFps <= 240
+    )
+      state.trailMaxFps = saved.trailMaxFps;
     if (typeof saved.wakeLockEnabled === "boolean")
       state.wakeLockEnabled = saved.wakeLockEnabled;
     if (typeof saved.reactiveVignette === "boolean")
       state.reactiveVignette = saved.reactiveVignette;
     if (typeof saved.crtFilter === "boolean") state.crtFilter = saved.crtFilter;
     if (typeof saved.beatFlash === "boolean") state.beatFlash = saved.beatFlash;
+    if (
+      Number.isFinite(saved.particleDensity) &&
+      saved.particleDensity >= 0.5 &&
+      saved.particleDensity <= 1.8
+    )
+      state.particleDensity = saved.particleDensity;
+    if (
+      saved.particleStyle === "flow" ||
+      saved.particleStyle === "burst" ||
+      saved.particleStyle === "vortex"
+    )
+      state.particleStyle = saved.particleStyle;
     if (
       saved.valueHandling === "exponential" ||
       saved.valueHandling === "logarithmic" ||

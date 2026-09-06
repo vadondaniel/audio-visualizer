@@ -116,7 +116,7 @@ glowSlider.addEventListener("input", (e) => {
 
 trailsCheckbox.addEventListener("change", (e) => {
   state.trailsEnabled = e.target.checked;
-  updateTrailDurationVisibility();
+  updateTrailVisibility();
   if (!state.trailsEnabled) resetTrailHistory();
   saveSettings();
 });
@@ -142,8 +142,10 @@ wakeLockCheckbox.addEventListener("change", (e) => {
   saveSettings();
 });
 
-function updateTrailDurationVisibility() {
-  trailDurationRow.style.display = state.trailsEnabled ? "" : "none";
+function updateTrailVisibility() {
+  const display = state.trailsEnabled ? "" : "none";
+  trailDurationRow.style.display = display;
+  trailFpsRow.style.display = display;
 }
 
 bgTypeSelect.addEventListener("change", (e) => {
@@ -233,7 +235,7 @@ particleStyleSelect.addEventListener("change", (e) => {
 
 // Initialize settings from localStorage into UI and state
 loadSettings();
-updateTrailDurationVisibility();
+updateTrailVisibility();
 
 // ---------- input & hud ----------
 let hudTimeout;

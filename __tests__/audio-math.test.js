@@ -274,13 +274,26 @@ describe("mergeSettings", () => {
     mode: 0,
     theme: 0,
     autoCycle: false,
+    colorGradientEnabled: true,
     smoothingEnabled: true,
     radialMode: "mirrored",
     kaleidoClipEnabled: true,
+    barsAlignment: "bottom",
+    waveformStyle: "line",
     cascadeFrequencyOrder: "bass-to-treble",
+    cascadeFillStyle: "dark",
+    sensitivity: 1.0,
+    valueHandling: "exponential",
+    glowIntensity: 1.0,
     trailsEnabled: true,
     trailDuration: 220,
+    trailMaxFps: 60,
     wakeLockEnabled: false,
+    reactiveVignette: true,
+    crtFilter: false,
+    beatFlash: true,
+    particleDensity: 1.0,
+    particleStyle: "flow",
   };
 
   test("falls back to defaults when nothing was saved", () => {
@@ -306,7 +319,7 @@ describe("mergeSettings", () => {
       trailDuration: 350,
       wakeLockEnabled: false,
     };
-    expect(mergeSettings(defaults, saved, 5, 7)).toEqual(saved);
+    expect(mergeSettings(defaults, saved, 5, 7)).toMatchObject(saved);
   });
 
   test("ignores a mode/theme index that's out of range (e.g. from an older version)", () => {
@@ -377,6 +390,34 @@ describe("mergeSettings", () => {
     expect(merged.reactiveVignette).toBe(false);
     expect(merged.crtFilter).toBe(true);
     expect(merged.beatFlash).toBe(false);
+  });
+
+  test("restores trail max FPS and particle settings", () => {
+    const merged = mergeSettings(
+      defaults,
+      { trailMaxFps: 144, particleDensity: 1.75, particleStyle: "vortex" },
+      8,
+      7
+    );
+    expect(merged.trailMaxFps).toBe(144);
+    expect(merged.particleDensity).toBe(1.75);
+    expect(merged.particleStyle).toBe("vortex");
+  });
+
+  test("restores explicitly cleared background image fields", () => {
+    const defaultsWithImage = {
+      ...defaults,
+      bgImageDataUrl: "data:image/png;base64,old",
+      bgImageName: "old.png",
+    };
+    const merged = mergeSettings(
+      defaultsWithImage,
+      { bgImageDataUrl: null, bgImageName: null, bgType: "color" },
+      8,
+      7
+    );
+    expect(merged.bgImageDataUrl).toBeNull();
+    expect(merged.bgImageName).toBeNull();
   });
 
   test("accepts trail enablement and duration within the control range", () => {
