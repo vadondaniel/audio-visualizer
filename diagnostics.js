@@ -30,6 +30,8 @@ const diagnostics = (() => {
   let lastProfile = null;
   let ui = null;
   let gpuInfo = null;
+  let displayInfo = null;
+  let paused = false;
 
   const PROFILE_KEYS = [
     "mode",
@@ -176,7 +178,8 @@ const diagnostics = (() => {
   }
 
   function frameBudget() {
-    return 1000 / Math.max(30, refreshEstimate);
+    const hz = Number(displayInfo?.displayFrequency);
+    return hz > 0 ? 1000 / hz : 1000 / Math.max(30, refreshEstimate);
   }
 
   function detectGpu() {
@@ -359,6 +362,8 @@ const diagnostics = (() => {
       slowFrames,
       samples: sampleCount,
       refreshEstimate,
+      displayRefreshHz: Number(displayInfo?.displayFrequency) || null,
+      displayInfo,
       particleCount:
         typeof particles !== "undefined" && Array.isArray(particles)
           ? particles.length
@@ -513,11 +518,15 @@ const diagnostics = (() => {
       durationMs: Math.max(0, performance.now() - profile.startedPerfMs),
       sampleCount: profile.samples,
       retention: "streaming aggregates; no frame-count stop",
+      pauseCount: profile.pauseCount || 0,
+      displayChanges: profile.displayChanges || [],
       buckets,
       process: processSummary,
       settingsAnalysis,
       gpu: detectGpu(),
       refreshEstimate,
+      displayRefreshHz: Number(displayInfo?.displayFrequency) || null,
+      displayInfo,
       canvas: {
         cssWidth: window.innerWidth,
         cssHeight: window.innerHeight,
@@ -589,6 +598,8 @@ const diagnostics = (() => {
       processMetrics: new Map(),
       buckets: new Map(),
       nextProcessSamplePerfMs: performance.now(),
+      pauseCount: 0,
+      displayChanges: displayInfo ? [{ atMs: 0, ...displayInfo }] : [],
     };
     running = true;
     updateProfileUi();
@@ -609,6 +620,11 @@ const diagnostics = (() => {
   }
 
   function tickStart(timestamp) {
+    if (paused) {
+      rafLast = timestamp;
+      frameOpen = 0;
+      return;
+    }
     if (!running && !profile) return;
 
     if (rafLast > 0) {
@@ -694,6 +710,33 @@ const diagnostics = (() => {
   }
   function endPresent(start) {
     endPhase(presentMs, start);
+  }
+
+  function pause(reason = "paused") {
+    paused = true;
+    if (profile) profile.pauseCount = (profile.pauseCount || 0) + 1;
+    rafLast = 0;
+    frameOpen = 0;
+  }
+
+  function resume() {
+    paused = false;
+    rafLast = 0;
+    frameOpen = 0;
+  }
+
+  function setDisplayInfo(info) {
+    displayInfo = info || null;
+    if (profile && info) {
+      if (!Array.isArray(profile.displayChanges)) profile.displayChanges = [];
+      profile.displayChanges.push({
+        atMs: performance.now() - profile.startedPerfMs,
+        ...info,
+      });
+    }
+    refreshEstimate = Number(info?.displayFrequency) || refreshEstimate;
+    rafLast = 0;
+    frameOpen = 0;
   }
 
   function updateProfileUi() {
@@ -810,6 +853,9 @@ const diagnostics = (() => {
     current,
     buildReport,
     copyReport,
+    pause,
+    resume,
+    setDisplayInfo,
     startProfile,
     stopProfile,
     profileActive,

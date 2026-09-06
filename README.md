@@ -123,3 +123,5 @@ this, it will download some extra tooling, so it may take a minute.
   default `sandbox: true` (since v20) breaks the preload script's
   `require()` of the local `ipc-channels.js`, silently disabling the
   `F`/`T`/`Esc` shortcuts.
+
+The synthetic time-domain signal is deterministic but intentionally shaped like an audio waveform (multiple harmonics + envelope + texture) so waveform mode is visually representative of the normal renderer. It is not intended to reproduce any specific recording.
