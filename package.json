@@ -1,15 +1,21 @@
 {
   "name": "audio-visualizer",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Real-time system audio visualizer, NCS style",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "npm run build:media-watcher && electron .",
     "dist": "electron-builder --win portable",
     "test": "jest",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "benchmark": "electron benchmark.js"
+    "format": "npm run format:js && npm run format:cs && npm run format:ps1",
+    "format:js": "prettier --write .",
+    "format:cs": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\format-cs.ps1",
+    "format:ps1": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\format-ps1.ps1",
+    "format:check": "npm run format:check:js && npm run format:check:cs",
+    "format:check:js": "prettier --check .",
+    "format:check:cs": "dotnet format media-watcher/media-watcher.csproj --verify-no-changes",
+    "benchmark": "electron benchmark.js",
+    "build:media-watcher": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\build-media-watcher.ps1"
   },
   "devDependencies": {
     "electron": "^44.2.0",
@@ -24,7 +30,7 @@
       "en-US"
     ],
     "asarUnpack": [
-      "media-watcher.ps1"
+      "media-watcher/**/*"
     ],
     "win": {
       "target": "portable",
@@ -46,13 +52,13 @@
       "audio.js",
       "diagnostics.js",
       "wake-lock.js",
-      "media-watcher.ps1",
       "visuals.js",
       "visuals/**/*",
       "media.js",
       "ui.js",
       "icon.png",
-      "icon.ico"
+      "icon.ico",
+      "media-watcher/**/*"
     ]
   }
 }

@@ -12,6 +12,10 @@ if /I "%~1"=="--clean" (
     echo Cleaned dist folder.
 )
 
+echo Building native Windows media watcher...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build-media-watcher.ps1"
+if errorlevel 1 goto :error
+
 if /I "%~1"=="--diagnose" (
     echo Checking project...
     call npm run format:check

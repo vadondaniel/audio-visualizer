@@ -7,6 +7,7 @@ const {
   screen,
 } = require("electron");
 const path = require("path");
+const fs = require("fs");
 const IPC = require("./ipc-channels");
 const { toggleAlwaysOnTop } = require("./window-state");
 const { spawn } = require("child_process");
@@ -14,6 +15,7 @@ const { spawn } = require("child_process");
 let mainWindow;
 let mediaWatcher = null;
 let mediaWatcherBuffer = "";
+let pendingMediaMetadata = [];
 
 function stopMediaWatcher() {
   if (!mediaWatcher) return;
@@ -22,6 +24,7 @@ function stopMediaWatcher() {
   } catch {}
   mediaWatcher = null;
   mediaWatcherBuffer = "";
+  pendingMediaMetadata = [];
 }
 
 function startMediaWatcher() {
@@ -29,33 +32,54 @@ function startMediaWatcher() {
 
   stopMediaWatcher();
   const watcherPath = app.isPackaged
-    ? path.join(process.resourcesPath, "app.asar.unpacked", "media-watcher.ps1")
-    : path.join(__dirname, "media-watcher.ps1");
-  mediaWatcher = spawn(
-    "powershell.exe",
-    [
-      "-NoLogo",
-      "-NoProfile",
-      "-NonInteractive",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-File",
+    ? path.join(
+        process.resourcesPath,
+        "app.asar.unpacked",
+        "media-watcher",
+        "publish",
+        "media-watcher.exe"
+      )
+    : path.join(__dirname, "media-watcher", "publish", "media-watcher.exe");
+
+  if (!fs.existsSync(watcherPath)) {
+    console.warn(
+      "Windows media watcher executable is missing:",
       watcherPath,
-    ],
-    { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] }
-  );
+      "npm start will build it automatically; or run build-media-watcher.ps1 manually."
+    );
+    return;
+  }
+
+  mediaWatcher = spawn(watcherPath, [], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   mediaWatcher.stdout.setEncoding("utf8");
+  console.log("Starting Windows media watcher:", watcherPath);
+
   mediaWatcher.stdout.on("data", (chunk) => {
     mediaWatcherBuffer += chunk;
     const lines = mediaWatcherBuffer.split(/\r?\n/);
     mediaWatcherBuffer = lines.pop() || "";
     for (const line of lines) {
       const text = line.trim();
-      if (!text || !mainWindow || mainWindow.isDestroyed()) continue;
+      if (!text) continue;
       try {
-        mainWindow.webContents.send(IPC.MEDIA_METADATA, JSON.parse(text));
-      } catch {}
+        const metadata = JSON.parse(text);
+        if (
+          !mainWindow ||
+          mainWindow.isDestroyed() ||
+          mainWindow.webContents.isLoading()
+        ) {
+          pendingMediaMetadata.push(metadata);
+          if (pendingMediaMetadata.length > 4) pendingMediaMetadata.shift();
+          continue;
+        }
+        mainWindow.webContents.send(IPC.MEDIA_METADATA, metadata);
+      } catch (err) {
+        console.warn("Invalid media watcher JSON:", err.message, text);
+      }
     }
   });
 
@@ -105,6 +129,14 @@ function createWindow() {
   });
 
   mainWindow.loadFile("index.html");
+
+  mainWindow.webContents.once("did-finish-load", () => {
+    if (!pendingMediaMetadata.length) return;
+    for (const metadata of pendingMediaMetadata) {
+      mainWindow.webContents.send(IPC.MEDIA_METADATA, metadata);
+    }
+    pendingMediaMetadata = [];
+  });
 
   // This is what lets us grab system-wide desktop audio (WASAPI loopback on
   // Windows) without any virtual-cable software. The renderer calls
