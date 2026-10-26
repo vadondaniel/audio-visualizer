@@ -7,6 +7,12 @@ visualizer, NCS-video style.
 It works with your system audio directly, so there's nothing extra to
 install or set up beyond the app itself.
 
+## Screenshots
+
+| Kaleidoscope | Bars | Cascade |
+| --- | --- | --- |
+| ![Kaleidoscope visualization with track information](screenshots/kaleidoscope.png) | ![Bars visualization with track information](screenshots/bars.png) | ![Cascade visualization with track information](screenshots/cascade.png) |
+
 ## Getting started
 
 ### 1. Install Node.js (one-time setup)
