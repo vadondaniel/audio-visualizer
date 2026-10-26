@@ -5,7 +5,7 @@
   "main": "src/main.js",
   "scripts": {
     "start": "npm run build:media-watcher && electron .",
-    "dist": "electron-builder --win portable",
+    "dist": "electron-builder --win",
     "test": "jest",
     "format": "npm run format:js && npm run format:cs && npm run format:ps1",
     "format:js": "prettier --write .",
@@ -30,15 +30,18 @@
       "en-US"
     ],
     "asarUnpack": [
-      "media-watcher/**/*"
+      "media-watcher/publish/media-watcher.exe"
     ],
     "win": {
-      "target": "portable",
+      "target": [
+        "portable",
+        "zip"
+      ],
       "icon": "src/icon.ico"
     },
     "files": [
       "src/**/*",
-      "media-watcher/**/*"
+      "media-watcher/publish/media-watcher.exe"
     ]
   }
 }
