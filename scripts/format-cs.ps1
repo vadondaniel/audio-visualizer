@@ -37,7 +37,8 @@ if (-not (Test-DotnetSdk $dotnetPath)) {
 
 Write-Host "Using .NET SDK: $dotnetPath"
 
-& $dotnetPath format "$PSScriptRoot\media-watcher\media-watcher.csproj"
+$root = Split-Path -Parent $PSScriptRoot
+& $dotnetPath format "$root\media-watcher\media-watcher.csproj"
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

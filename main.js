@@ -45,7 +45,7 @@ function startMediaWatcher() {
     console.warn(
       "Windows media watcher executable is missing:",
       watcherPath,
-      "npm start will build it automatically; or run build-media-watcher.ps1 manually."
+      "npm start will build it automatically; or run scripts\\build-media-watcher.ps1 manually."
     );
     return;
   }

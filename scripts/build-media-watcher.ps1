@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'media-watcher\media-watcher.csproj'
 $out = Join-Path $root 'media-watcher\publish'
 

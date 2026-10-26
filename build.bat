@@ -13,7 +13,7 @@ if /I "%~1"=="--clean" (
 )
 
 echo Building native Windows media watcher...
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0build-media-watcher.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\build-media-watcher.ps1"
 if errorlevel 1 goto :error
 
 if /I "%~1"=="--diagnose" (

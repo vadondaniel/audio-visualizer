@@ -2,7 +2,7 @@
 
 A standalone Windows app that turns whatever audio is currently playing on
 your PC — Spotify, a game, a browser tab, anything — into a real-time music
-visualizer, NCS-video style.
+visualizer.
 
 It works with your system audio directly, so there's nothing extra to
 install or set up beyond the app itself.

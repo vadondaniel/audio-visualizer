@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$root = $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
 
 Get-ChildItem -Path $root -Recurse -File -Filter "*.ps1" |
     Where-Object {
