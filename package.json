@@ -1,8 +1,8 @@
 {
   "name": "audio-visualizer",
   "version": "1.2.6",
-  "description": "Real-time system audio visualizer, NCS style",
-  "main": "main.js",
+  "description": "Real-time system audio visualizer",
+  "main": "src/main.js",
   "scripts": {
     "start": "npm run build:media-watcher && electron .",
     "dist": "electron-builder --win portable",
@@ -34,30 +34,10 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "icon.ico"
+      "icon": "src/icon.ico"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "ipc-channels.js",
-      "window-state.js",
-      "index.html",
-      "style.css",
-      "audio-math.js",
-      "trail-math.js",
-      "constants.js",
-      "state.js",
-      "dom.js",
-      "background.js",
-      "audio.js",
-      "diagnostics.js",
-      "wake-lock.js",
-      "visuals.js",
-      "visuals/**/*",
-      "media.js",
-      "ui.js",
-      "icon.png",
-      "icon.ico",
+      "src/**/*",
       "media-watcher/**/*"
     ]
   }

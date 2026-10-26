@@ -6,8 +6,8 @@ const {
   detectBeat,
   mergeSettings,
   applyValueHandling,
-} = require("../audio-math");
-const { formatAudioCaptureError } = require("../audio");
+} = require("../src/audio-math");
+const { formatAudioCaptureError } = require("../src/audio");
 
 describe("formatAudioCaptureError", () => {
   test.each([

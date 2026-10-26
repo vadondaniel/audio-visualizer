@@ -1,4 +1,4 @@
-const { toggleAlwaysOnTop } = require("../window-state");
+const { toggleAlwaysOnTop } = require("../src/window-state");
 
 describe("toggleAlwaysOnTop", () => {
   test("enables floating z-order and repairs the window position", () => {

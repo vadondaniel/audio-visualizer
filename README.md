@@ -97,6 +97,8 @@ this, it will download some extra tooling, so it may take a minute.
 
 ## Troubleshooting
 
+- **Known issue**: the currently playing song's cover might not always show
+  up at first.
 - **"No audio track" error**: make sure something is actually playing
   before you click Start, and check that your default Windows playback
   device is set correctly (Settings > System > Sound).
@@ -125,9 +127,9 @@ this, it will download some extra tooling, so it may take a minute.
   local storage limits.
 - Requires Electron ~29+ for loopback capture; currently pinned to 44.x in
   `package.json`.
-- `webPreferences.sandbox` must stay `false` in `main.js` — Electron's
+- `webPreferences.sandbox` must stay `false` in `src/main.js` — Electron's
   default `sandbox: true` (since v20) breaks the preload script's
-  `require()` of the local `ipc-channels.js`, silently disabling the
+  `require()` of the local `src/ipc-channels.js`, silently disabling the
   `F`/`T`/`Esc` shortcuts.
 
 The synthetic time-domain signal is deterministic but intentionally shaped like an audio waveform (multiple harmonics + envelope + texture) so waveform mode is visually representative of the normal renderer. It is not intended to reproduce any specific recording.

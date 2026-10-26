@@ -2,7 +2,7 @@ const {
   initAudio,
   cleanupAudioCapture,
   recoverAudioCapture,
-} = require("../audio");
+} = require("../src/audio");
 
 describe("initAudio", () => {
   const originalNavigator = global.navigator;

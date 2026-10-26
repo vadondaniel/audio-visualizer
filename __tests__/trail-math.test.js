@@ -3,7 +3,7 @@ const {
   trailCaptureIntervalMs,
   shouldCaptureTrail,
   isTrailFrameExpired,
-} = require("../trail-math");
+} = require("../src/trail-math");
 
 describe("trailOpacity", () => {
   test("starts fully visible and reaches zero at the finite lifetime", () => {

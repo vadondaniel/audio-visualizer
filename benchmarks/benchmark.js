@@ -546,12 +546,12 @@ function createWindow() {
     show: true,
     backgroundColor: "#000000",
     autoHideMenuBar: true,
-    icon: path.join(projectRoot, "icon.png"),
+    icon: path.join(projectRoot, "src", "icon.png"),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
-      preload: path.join(projectRoot, "preload.js"),
+      preload: path.join(projectRoot, "src", "preload.js"),
     },
   });
 
@@ -580,7 +580,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.loadFile(path.join(projectRoot, "index.html"));
+  mainWindow.loadFile(path.join(projectRoot, "src", "index.html"));
 
   mainWindow.on("move", sendDisplayInfo);
   mainWindow.on("resize", sendDisplayInfo);

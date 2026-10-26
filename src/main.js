@@ -39,7 +39,13 @@ function startMediaWatcher() {
         "publish",
         "media-watcher.exe"
       )
-    : path.join(__dirname, "media-watcher", "publish", "media-watcher.exe");
+    : path.join(
+        __dirname,
+        "..",
+        "media-watcher",
+        "publish",
+        "media-watcher.exe"
+      );
 
   if (!fs.existsSync(watcherPath)) {
     console.warn(
@@ -128,7 +134,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadFile("index.html");
+  mainWindow.loadFile(path.join(__dirname, "index.html"));
 
   mainWindow.webContents.once("did-finish-load", () => {
     if (!pendingMediaMetadata.length) return;
