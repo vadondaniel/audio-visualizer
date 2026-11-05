@@ -97,8 +97,6 @@ this, it will download some extra tooling, so it may take a minute.
 
 ## Troubleshooting
 
-- **Known issue**: the currently playing song's cover might not always show
-  up at first.
 - **"No audio track" error**: make sure something is actually playing
   before you click Start, and check that your default Windows playback
   device is set correctly (Settings > System > Sound).
@@ -113,6 +111,9 @@ this, it will download some extra tooling, so it may take a minute.
 
 ## For developers
 
+- Now-playing titles and covers come from Windows media sessions through
+  the native watcher in `media-watcher/`. Updates are event-driven, with a
+  short retry window for delayed artwork.
 - System audio is captured via Electron's `setDisplayMediaRequestHandler`,
   answering `getDisplayMedia()` with `{ video: <screen>, audio: 'loopback' }`
   (WASAPI loopback under the hood, no virtual audio cable needed). The

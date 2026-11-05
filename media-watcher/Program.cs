@@ -10,29 +10,16 @@ using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
-internal sealed class MediaSnapshot
-{
-    public bool available { get; set; }
-    public bool playing { get; set; }
-    public string? title { get; set; }
-    public string? artist { get; set; }
-    public string? album { get; set; }
-    public string? albumArtist { get; set; }
-    public string? thumbnailDataUrl { get; set; }
-    public string? sourceApp { get; set; }
-}
-
 internal static class Program
 {
-    private static readonly object Gate = new();
     private static readonly Dictionary<GlobalSystemMediaTransportControlsSession, SessionRegistration> Sessions = new();
-    private static readonly ManualResetEventSlim ExitEvent = new(false);
     private static readonly JsonSerializerOptions JsonOptions = new();
 
     private static GlobalSystemMediaTransportControlsSessionManager? _manager;
-    private static GlobalSystemMediaTransportControlsSession? _currentSession;
     private static MediaSnapshot _snapshot = EmptySnapshot();
-    private static string _lastMediaKey = "";
+    private static readonly RefreshPump Pump = new();
+    private static readonly CancellationTokenSource Stop = new();
+    private static bool _diagnostic;
     private static string _lastOutputKey = "";
 
     private sealed class SessionRegistration
@@ -53,12 +40,19 @@ internal static class Program
         sourceApp = null,
     };
 
-    public static int Main()
+    public static int Main(string[] args)
     {
+        _diagnostic = args.Length == 2 && args[0] == "--diagnose";
+        if (args.Length != 0 && (!_diagnostic || !int.TryParse(args[1], out var seconds) || seconds < 1 || seconds > 86400))
+        {
+            Console.Error.WriteLine("Usage: media-watcher [--diagnose <seconds: 1..86400>]");
+            return 2;
+        }
+        if (_diagnostic) Stop.CancelAfter(TimeSpan.FromSeconds(int.Parse(args[1])));
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;
-            ExitEvent.Set();
+            Stop.Cancel();
         };
 
         try
@@ -78,94 +72,76 @@ internal static class Program
     {
         Log("GSMTC native media watcher starting");
         Log("Runtime=" + Environment.Version + " OS=" + Environment.OSVersion);
-        Log("Direct WinRT GSMTC events; no polling");
+        Log("Direct WinRT GSMTC events; no continuous polling");
 
-        _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+        _manager = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync().AsTask(Stop.Token);
         if (_manager == null)
             throw new InvalidOperationException("GSMTC manager request returned null.");
 
         _manager.CurrentSessionChanged += OnCurrentSessionChanged;
         _manager.SessionsChanged += OnSessionsChanged;
 
-        await ReconcileSessionsAsync("startup");
-        await SwitchCurrentSessionAsync(_manager.GetCurrentSession(), "startup", force: true);
-
-        Log("READY — listening for media changes. Press Ctrl+C to exit.");
-        ExitEvent.Wait();
-
-        _manager.CurrentSessionChanged -= OnCurrentSessionChanged;
-        _manager.SessionsChanged -= OnSessionsChanged;
-        lock (Gate)
+        Pump.Request("startup");
+        Log("READY - event-driven with three bounded settling reads per burst.");
+        try { await Pump.RunAsync(RefreshAsync, Stop.Token); }
+        catch (OperationCanceledException) when (Stop.IsCancellationRequested) { }
+        finally
         {
-            foreach (var pair in Sessions.ToArray())
-                Unsubscribe(pair.Key, pair.Value);
+            _manager.CurrentSessionChanged -= OnCurrentSessionChanged;
+            _manager.SessionsChanged -= OnSessionsChanged;
+            foreach (var pair in Sessions.ToArray()) Unsubscribe(pair.Key, pair.Value);
             Sessions.Clear();
+            _snapshot = EmptySnapshot();
         }
-    }
-
-    private static async void OnCurrentSessionChanged(
-        GlobalSystemMediaTransportControlsSessionManager sender,
-        CurrentSessionChangedEventArgs args)
-    {
-        try
+        if (_diagnostic)
         {
-            Log("EVENT CurrentSessionChanged");
-            await ReconcileSessionsAsync("CurrentSessionChanged");
-            await SwitchCurrentSessionAsync(sender.GetCurrentSession(), "CurrentSessionChanged", force: true);
+            using var process = System.Diagnostics.Process.GetCurrentProcess();
+            Log($"DIAGNOSTIC finished workingSet={process.WorkingSet64} privateBytes={process.PrivateMemorySize64} managedBytes={GC.GetTotalMemory(false)} handles={process.HandleCount}");
         }
-        catch (Exception ex) { LogError("CurrentSessionChanged: " + ex.Message); }
     }
 
-    private static async void OnSessionsChanged(
+    private static void OnCurrentSessionChanged(
         GlobalSystemMediaTransportControlsSessionManager sender,
-        SessionsChangedEventArgs args)
-    {
-        try
-        {
-            Log("EVENT SessionsChanged");
-            await ReconcileSessionsAsync("SessionsChanged");
-            await SwitchCurrentSessionAsync(sender.GetCurrentSession(), "SessionsChanged", force: false);
-        }
-        catch (Exception ex) { LogError("SessionsChanged: " + ex.Message); }
-    }
+        CurrentSessionChangedEventArgs args) => Pump.Request("CurrentSessionChanged");
 
-    private static async Task ReconcileSessionsAsync(string reason)
+    private static void OnSessionsChanged(
+        GlobalSystemMediaTransportControlsSessionManager sender,
+        SessionsChangedEventArgs args) => Pump.Request("SessionsChanged");
+
+    // Only the pump touches session registrations or reads WinRT properties.
+    private static void ReconcileSessions(string reason)
     {
         if (_manager == null) return;
-        var sessions = _manager.GetSessions()?.ToArray() ?? Array.Empty<GlobalSystemMediaTransportControlsSession>();
-
-        lock (Gate)
+        var sessions = _manager.GetSessions().ToArray();
+        foreach (var old in Sessions.Keys.Where(x => !sessions.Contains(x)).ToArray())
         {
-            foreach (var old in Sessions.Keys.Where(x => !sessions.Contains(x)).ToArray())
-            {
-                Unsubscribe(old, Sessions[old]);
-                Sessions.Remove(old);
-            }
+            Unsubscribe(old, Sessions[old]);
+            Sessions.Remove(old);
         }
-
         foreach (var session in sessions)
-        {
-            lock (Gate)
-                if (Sessions.ContainsKey(session))
-                    continue;
-            Subscribe(session, reason);
-        }
-
-        Log($"SESSIONS reason=\"{reason}\" count={sessions.Length}");
+            if (!Sessions.ContainsKey(session)) Subscribe(session, reason);
     }
 
     private static void Subscribe(GlobalSystemMediaTransportControlsSession session, string reason)
     {
         TypedEventHandler<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs> mediaChanged =
-            (sender, args) => { _ = HandleMediaChangedAsync(sender); };
+            (sender, args) => HandleSessionEvent("MediaPropertiesChanged");
         TypedEventHandler<GlobalSystemMediaTransportControlsSession, PlaybackInfoChangedEventArgs> playbackChanged =
-            (sender, args) => { _ = HandlePlaybackChangedAsync(sender); };
+            (sender, args) => HandleSessionEvent("PlaybackInfoChanged");
 
-        session.MediaPropertiesChanged += mediaChanged;
-        session.PlaybackInfoChanged += playbackChanged;
+        try
+        {
+            session.MediaPropertiesChanged += mediaChanged;
+            session.PlaybackInfoChanged += playbackChanged;
+        }
+        catch
+        {
+            try { session.MediaPropertiesChanged -= mediaChanged; } catch { }
+            try { session.PlaybackInfoChanged -= playbackChanged; } catch { }
+            throw;
+        }
 
-        lock (Gate)
-            Sessions[session] = new SessionRegistration { MediaChanged = mediaChanged, PlaybackChanged = playbackChanged };
+        Sessions[session] = new SessionRegistration { MediaChanged = mediaChanged, PlaybackChanged = playbackChanged };
 
         string status;
         try { status = session.GetPlaybackInfo()?.PlaybackStatus.ToString() ?? "Unknown"; }
@@ -179,150 +155,106 @@ internal static class Program
         try { session.PlaybackInfoChanged -= registration.PlaybackChanged; } catch { }
     }
 
-    private static async Task SwitchCurrentSessionAsync(
-        GlobalSystemMediaTransportControlsSession? session,
-        string reason,
-        bool force)
+    private static void HandleSessionEvent(string reason)
     {
-        bool changed;
-        lock (Gate)
-        {
-            changed = !ReferenceEquals(_currentSession, session);
-            _currentSession = session;
-            _lastMediaKey = "";
-            _snapshot = EmptySnapshot();
-        }
-
-        if (!changed && !force)
-            return;
-
-        if (session == null)
-        {
-            Log($"CURRENT reason=\"{reason}\" new=<none>");
-            EmitCurrentSnapshot();
-            return;
-        }
-
-        Log($"CURRENT reason=\"{reason}\" sourceApp=\"{EscapeLog(session.SourceAppUserModelId)}\"");
-        await RefreshMetadataAsync(session, reason);
+        // A callback sender and GetCurrentSession need not share a managed wrapper.
+        // Treat any registered event as an invalidation, then read the manager's
+        // selected session in the worker. Never publish the callback sender's data.
+        if (_diagnostic) Log($"EVENT {reason}");
+        Pump.Request(reason);
     }
 
-    private static async Task HandleMediaChangedAsync(GlobalSystemMediaTransportControlsSession session)
+    private static async Task RefreshAsync(long revision, string reason, CancellationToken stop)
     {
+        // Cancellation is passed to WinRT rather than abandoning timed-out tasks.
+        using var read = CancellationTokenSource.CreateLinkedTokenSource(stop);
+        read.CancelAfter(TimeSpan.FromSeconds(8));
         try
         {
-            if (!IsCurrent(session)) return;
-            Log($"EVENT MediaPropertiesChanged sourceApp=\"{EscapeLog(session.SourceAppUserModelId)}\"");
-            await RefreshMetadataAsync(session, "MediaPropertiesChanged");
-        }
-        catch (Exception ex) { LogError("MediaPropertiesChanged: " + ex.Message); }
-    }
-
-    private static async Task HandlePlaybackChangedAsync(GlobalSystemMediaTransportControlsSession session)
-    {
-        try
-        {
-            if (!IsCurrent(session)) return;
-            var playing = session.GetPlaybackInfo()?.PlaybackStatus.ToString() == "Playing";
-            Log($"EVENT PlaybackInfoChanged sourceApp=\"{EscapeLog(session.SourceAppUserModelId)}\" status=\"{(playing ? "Playing" : "NotPlaying")}\"");
-
-            MediaSnapshot next;
-            lock (Gate) next = Copy(_snapshot);
-            next.available = true;
-            next.playing = playing;
-            next.sourceApp = session.SourceAppUserModelId;
-            Emit(next);
-        }
-        catch (Exception ex) { LogError("PlaybackInfoChanged: " + ex.Message); }
-    }
-
-    private static bool IsCurrent(GlobalSystemMediaTransportControlsSession session)
-    {
-        lock (Gate)
-        {
-            if (_currentSession == null)
-                return false;
-
-            try
+            ReconcileSessions(reason);
+            var session = _manager!.GetCurrentSession();
+            if (session == null)
             {
-                return string.Equals(
-                    _currentSession.SourceAppUserModelId,
-                    session.SourceAppUserModelId,
-                    StringComparison.OrdinalIgnoreCase
-                );
+                Pump.Commit(revision, () => { _snapshot = EmptySnapshot(); Emit(_snapshot); });
+                return;
             }
-            catch
+
+            var props = await session.TryGetMediaPropertiesAsync().AsTask(read.Token);
+            if (props == null) return;
+            var next = new MediaSnapshot
             {
-                return false;
+                available = true,
+                title = props.Title,
+                artist = props.Artist,
+                album = props.AlbumTitle,
+                albumArtist = props.AlbumArtist,
+                sourceApp = session.SourceAppUserModelId,
+                playing = session.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing,
+            };
+            // Keep titles independent of a slow thumbnail stream.
+            if (!Publish(revision, next)) return;
+            // Artwork can arrive separately, even with completely unchanged text.
+            // Never use another track's cover as a fallback for a missing one.
+            next.thumbnailDataUrl = await ReadThumbnailDataUrlAsync(props, read.Token);
+            next.playing = session.GetPlaybackInfo()?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            var published = Publish(revision, next);
+            var hash = _diagnostic && next.thumbnailDataUrl != null
+                ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(next.thumbnailDataUrl)))[..12]
+                : "-";
+            Log($"MEDIA reason=\"{reason}\" sourceApp=\"{EscapeLog(next.sourceApp)}\" title=\"{EscapeLog(next.title)}\" artChars={next.thumbnailDataUrl?.Length ?? 0} artHash={hash} published={published}");
+            if (_diagnostic)
+            {
+                using var process = System.Diagnostics.Process.GetCurrentProcess();
+                Log($"RESOURCES privateBytes={process.PrivateMemorySize64} managedBytes={GC.GetTotalMemory(false)} handles={process.HandleCount} sessions={Sessions.Count}");
             }
         }
+        catch (OperationCanceledException) when (stop.IsCancellationRequested) { throw; }
+        catch (Exception ex) { LogError($"Refresh reason={reason}: {ex.Message}"); }
     }
 
-    private static async Task RefreshMetadataAsync(GlobalSystemMediaTransportControlsSession session, string reason)
-    {
-        var props = await session.TryGetMediaPropertiesAsync();
-        if (props == null) return;
-
-        var mediaKey = string.Join("|", new[]
+    private static bool Publish(long revision, MediaSnapshot next) =>
+        Pump.Commit(revision, () =>
         {
-            session.SourceAppUserModelId ?? "",
-            props.Title ?? "",
-            props.Artist ?? "",
-            props.AlbumTitle ?? "",
-            props.AlbumArtist ?? "",
+            // WinRT may return a different wrapper for the same session on each read.
+            // The item key includes the source app; wrapper identity is not a key.
+            next.thumbnailDataUrl = MediaSnapshot.SelectArtwork(next, _snapshot);
+            // Store separately so the in-flight read cannot mutate published state.
+            _snapshot = new MediaSnapshot
+            {
+                available = next.available,
+                playing = next.playing,
+                title = next.title,
+                artist = next.artist,
+                album = next.album,
+                albumArtist = next.albumArtist,
+                sourceApp = next.sourceApp,
+                thumbnailDataUrl = next.thumbnailDataUrl,
+            };
+            Emit(_snapshot);
         });
 
-        bool mediaChanged;
-        lock (Gate) mediaChanged = !string.Equals(_lastMediaKey, mediaKey, StringComparison.Ordinal);
-
-        var next = new MediaSnapshot
-        {
-            available = true,
-            playing = session.GetPlaybackInfo()?.PlaybackStatus.ToString() == "Playing",
-            title = props.Title,
-            artist = props.Artist,
-            album = props.AlbumTitle,
-            albumArtist = props.AlbumArtist,
-            sourceApp = session.SourceAppUserModelId,
-            thumbnailDataUrl = null,
-        };
-
-        lock (Gate)
-            next.thumbnailDataUrl = _snapshot.thumbnailDataUrl;
-
-        if (mediaChanged)
-            next.thumbnailDataUrl = await ReadThumbnailDataUrlAsync(props);
-
-        lock (Gate)
-        {
-            _lastMediaKey = mediaKey;
-            _snapshot = next;
-        }
-
-        Log($"MEDIA reason=\"{reason}\" title=\"{EscapeLog(props.Title)}\" artist=\"{EscapeLog(props.Artist)}\" album=\"{EscapeLog(props.AlbumTitle)}\" changed={mediaChanged}");
-        Emit(next);
-    }
-
-    private static async Task<string?> ReadThumbnailDataUrlAsync(GlobalSystemMediaTransportControlsSessionMediaProperties props)
+    private static async Task<string?> ReadThumbnailDataUrlAsync(GlobalSystemMediaTransportControlsSessionMediaProperties props, CancellationToken stop)
     {
         try
         {
             var reference = props.Thumbnail;
             if (reference == null) return null;
 
-            using var stream = await reference.OpenReadAsync();
+            using var stream = await reference.OpenReadAsync().AsTask(stop);
             if (stream == null || stream.Size <= 0 || stream.Size > 16 * 1024 * 1024) return null;
 
             var length = checked((int)stream.Size);
             var buffer = new Windows.Storage.Streams.Buffer((uint)length);
-            await stream.ReadAsync(buffer, (uint)length, InputStreamOptions.None);
-            var bytes = new byte[length];
-            using var reader = DataReader.FromBuffer(buffer);
+            var result = await stream.ReadAsync(buffer, (uint)length, InputStreamOptions.None).AsTask(stop);
+            if (result.Length != length) throw new IOException($"Incomplete thumbnail: {result.Length}/{length} bytes");
+            var bytes = new byte[checked((int)result.Length)];
+            using var reader = DataReader.FromBuffer(result);
             reader.ReadBytes(bytes);
 
             var mime = string.IsNullOrWhiteSpace(stream.ContentType) ? DetectMime(bytes) : stream.ContentType;
             return "data:" + mime + ";base64," + Convert.ToBase64String(bytes);
         }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             LogError("Thumbnail read: " + ex.Message);
@@ -338,25 +270,6 @@ internal static class Program
         return "image/jpeg";
     }
 
-    private static MediaSnapshot Copy(MediaSnapshot x) => new()
-    {
-        available = x.available,
-        playing = x.playing,
-        title = x.title,
-        artist = x.artist,
-        album = x.album,
-        albumArtist = x.albumArtist,
-        thumbnailDataUrl = x.thumbnailDataUrl,
-        sourceApp = x.sourceApp,
-    };
-
-    private static void EmitCurrentSnapshot()
-    {
-        MediaSnapshot snapshot;
-        lock (Gate) snapshot = Copy(_snapshot);
-        Emit(snapshot);
-    }
-
     private static void Emit(MediaSnapshot snapshot)
     {
         var key = string.Join("|", new[]
@@ -366,12 +279,11 @@ internal static class Program
             snapshot.sourceApp ?? "", snapshot.thumbnailDataUrl ?? ""
         });
 
-        lock (Gate)
-        {
-            if (key == _lastOutputKey) return;
-            _lastOutputKey = key;
-        }
+        if (key == _lastOutputKey) return;
+        _lastOutputKey = key;
 
+        // Diagnostics log cover size, never megabytes of base64.
+        if (_diagnostic) return;
         Console.Out.WriteLine(JsonSerializer.Serialize(snapshot, JsonOptions));
         Console.Out.Flush();
     }

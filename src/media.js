@@ -269,14 +269,15 @@ function updateMediaMetadata(metadata) {
     mediaState.thumbnailImage = null;
     artImage.decoding = "async";
     artImage.onload = () => {
+      if (mediaState.imageSrc !== next.thumbnailDataUrl) return;
       mediaState.thumbnailImage = artImage;
       mediaArt.classList.add("loaded");
       updateMediaArtAspectRatio(artImage);
       updateMediaLayout();
     };
     artImage.onerror = () => {
-      if (mediaState.imageSrc === next.thumbnailDataUrl)
-        mediaState.thumbnailImage = null;
+      if (mediaState.imageSrc !== next.thumbnailDataUrl) return;
+      mediaState.thumbnailImage = null;
       mediaArt.classList.remove("loaded");
       updateMediaLayout();
     };
