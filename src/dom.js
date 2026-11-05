@@ -120,14 +120,7 @@ window.addEventListener("resize", resize);
 resize();
 
 // ---------- populate dropdowns ----------
-// Built from MODES/THEMES (constants.js) so adding a new entry there
-// auto-populates the settings panel dropdowns without touching HTML.
-MODES.forEach((name, i) => {
-  const opt = document.createElement("option");
-  opt.value = i;
-  opt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
-  modeSelect.appendChild(opt);
-});
+// Mode options are populated from saved preferences by mode-controls.js.
 THEMES.forEach((theme, i) => {
   const opt = document.createElement("option");
   opt.value = i;

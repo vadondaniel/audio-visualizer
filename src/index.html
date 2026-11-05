@@ -79,6 +79,47 @@
       <div id="errorMsg"></div>
     </div>
 
+    <dialog
+      id="modeManager"
+      class="modeManager"
+      aria-labelledby="modeManagerTitle"
+      aria-describedby="modeManagerHint"
+    >
+      <div class="modeManagerHeader">
+        <h2 id="modeManagerTitle">Visual modes</h2>
+        <button
+          id="closeModeManagerBtn"
+          class="modeDialogClose"
+          type="button"
+          aria-label="Close visual modes"
+        >
+          &#x2715;
+        </button>
+      </div>
+      <p id="modeManagerHint" class="modeManagerHint">
+        Drag to reorder. Choose which modes appear in your list.
+      </p>
+      <ul
+        id="modeManagerList"
+        class="modeManagerList"
+        aria-label="Visual mode order"
+      ></ul>
+      <div class="modeManagerFooter">
+        <span class="modeManagerHint"
+          >Number keys and auto-cycle follow this order.</span
+        >
+        <button id="doneModeManagerBtn" class="modeDoneButton" type="button">
+          Done
+        </button>
+      </div>
+      <span
+        id="modeManagerStatus"
+        class="modeManagerStatus"
+        role="status"
+        aria-live="polite"
+      ></span>
+    </dialog>
+
     <!-- hotkeys modal -->
     <div
       id="hotkeysOverlay"
@@ -113,7 +154,9 @@
         <div class="modalBody">
           <div class="hotkeyRow">
             <span class="hotkeyDesc">Switch visual style</span>
-            <span class="hotkeyKeys"><kbd>1</kbd>–<kbd>9</kbd></span>
+            <span class="hotkeyKeys" id="modeHotkeyKeys"
+              ><kbd>1</kbd>–<kbd>9</kbd></span
+            >
           </div>
           <div class="hotkeyRow">
             <span class="hotkeyDesc">Next color theme</span>
@@ -198,7 +241,19 @@
         </div>
         <div class="sectionContent">
           <div class="field">
-            <label for="modeSelect">Visual mode</label>
+            <div class="modeFieldHeader">
+              <label for="modeSelect">Visual mode</label>
+              <button
+                id="manageModesBtn"
+                class="modeManageButton"
+                type="button"
+                aria-expanded="false"
+                aria-controls="modeManager"
+                aria-haspopup="dialog"
+              >
+                Manage
+              </button>
+            </div>
             <select id="modeSelect"></select>
           </div>
           <div id="barsAlignmentRow" class="field">
@@ -651,6 +706,7 @@
     <script src="audio-math.js"></script>
     <script src="trail-math.js"></script>
     <script src="constants.js"></script>
+    <script src="mode-list.js"></script>
     <script src="state.js"></script>
     <script src="dom.js"></script>
     <script src="background.js"></script>
@@ -669,6 +725,7 @@
     <script src="visuals/cascade.js"></script>
     <script src="visuals/loop.js"></script>
     <script src="media.js"></script>
+    <script src="mode-controls.js"></script>
     <script src="ui.js"></script>
   </body>
 </html>

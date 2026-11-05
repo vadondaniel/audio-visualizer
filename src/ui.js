@@ -35,7 +35,8 @@ settingsBtn.addEventListener("click", (e) => {
 // Click-outside-to-dismiss: only cares about closing, never opening —
 // opening is settingsBtn/"S"'s job above.
 window.addEventListener("click", (e) => {
-  if (!panelOpen) return;
+  if (!panelOpen || modeManager.open || e.composedPath().includes(modeManager))
+    return;
   if (settingsPanel.contains(e.target)) return;
   panelOpen = false;
   updatePanelVisibility();
@@ -502,9 +503,26 @@ window.addEventListener("keydown", (e) => {
     closeHotkeys();
     return;
   }
+  if (modeManager.open) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setModeManagerOpen(false);
+    }
+    return;
+  }
+  // Space and arrow keys belong to the controls while editing the mode list.
+  if (
+    e.target instanceof Node &&
+    (modeManager.contains(e.target) ||
+      (e.target === manageModesBtn && (e.key === " " || e.key === "Enter")))
+  )
+    return;
   flashHud();
-  if (e.key >= "1" && e.key <= String(MODES.length)) {
-    state.mode = parseInt(e.key, 10) - 1;
+  if (/^[1-9]$/.test(e.key)) {
+    const enabledModes = ModeList.enabled(state.modeOrder, state.disabledModes);
+    const mode = enabledModes[Number(e.key) - 1];
+    if (!mode) return;
+    state.mode = MODES.indexOf(mode);
     syncSelectsToState();
     if (typeof refreshMediaForMode === "function") refreshMediaForMode();
     saveSettings();

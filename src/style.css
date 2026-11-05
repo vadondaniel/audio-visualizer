@@ -707,16 +707,19 @@ body {
   display: flex;
 }
 
-#settingsPanel::-webkit-scrollbar {
+#settingsPanel::-webkit-scrollbar,
+.modeManagerList::-webkit-scrollbar {
   width: 8px;
 }
 
-#settingsPanel::-webkit-scrollbar-thumb {
+#settingsPanel::-webkit-scrollbar-thumb,
+.modeManagerList::-webkit-scrollbar-thumb {
   background: var(--hairline-strong);
   border-radius: var(--radius-pill);
 }
 
-#settingsPanel::-webkit-scrollbar-track {
+#settingsPanel::-webkit-scrollbar-track,
+.modeManagerList::-webkit-scrollbar-track {
   background: transparent;
 }
 
@@ -1094,6 +1097,203 @@ body {
 
 #settingsPanel input[type="checkbox"]:checked::before {
   transform: translateX(15px);
+}
+
+/* mode management */
+.modeFieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modeManageButton,
+.modeDialogClose,
+.modeDoneButton {
+  font: inherit;
+  color: var(--ink-dim);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.modeManageButton {
+  padding: 3px 7px;
+  color: var(--accent-2);
+  font-size: var(--fs-xs);
+}
+
+.modeManageButton:hover,
+.modeDialogClose:hover,
+.modeDoneButton:hover {
+  color: var(--ink);
+  border-color: var(--accent-2);
+}
+
+.modeManageButton:focus-visible,
+.modeDialogClose:focus-visible,
+.modeDoneButton:focus-visible,
+.modeDragHandle:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+.modeManager {
+  display: none;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  box-sizing: border-box;
+  margin: auto;
+  padding: 20px;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--glass-fill-strong);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+  font: inherit;
+}
+
+.modeManager[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modeManager::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+}
+
+.modeManagerHeader,
+.modeManagerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.modeManagerHeader h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+}
+
+.modeDialogClose {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
+.modeDoneButton {
+  padding: 8px 18px;
+  color: var(--accent-2);
+}
+
+.modeManagerHint {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.modeManagerList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 0;
+  max-height: min(440px, calc(100vh - 220px));
+  overflow-y: auto;
+  margin: 0;
+  padding: 2px;
+  list-style: none;
+}
+
+.modeManagerRow {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 10px 0 4px;
+  background: var(--surface-input);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+}
+
+.modeManagerRow[data-dragging="true"] {
+  opacity: 0.4;
+  border-color: var(--accent-2);
+}
+
+.modeManagerRow[data-drop="before"] {
+  box-shadow: 0 -3px 0 var(--accent-2);
+}
+
+.modeManagerRow[data-drop="after"] {
+  box-shadow: 0 3px 0 var(--accent-2);
+}
+
+.modeDragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 30px;
+  padding: 0;
+  color: var(--ink-faint);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: grab;
+  flex-shrink: 0;
+}
+
+.modeDragHandle:active {
+  cursor: grabbing;
+}
+
+.modeManagerLabel {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.modeManagerLabel input {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent-2);
+}
+
+.modeManagerRow[data-enabled="false"] .modeManagerLabel {
+  color: var(--ink-faint);
+}
+
+.modeShortcut {
+  width: 16px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+}
+
+.modeManagerStatus {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 #clearBgImageBtn {

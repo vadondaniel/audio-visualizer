@@ -5,6 +5,8 @@
 // the CSS custom property in style.css — keep all three in sync.
 const state = {
   mode: 0,
+  modeOrder: [...MODES],
+  disabledModes: [],
   theme: 0,
   colorGradientEnabled: true,
   autoCycle: false,
@@ -60,6 +62,8 @@ const PERSISTED_KEYS = [
   "bgBrightness",
   "bgBlur",
   "mode",
+  "modeOrder",
+  "disabledModes",
   "theme",
   "colorGradientEnabled",
   "autoCycle",
@@ -102,7 +106,9 @@ function setAutoCycle(enabled) {
   clearInterval(state.autoCycleTimer);
   if (enabled) {
     state.autoCycleTimer = setInterval(() => {
-      state.mode = (state.mode + 1) % MODES.length;
+      state.mode = MODES.indexOf(
+        ModeList.next(state.modeOrder, state.disabledModes, MODES[state.mode])
+      );
       syncSelectsToState();
       saveSettings();
     }, 12000);
@@ -149,6 +155,15 @@ function loadSettings() {
     state,
     mergeSettings(state, saved, MODES.length, THEMES.length)
   );
+  Object.assign(
+    state,
+    ModeList.normalize(MODES, saved?.modeOrder, saved?.disabledModes)
+  );
+  if (state.disabledModes.includes(MODES[state.mode]))
+    state.mode = MODES.indexOf(
+      ModeList.enabled(state.modeOrder, state.disabledModes)[0]
+    );
+  rebuildModeOptions();
   if (state.autoCycle) setAutoCycle(true);
 
   bgColorInput.value = state.bgColor;
