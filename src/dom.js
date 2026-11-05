@@ -38,6 +38,19 @@ const kaleidoClipRow = document.getElementById("kaleidoClipRow");
 const kaleidoClipCheckbox = document.getElementById("kaleidoClipCheckbox");
 const sensitivitySlider = document.getElementById("sensitivitySlider");
 const sensitivityVal = document.getElementById("sensitivityVal");
+const bassSensitivityCheckbox = document.getElementById(
+  "bassSensitivityCheckbox"
+);
+const bassSensitivityAmountRow = document.getElementById(
+  "bassSensitivityAmountRow"
+);
+const bassSensitivityAmountSlider = document.getElementById(
+  "bassSensitivityAmountSlider"
+);
+const bassSensitivityAmountVal = document.getElementById(
+  "bassSensitivityAmountVal"
+);
+const bassSensitivityRange = document.getElementById("bassSensitivityRange");
 const valueHandlingSelect = document.getElementById("valueHandlingSelect");
 const glowSlider = document.getElementById("glowSlider");
 const glowVal = document.getElementById("glowVal");

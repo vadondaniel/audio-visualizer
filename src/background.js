@@ -133,7 +133,9 @@ function renderProceduralBackground(
   bassLevel,
   midLevel,
   trebleLevel,
-  beatPulse
+  beatPulse,
+  motionBass = bassLevel,
+  motionBeat = beatPulse
 ) {
   if (!bgCtx || !bgCanvas) return;
   const isProcedural =
@@ -150,7 +152,7 @@ function renderProceduralBackground(
   bgCtx.fillRect(0, 0, W, H);
 
   if (state.bgType === "nebula") {
-    nebulaSwirlTime += dtSec * (0.25 + bassLevel * 0.5);
+    nebulaSwirlTime += dtSec * (0.25 + motionBass * 0.5);
     const cx = W * 0.5;
     const cy = H * 0.48;
 
@@ -279,7 +281,7 @@ function renderProceduralBackground(
     bgCtx.save();
     const cx = W / 2;
     const cy = H / 2;
-    const warpSpeed = (0.28 + bassLevel * 1.8 + beatPulse * 1.5) * dtSec;
+    const warpSpeed = (0.28 + motionBass * 1.8 + motionBeat * 1.5) * dtSec;
     const starHue = currentHue(0.2);
 
     for (const s of warpStars) {
@@ -318,7 +320,7 @@ function renderProceduralBackground(
     // Render retro 80s synthwave perspective grid
     bgCtx.save();
     const horizonY = H * 0.55;
-    const speed = (0.45 + bassLevel * 1.2 + beatPulse * 0.8) * dtSec;
+    const speed = (0.45 + motionBass * 1.2 + motionBeat * 0.8) * dtSec;
     gridOffset = (gridOffset + speed) % 1;
 
     // Horizon glow
@@ -399,6 +401,10 @@ function updateSliderLabels() {
   brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
   blurVal.textContent = `${state.bgBlur}px`;
   sensitivityVal.textContent = `${state.sensitivity.toFixed(1)}x`;
+  bassSensitivityAmountVal.textContent = `${Math.round(state.bassSensitivityAmount * 100)}%`;
+  const amount = state.bassSensitivityAmount;
+  const formatMultiplier = (value) => `${Number(value.toFixed(2))}×`;
+  bassSensitivityRange.textContent = `No bass: ${formatMultiplier(1 - amount)} · Strong bass: ${formatMultiplier(1 + amount)}`;
   glowVal.textContent = `${Math.round(state.glowIntensity * 100)}%`;
   trailDurationVal.textContent = `${state.trailDuration}ms`;
   trailFpsVal.textContent = `${state.trailMaxFps} FPS`;

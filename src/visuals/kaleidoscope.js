@@ -41,7 +41,9 @@ function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
         KALEIDO_BAND_EDGES[i + 1]
       );
       const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
-      const handled = applyValueHandling(raw / 255, state.valueHandling);
+      const handled = applyBassModulation(
+        applyValueHandling(raw / 255, state.valueHandling)
+      );
       const rawV = Math.pow(handled * tilt, 0.7);
       const targetV = state.kaleidoClipEnabled ? Math.min(1, rawV) : rawV;
       smoothedKaleido[i] = smoothTowards(

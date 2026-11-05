@@ -54,6 +54,7 @@ function loop(timestamp = performance.now()) {
   );
   const rawMid = normalizeEnergy(mid, 15, 165);
   const rawTreble = normalizeEnergy(treble, 12, 155);
+  updateBassSensitivity(rawBass, dtSec);
 
   const bassLevel = Math.min(
     1,
@@ -91,9 +92,11 @@ function loop(timestamp = performance.now()) {
   if (typeof renderProceduralBackground === "function") {
     renderProceduralBackground(
       dtSec,
+      applyBassModulation(bassLevel),
+      applyBassModulation(midLevel),
+      applyBassModulation(trebleLevel),
+      applyBassModulation(beatPulse),
       bassLevel,
-      midLevel,
-      trebleLevel,
       beatPulse
     );
   }
@@ -101,7 +104,12 @@ function loop(timestamp = performance.now()) {
 
   const fxTimer = diagnosticCall("beginFx");
   if (typeof updateFxLive === "function") {
-    updateFxLive(bassLevel, midLevel, trebleLevel, beatPulse);
+    updateFxLive(
+      applyBassModulation(bassLevel),
+      applyBassModulation(midLevel),
+      applyBassModulation(trebleLevel),
+      applyBassModulation(beatPulse)
+    );
   }
   diagnosticCall("endFx", fxTimer);
 

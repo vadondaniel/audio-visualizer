@@ -222,7 +222,7 @@ function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
         TUNNEL_WALL_GROUPS - 1,
         Math.floor(norm * TUNNEL_WALL_GROUPS)
       );
-      const localSpectrum = tunnelSpectral[band];
+      const localSpectrum = applyBassModulation(tunnelSpectral[band]);
       const broadWave =
         Math.sin(
           seg * (0.34 + mids * 0.42) +

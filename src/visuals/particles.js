@@ -98,7 +98,9 @@ function updateParticleAudioFeatures() {
     particleAudio.prevSpectrum[i] = freqData[i];
   }
 
-  const raw = sums.map((sum, i) => (counts[i] ? sum / counts[i] : 0));
+  const raw = sums.map((sum, i) =>
+    applyBassModulation(counts[i] ? sum / counts[i] : 0)
+  );
   const rawCentroid =
     total > 0 ? weighted / total / nyquist : particleAudio.centroid;
   const rawFlux = Math.min(1, flux / Math.max(12, bufferLength * 0.045));
@@ -256,7 +258,9 @@ function drawParticleSpectrum(bassLevel, midLevel, trebleLevel, radius) {
       bufferLength - 1,
       Math.floor(t * bufferLength * 0.42)
     );
-    const v = applyValueHandling(freqData[sample] / 255, state.valueHandling);
+    const v = applyBassModulation(
+      applyValueHandling(freqData[sample] / 255, state.valueHandling)
+    );
     const angle = t * Math.PI * 2 + particlePhase * (0.025 + energy * 0.02);
     const wobble = 1 + Math.sin(particlePhase * 1.4 + i * 1.73) * 0.055;
     const dist = radius * (1.05 + v * (0.75 + energy * 1.3)) * wobble;

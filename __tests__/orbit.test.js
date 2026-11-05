@@ -48,6 +48,7 @@ function setup(energy = 0) {
     currentHue: () => 0,
     themeCssColor: () => "#fff",
     applyGlow() {},
+    applyBassModulation: (value) => value,
   };
   vm.createContext(context);
   vm.runInContext(

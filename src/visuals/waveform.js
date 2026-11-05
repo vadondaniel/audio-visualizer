@@ -44,7 +44,7 @@ function drawWaveform(bassLevel, midLevel, trebleLevel) {
   const buildWaveformPath = (reflected = false) => {
     ctx.beginPath();
     for (let i = 0; i < bufferLength; i++) {
-      const raw = (timeData[i] - 128) / 128;
+      const raw = applyBassModulation((timeData[i] - 128) / 128);
       const direction = reflected ? -1 : 1;
       const y = midY + direction * raw * amp * canvas.height * 0.32;
       const x = i * slice;

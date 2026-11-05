@@ -14,9 +14,8 @@ function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
   const centerY = canvas.height / 2;
 
   for (let i = 0; i < barCount; i++) {
-    const targetV = applyValueHandling(
-      freqData[i * step] / 255,
-      state.valueHandling
+    const targetV = applyBassModulation(
+      applyValueHandling(freqData[i * step] / 255, state.valueHandling)
     );
     smoothedBars[i] = smoothTowards(smoothedBars[i], targetV, remaining);
     const v = smoothedBars[i];

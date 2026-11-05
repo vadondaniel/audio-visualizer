@@ -255,6 +255,19 @@ sensitivitySlider.addEventListener("input", (e) => {
   saveSettings();
 });
 
+bassSensitivityCheckbox.addEventListener("change", () => {
+  state.bassSensitivityEnabled = bassSensitivityCheckbox.checked;
+  bassSensitivityAmountRow.hidden = !state.bassSensitivityEnabled;
+  resetBassSensitivity();
+  saveSettings();
+});
+bassSensitivityAmountSlider.addEventListener("input", () => {
+  state.bassSensitivityAmount = Number(bassSensitivityAmountSlider.value) / 100;
+  if (state.bassSensitivityAmount === 0) resetBassSensitivity();
+  updateSliderLabels();
+  saveSettings();
+});
+
 if (valueHandlingSelect) {
   valueHandlingSelect.addEventListener("change", (e) => {
     state.valueHandling = e.target.value;

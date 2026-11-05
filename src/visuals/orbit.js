@@ -62,11 +62,13 @@ function updateOrbitSpectrum(dtSec) {
     ? Math.exp(-VISUAL_TUNING.orbit.releasePerSec * dtSec)
     : 0;
   for (let i = 0; i <= ORBIT_BANDS; i++) {
-    const target = orbitAudioLevel(
-      orbitBandDb[i],
-      orbitPeakDb,
-      state.valueHandling,
-      state.sensitivity
+    const target = applyBassModulation(
+      orbitAudioLevel(
+        orbitBandDb[i],
+        orbitPeakDb,
+        state.valueHandling,
+        state.sensitivity
+      )
     );
     orbitSpectrum[i] = smoothTowards(orbitSpectrum[i], target, remaining);
   }

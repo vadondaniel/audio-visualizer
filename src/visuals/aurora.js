@@ -63,7 +63,7 @@ function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
     const v0 = auroraSmoothedBands[idx];
     const v1 = auroraSmoothedBands[Math.min(AURORA_BANDS - 1, idx + 1)];
     const t = (1 - Math.cos(frac * Math.PI)) * 0.5;
-    return v0 + (v1 - v0) * t;
+    return applyBassModulation(v0 + (v1 - v0) * t);
   }
 
   // Macroscopic intensity: drives dramatic curtain height expansion and ionization

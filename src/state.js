@@ -26,6 +26,8 @@ const state = {
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   cascadeFillStyle: "dark", // "dark" | "light" | "theme"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
+  bassSensitivityEnabled: false,
+  bassSensitivityAmount: 0.5,
   valueHandling: "exponential", // "exponential" | "logarithmic" | "linear"
   glowIntensity: 1.0, // bloom multiplier (0% - 200%)
   trailsEnabled: true,
@@ -76,6 +78,8 @@ const PERSISTED_KEYS = [
   "cascadeFrequencyOrder",
   "cascadeFillStyle",
   "sensitivity",
+  "bassSensitivityEnabled",
+  "bassSensitivityAmount",
   "valueHandling",
   "glowIntensity",
   "trailsEnabled",
@@ -179,6 +183,9 @@ function loadSettings() {
     state.cascadeFrequencyOrder === "treble-to-bass";
   cascadeFillSelect.value = state.cascadeFillStyle;
   sensitivitySlider.value = state.sensitivity;
+  bassSensitivityCheckbox.checked = state.bassSensitivityEnabled;
+  bassSensitivityAmountSlider.value = state.bassSensitivityAmount * 100;
+  bassSensitivityAmountRow.hidden = !state.bassSensitivityEnabled;
   if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
     valueHandlingSelect.value = state.valueHandling;
   glowSlider.value = state.glowIntensity;

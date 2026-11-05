@@ -37,8 +37,9 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
   const cy = H / 2;
   const minDim = Math.min(W, H);
 
-  const subBass =
-    Math.min(1, bandAverage(freqData, 0.003, 0.035) / 200) * state.sensitivity;
+  const subBass = applyBassModulation(
+    Math.min(1, bandAverage(freqData, 0.003, 0.035) / 200) * state.sensitivity
+  );
   const punchBass = bassLevel * 0.7 + midLevel * 0.3;
   const energy = subBass * 0.55 + punchBass * 0.35 + trebleLevel * 0.1;
 
@@ -140,7 +141,9 @@ function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
     let punch = 0;
     if (rawVal > threshold) {
       const norm = (rawVal - threshold) / (1 - threshold);
-      punch = applyValueHandling(norm, state.valueHandling) * state.sensitivity;
+      punch = applyBassModulation(
+        applyValueHandling(norm, state.valueHandling) * state.sensitivity
+      );
     }
 
     rawTargets[i] = punch * dampen;

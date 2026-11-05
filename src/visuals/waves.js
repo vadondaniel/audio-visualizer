@@ -54,7 +54,7 @@ function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
     const v1 = wavesSmoothedBands[Math.min(WAVES_BANDS - 1, idx + 1)];
     // Smooth cosine interpolation ensures continuous fluid curvature without jagged stair-steps
     const t = (1 - Math.cos(frac * Math.PI)) * 0.5;
-    return v0 + (v1 - v0) * t;
+    return applyBassModulation(v0 + (v1 - v0) * t);
   }
 
   // Distinct musical frequency roles:

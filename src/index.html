@@ -367,6 +367,36 @@
               <option value="linear">Linear (Direct)</option>
             </select>
           </div>
+          <div class="toggleRow">
+            <label for="bassSensitivityCheckbox">Bass-driven sensitivity</label>
+            <input
+              type="checkbox"
+              id="bassSensitivityCheckbox"
+              aria-controls="bassSensitivityAmountRow"
+            />
+          </div>
+          <div
+            id="bassSensitivityAmountRow"
+            class="field bassSensitivityAmount"
+            hidden
+          >
+            <label for="bassSensitivityAmountSlider"
+              ><span>Amount</span
+              ><span class="val" id="bassSensitivityAmountVal">50%</span></label
+            >
+            <input
+              type="range"
+              id="bassSensitivityAmountSlider"
+              min="0"
+              max="100"
+              step="5"
+              value="50"
+              aria-describedby="bassSensitivityRange"
+            />
+            <p id="bassSensitivityRange" class="bassSensitivityHint">
+              No bass: 0.5× · Strong bass: 1.5×
+            </p>
+          </div>
         </div>
       </div>
 

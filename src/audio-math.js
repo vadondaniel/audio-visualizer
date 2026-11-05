@@ -186,6 +186,14 @@
       saved.sensitivity <= 3.0
     )
       state.sensitivity = saved.sensitivity;
+    if (typeof saved.bassSensitivityEnabled === "boolean")
+      state.bassSensitivityEnabled = saved.bassSensitivityEnabled;
+    if (
+      Number.isFinite(saved.bassSensitivityAmount) &&
+      saved.bassSensitivityAmount >= 0 &&
+      saved.bassSensitivityAmount <= 1
+    )
+      state.bassSensitivityAmount = saved.bassSensitivityAmount;
     if (
       Number.isFinite(saved.glowIntensity) &&
       saved.glowIntensity >= 0 &&
@@ -283,6 +291,23 @@
     return Math.pow(clamped, 2.5);
   }
 
+  function bassSensitivityTarget(bass, amount, curve = "linear") {
+    return 1 + amount * (2 * applyValueHandling(bass, curve) - 1);
+  }
+
+  function smoothBassSensitivity(current, target, dtSec) {
+    const timeConstant = target > current ? 0.04 : 0.2;
+    return (
+      target + (current - target) * Math.exp(-Math.max(0, dtSec) / timeConstant)
+    );
+  }
+
+  function applyBassGain(value, gain) {
+    if (gain === 1) return value;
+    if (gain <= 1) return value * gain;
+    return (value * gain) / (1 + (gain - 1) * Math.min(1, Math.abs(value)));
+  }
+
   return {
     bandAverage,
     normalizeEnergy,
@@ -291,5 +316,8 @@
     detectBeat,
     mergeSettings,
     applyValueHandling,
+    bassSensitivityTarget,
+    smoothBassSensitivity,
+    applyBassGain,
   };
 });

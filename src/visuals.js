@@ -1,4 +1,32 @@
 // ---------- helpers ----------
+let bassSensitivityGain = 1;
+
+function resetBassSensitivity() {
+  bassSensitivityGain = 1;
+}
+
+function updateBassSensitivity(rawBass, dtSec) {
+  if (!state.bassSensitivityEnabled || state.bassSensitivityAmount === 0) {
+    resetBassSensitivity();
+    return;
+  }
+  bassSensitivityGain = AudioMath.smoothBassSensitivity(
+    bassSensitivityGain,
+    AudioMath.bassSensitivityTarget(
+      rawBass,
+      state.bassSensitivityAmount,
+      state.valueHandling
+    ),
+    dtSec
+  );
+}
+
+function applyBassModulation(value) {
+  if (!state.bassSensitivityEnabled || state.bassSensitivityAmount === 0)
+    return value;
+  return AudioMath.applyBassGain(value, bassSensitivityGain);
+}
+
 function currentHue(offset = 0) {
   const theme = THEMES[state.theme];
   // Monochrome themes still use the normal color-producing render paths.

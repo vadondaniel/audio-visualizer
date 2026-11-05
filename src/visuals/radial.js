@@ -24,9 +24,8 @@ function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
           ? i / halfCount
           : (barCount - i - 1) / halfCount;
     const idx = Math.floor(normalized * bufferLength * 0.5);
-    const targetV = applyValueHandling(
-      freqData[idx] / 255,
-      state.valueHandling
+    const targetV = applyBassModulation(
+      applyValueHandling(freqData[idx] / 255, state.valueHandling)
     );
     smoothedRadial[i] = smoothTowards(smoothedRadial[i], targetV, remaining);
     const v = smoothedRadial[i];
