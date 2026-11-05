@@ -6,10 +6,15 @@ const prismOuter = new Float64Array(PRISM_BANDS * 2);
 const prismInner = new Float64Array(PRISM_BANDS * 2);
 let prismFftDb = new Float32Array(0);
 let prismPeakDb = -65;
+let prismRangeEnd = 0;
+let prismRangeHold = 0;
 
-function prismBandEdge(index, binCount) {
+function prismBandEdge(index, binCount, rangeEnd = Math.floor(binCount * 0.5)) {
   const start = Math.floor(binCount * 0.002);
-  const end = Math.floor(binCount * 0.5);
+  const end = Math.min(
+    Math.floor(binCount * 0.5),
+    Math.max(start + PRISM_BANDS, Math.round(rangeEnd))
+  );
   // Reserve one distinct bin per band, then distribute the remaining bins
   // logarithmically. Pure log spacing repeats bins at the bass end.
   const extra = Math.max(0, end - start - PRISM_BANDS);
@@ -18,6 +23,27 @@ function prismBandEdge(index, binCount) {
     Math.floor(
       start + index + (extra * (Math.pow(250, index / PRISM_BANDS) - 1)) / 249
     )
+  );
+}
+
+function prismActiveEnd(data) {
+  const start = Math.floor(data.length * 0.002);
+  const end = Math.floor(data.length * 0.5);
+  let peak = -Infinity;
+  for (let i = start; i < end; i++)
+    if (Number.isFinite(data[i])) peak = Math.max(peak, data[i]);
+  // Silence must not remap the spectrum. A relative threshold follows the
+  // recording level; the absolute floor excludes background noise.
+  if (peak <= -75) return 0;
+  const threshold = Math.max(-80, peak - 18);
+  let last = start;
+  for (let lo = start; lo < end; lo += 4) {
+    const hi = Math.min(end, lo + 4);
+    if (spectrumBandDb(data, lo, hi) >= threshold) last = hi;
+  }
+  return Math.min(
+    end,
+    Math.max(start + PRISM_BANDS, Math.ceil(last * 1.1) + 4)
   );
 }
 
@@ -30,17 +56,32 @@ function prismInnerRadius(radius, level) {
 }
 
 function updatePrismSpectrum(dtSec) {
-  if (prismFftDb.length !== freqData.length)
+  if (prismFftDb.length !== freqData.length) {
     prismFftDb = new Float32Array(freqData.length);
+    prismRangeEnd = 0;
+    prismRangeHold = 0;
+  }
   if (typeof analyser !== "undefined" && analyser?.getFloatFrequencyData)
     analyser.getFloatFrequencyData(prismFftDb);
   else
     for (let i = 0; i < freqData.length; i++)
       prismFftDb[i] = -100 + (freqData[i] * 70) / 255;
+  const activeEnd = prismActiveEnd(prismFftDb);
+  const dt = Math.max(0, dtSec);
+  if (!prismRangeEnd)
+    prismRangeEnd = activeEnd || Math.floor(freqData.length * 0.5);
+  if (activeEnd > prismRangeEnd) {
+    prismRangeEnd += (activeEnd - prismRangeEnd) * (1 - Math.exp(-dt / 0.15));
+    prismRangeHold = 0.5;
+  } else {
+    prismRangeHold = Math.max(0, prismRangeHold - dt);
+    if (activeEnd && prismRangeHold === 0)
+      prismRangeEnd += (activeEnd - prismRangeEnd) * (1 - Math.exp(-dt / 1.5));
+  }
   let peak = -65;
   for (let i = 0; i < PRISM_BANDS; i++) {
-    const lo = prismBandEdge(i, freqData.length);
-    const hi = prismBandEdge(i + 1, freqData.length);
+    const lo = prismBandEdge(i, freqData.length, prismRangeEnd);
+    const hi = prismBandEdge(i + 1, freqData.length, prismRangeEnd);
     prismBandDb[i] = spectrumBandDb(prismFftDb, lo, hi);
     peak = Math.max(peak, prismBandDb[i]);
   }
@@ -133,4 +174,9 @@ function drawPrism(bassLevel, midLevel, trebleLevel, dtSec) {
 }
 
 if (typeof module === "object" && module.exports)
-  module.exports = { prismInnerRadius, prismOuterRadius, prismBandEdge };
+  module.exports = {
+    prismInnerRadius,
+    prismOuterRadius,
+    prismBandEdge,
+    prismActiveEnd,
+  };

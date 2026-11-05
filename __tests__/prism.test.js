@@ -8,6 +8,56 @@ const {
   prismBandEdge,
 } = require("../src/visuals/prism");
 
+test("active range trims quiet treble, follows recording level, and retains real high frequencies", () => {
+  const { prismActiveEnd } = setup(null).context;
+  const data = new Float32Array(1024).fill(-110);
+  data.fill(-30, 2, 80);
+  const narrow = prismActiveEnd(data);
+  expect(narrow).toBeGreaterThanOrEqual(98);
+  expect(narrow).toBeLessThan(120);
+  expect(prismActiveEnd(Float32Array.from(data, (v) => v - 15))).toBe(narrow);
+  data.fill(-40, 450, 460);
+  expect(prismActiveEnd(data)).toBeGreaterThan(460);
+  data.fill(-Infinity);
+  expect(prismActiveEnd(data)).toBe(0);
+  data.fill(-90);
+  expect(prismActiveEnd(data)).toBe(0);
+  for (const end of [98, 150, 250, 512])
+    for (let i = 0; i < 96; i++)
+      expect(prismBandEdge(i + 1, 1024, end)).toBeGreaterThan(
+        prismBandEdge(i, 1024, end)
+      );
+});
+
+test("range expands quickly, holds transient treble, contracts slowly, and stays fixed during silence", () => {
+  const app = setup(null);
+  let high = false,
+    silent = false;
+  app.context.analyser.getFloatFrequencyData = (data) => {
+    data.fill(-Infinity);
+    if (!silent) {
+      data.fill(-30, 2, 80);
+      if (high) data.fill(-35, 450, 460);
+    }
+  };
+  app.draw();
+  const narrow = app.read("prismRangeEnd");
+  high = true;
+  for (let i = 0; i < 60; i++) app.draw();
+  const wide = app.read("prismRangeEnd");
+  expect(wide).toBeGreaterThan(490);
+  high = false;
+  for (let i = 0; i < 30; i++) app.draw();
+  expect(app.read("prismRangeEnd")).toBe(wide);
+  for (let i = 0; i < 360; i++) app.draw();
+  const contracted = app.read("prismRangeEnd");
+  expect(contracted).toBeLessThan(160);
+  expect(contracted).toBeGreaterThanOrEqual(narrow);
+  silent = true;
+  for (let i = 0; i < 60; i++) app.draw();
+  expect(app.read("prismRangeEnd")).toBe(contracted);
+});
+
 test("frequency bands partition distinct FFT bins instead of duplicating bass bins", () => {
   for (const bins of [512, 1024, 2048]) {
     const edges = Array.from({ length: 97 }, (_, i) => prismBandEdge(i, bins));
