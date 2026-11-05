@@ -3,6 +3,8 @@
 // explicit profiling stores streaming aggregates, so a profile can run
 // indefinitely without retaining one object/array per frame.
 const diagnostics = (() => {
+  if (window.electronAPI?.isPackaged) return;
+
   const SAMPLE_COUNT = 240;
   const HISTOGRAM_BIN_MS = 0.1;
   const HISTOGRAM_BINS = 1024; // 0..102.3 ms, with the last bin also absorbing larger values.
@@ -771,6 +773,7 @@ const diagnostics = (() => {
   }
 
   function init() {
+    document.getElementById("diagnosticsSection").hidden = false;
     ui = {
       root: document.getElementById("diagnosticsStatus"),
       fps: document.getElementById("diagFps"),
@@ -864,7 +867,7 @@ const diagnostics = (() => {
   };
 })();
 
-if (document.readyState === "loading") {
+if (diagnostics && document.readyState === "loading") {
   document.addEventListener(
     "DOMContentLoaded",
     () => {
@@ -873,7 +876,7 @@ if (document.readyState === "loading") {
     },
     { once: true }
   );
-} else {
+} else if (diagnostics) {
   diagnostics.init();
   diagnostics.start();
 }

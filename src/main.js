@@ -119,6 +119,7 @@ function createWindow() {
     icon: path.join(__dirname, "icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
+      additionalArguments: [`--app-packaged=${app.isPackaged}`],
       contextIsolation: true,
       nodeIntegration: false,
       // Electron defaults this to true since v20. Sandboxed preload scripts

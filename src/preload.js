@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require("electron");
 const IPC = require("./ipc-channels");
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  isPackaged: process.argv.includes("--app-packaged=true"),
   toggleFullscreen: () => ipcRenderer.send(IPC.TOGGLE_FULLSCREEN),
   toggleAlwaysOnTop: () => ipcRenderer.send(IPC.TOGGLE_ALWAYS_ON_TOP),
   quit: () => ipcRenderer.send(IPC.QUIT_APP),

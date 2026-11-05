@@ -755,6 +755,10 @@ body {
   padding: 0;
 }
 
+#settingsPanel .settingsSection[hidden] {
+  display: none;
+}
+
 #settingsPanel .settingsSection:first-of-type {
   padding-top: 0;
 }
