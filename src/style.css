@@ -1005,6 +1005,7 @@ body {
   #settingsPanel select {
     appearance: base-select;
     background-image: none;
+    padding-right: 10px;
   }
 
   #settingsPanel select::picker-icon {
