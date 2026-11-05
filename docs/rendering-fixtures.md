@@ -14,7 +14,8 @@ current pipeline behavior is tested separately. Replaying today's pipeline and
 replacing the historical hashes would erase that distinction.
 
 Prism's current two geometry hashes reflect its reviewed removal of the static
-ring, upper-right seam, and counterclockwise frequency progression. Its stored
+ring, upper-right seam, counterclockwise frequency progression, and full 360°
+Rainbow color wheel so the closing seam has the same hue step as other bands. Its stored
 signal inputs and the other modes' expectations are unchanged.
 
 ## Deterministic setup

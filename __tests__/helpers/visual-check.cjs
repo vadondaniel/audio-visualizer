@@ -32,6 +32,12 @@ module.exports = function runVisualCheck(mode) {
         [1280, 720, "Neon", false],
         [420, 720, "Neon", false],
         [1280, 720, "Neon", true],
+        ...(mode === "prism"
+          ? [
+              [1280, 720, "Rainbow", false],
+              [1280, 720, "Rainbow Cycle", false],
+            ]
+          : []),
       ]) {
         window.setContentSize(width, height);
         await window.webContents.executeJavaScript(

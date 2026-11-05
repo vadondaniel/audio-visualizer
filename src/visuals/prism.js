@@ -20,7 +20,7 @@
    * @returns {import("../visual-contracts").Mode}
    */
   function createMode(services) {
-    const { VISUAL_TUNING } = services.constants;
+    const { VISUAL_TUNING, THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
 
@@ -44,6 +44,9 @@
       const radius =
         size * VISUAL_TUNING.prism.radiusFrac * (1 + bassLevel * 0.035);
       const step = (Math.PI * 2) / PRISM_BANDS;
+      // Linear rainbows stop at violet; a closed layout needs the full hue wheel.
+      const rainbow = THEMES[state.theme]?.rainbow;
+      const rainbowRotation = rainbow ? currentHue(0) : 0;
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.lineWidth = Math.max(1, size * 0.0018);
@@ -73,7 +76,9 @@
           oY = prismOuter[i * 2 + 1];
         const iX = prismInner[i * 2],
           iY = prismInner[i * 2 + 1];
-        const hue = currentHue(i / PRISM_BANDS);
+        const hue = rainbow
+          ? (rainbowRotation + (i / PRISM_BANDS) * 360) % 360
+          : currentHue(i / PRISM_BANDS);
         // Connect actual neighboring peaks, including the closing seam.
         ctx.beginPath();
         ctx.moveTo(oX, oY);

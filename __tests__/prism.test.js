@@ -184,7 +184,7 @@ test("Prism applies the selected curve once over its dB range, with proportional
   expect(prismAudioLevel(-100, -65, "logarithmic", 1)).toBe(0);
 });
 
-test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
+test.each(["Neon", "Rainbow", "Rainbow Cycle", "Color Cycle", "White"])(
   "moving shapes keep their bands' colors without a static ring in %s",
   (theme) => {
     const app = setup(null);
@@ -208,9 +208,12 @@ test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
         )
       ).toBe(true);
       for (let i = 0; i < count; i++) {
+        const hue = app.constants.THEMES[app.settings.theme].rainbow
+          ? (app.services.palette.currentHue(0) + (i / count) * 360) % 360
+          : app.services.palette.currentHue(i / count);
         expect(strokes[i * 2]).toBe(
           app.services.palette.themeCssColor(
-            app.services.palette.currentHue(i / 96),
+            hue,
             95,
             70,
             0.4 + app.frame.signals.bands[i] * 0.6
@@ -218,6 +221,29 @@ test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
         );
         expect(strokes[i * 2 + 1]).toBe(strokes[i * 2]);
       }
+    }
+  }
+);
+
+test.each(["Rainbow", "Rainbow Cycle"])(
+  "%s closes the hue wheel with the same color step across the seam",
+  (theme) => {
+    const app = setup(null);
+    app.setTheme(theme);
+    for (const shift of [0, 137, 359]) {
+      app.settings.hueShift = shift;
+      const hues = [];
+      app.ctx.stroke.mockImplementation(() => {
+        hues.push(Number(/^hsla?\(([-\d.]+)/.exec(app.ctx.strokeStyle)[1]));
+      });
+      app.draw();
+      const bands = hues.filter((_, i) => i % 2 === 0);
+      expect(bands).toHaveLength(96);
+      expect(bands[0]).toBeCloseTo(theme === "Rainbow Cycle" ? shift : 0);
+      for (let i = 0; i < 96; i++)
+        expect((bands[(i + 1) % 96] - bands[i] + 360) % 360).toBeCloseTo(
+          360 / 96
+        );
     }
   }
 );
