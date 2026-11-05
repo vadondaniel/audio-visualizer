@@ -50,8 +50,10 @@
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       for (let i = 0; i < PRISM_BANDS; i++) {
-        const angle = i * step - Math.PI / 2;
-        const tipAngle = angle + step / 2;
+        // The bass/treble seam sits 45 degrees clockwise from the top.
+        // Increasing frequencies run counterclockwise from that seam.
+        const angle = -Math.PI / 4 - i * step;
+        const tipAngle = angle - step / 2;
         const level = prismSpectrum[i];
         const outer = prismOuterRadius(radius, level),
           inner = prismInnerRadius(radius, level);
@@ -103,20 +105,6 @@
         }
       }
       ctx.shadowBlur = 0;
-      ctx.lineWidth = Math.max(1, size * 0.0016);
-      // Match each arc to the band centered on it, including animated themes.
-      for (let i = 0; i < PRISM_BANDS; i++) {
-        const angle = i * step - Math.PI / 2;
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, angle, angle + step);
-        ctx.strokeStyle = themeCssColor(
-          currentHue(i / PRISM_BANDS),
-          95,
-          70,
-          0.75
-        );
-        ctx.stroke();
-      }
       ctx.restore();
     }
 

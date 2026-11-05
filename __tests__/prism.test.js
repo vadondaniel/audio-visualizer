@@ -185,7 +185,7 @@ test("Prism applies the selected curve once over its dB range, with proportional
 });
 
 test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
-  "rim arcs match their bands' angular colors in %s",
+  "moving shapes keep their bands' colors without a static ring in %s",
   (theme) => {
     const app = setup(null);
     app.setTheme(theme);
@@ -200,25 +200,54 @@ test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
       app.ctx.arc.mockClear();
       app.draw();
       const count = 96;
-      const rim = strokes.slice(-count);
-      const arcs = app.ctx.arc.mock.calls.slice(-count);
+      expect(strokes).toHaveLength(count * 2);
+      // Only peak markers use arcs; there is no circle centered on the origin.
+      expect(
+        app.ctx.arc.mock.calls.every(
+          ([x, y, r]) => Math.hypot(x, y) > 0 && r < 4
+        )
+      ).toBe(true);
       for (let i = 0; i < count; i++) {
-        expect(rim[i]).toBe(
+        expect(strokes[i * 2]).toBe(
           app.services.palette.themeCssColor(
             app.services.palette.currentHue(i / 96),
             95,
             70,
-            0.75
+            0.4 + app.frame.signals.bands[i] * 0.6
           )
         );
-        expect(arcs[i][3]).toBeCloseTo((i * Math.PI * 2) / count - Math.PI / 2);
-        expect(arcs[i][4]).toBeCloseTo(
-          ((i + 1) * Math.PI * 2) / count - Math.PI / 2
-        );
+        expect(strokes[i * 2 + 1]).toBe(strokes[i * 2]);
       }
     }
   }
 );
+
+test("the seam is upper-right and increasing frequency progresses counterclockwise", () => {
+  const app = setup(null);
+  app.process();
+  const bands = Float64Array.from({ length: 96 }, (_, i) => i / 95);
+  app.frame.signals = {
+    ...app.frame.signals,
+    bands,
+    levels: { bass: 0, mid: 0, treble: 0 },
+  };
+  app.ctx.clearMocks();
+  app.mode.update(app.frame);
+  app.mode.draw(app.ctx, app.frame);
+  const outer = app.outer(),
+    step = (Math.PI * 2) / 96;
+  for (let i = 0; i < 96; i++) {
+    const angle = -Math.PI / 4 - (i + 0.5) * step;
+    const radius = prismOuterRadius(172, bands[i]);
+    expect(outer[i * 2]).toBeCloseTo(Math.cos(angle) * radius);
+    expect(outer[i * 2 + 1]).toBeCloseTo(Math.sin(angle) * radius);
+  }
+  // First and last band centers straddle the seam on the upper-right diagonal.
+  expect(outer[0]).toBeGreaterThan(0);
+  expect(outer[1]).toBeLessThan(0);
+  expect(outer[190]).toBeGreaterThan(0);
+  expect(outer[191]).toBeLessThan(0);
+});
 
 test("bands connect neighboring inner and outer peaks, including the closing seam", () => {
   const app = setup();

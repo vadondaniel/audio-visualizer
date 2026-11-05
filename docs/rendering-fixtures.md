@@ -13,6 +13,10 @@ geometry assertions use explicit finished signals from the geometry fixture;
 current pipeline behavior is tested separately. Replaying today's pipeline and
 replacing the historical hashes would erase that distinction.
 
+Prism's current two geometry hashes reflect its reviewed removal of the static
+ring, upper-right seam, and counterclockwise frequency progression. Its stored
+signal inputs and the other modes' expectations are unchanged.
+
 ## Deterministic setup
 
 The mode fixture helper uses seeded random streams with default seed `12345`,
