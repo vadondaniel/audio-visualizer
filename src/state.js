@@ -10,7 +10,6 @@ const state = {
   theme: 0,
   colorGradientEnabled: true,
   autoCycle: false,
-  autoCycleTimer: null,
   hueShift: 0,
   bgType: "color", // "color" | "image" — which one is actually shown
   bgColor: "#0f0f1a",
@@ -95,25 +94,17 @@ function saveSettings() {
   }
 }
 
+// Compatibility commands delegate to the shared settings actions.
 function setAutoCycle(enabled) {
-  state.autoCycle = enabled;
-  clearInterval(state.autoCycleTimer);
-  if (enabled) {
-    state.autoCycleTimer = setInterval(() => {
-      state.mode = MODES.indexOf(
-        ModeList.next(state.modeOrder, state.disabledModes, MODES[state.mode])
-      );
-      syncSelectsToState();
-      saveSettings();
-    }, 12000);
-  }
+  settingsActions.set("autoCycle", enabled);
+}
+function loadSettings() {
+  restoreSettings();
+  settingsActions.initialize();
 }
 
-// loadSettings restores persisted values and syncs the UI to them. It must
-// be called after all DOM refs (dom.js), background helpers (background.js),
-// and settings event listeners (ui.js) are in place — ui.js calls it at
-// the end of its settings-listener block.
-function loadSettings() {
+// Restoration only parses, validates, and migrates persisted data.
+function restoreSettings() {
   let saved = null;
   try {
     saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "null");
@@ -153,52 +144,4 @@ function loadSettings() {
     state,
     ModeList.normalize(MODES, saved?.modeOrder, saved?.disabledModes)
   );
-  if (state.disabledModes.includes(MODES[state.mode]))
-    state.mode = MODES.indexOf(
-      ModeList.enabled(state.modeOrder, state.disabledModes)[0]
-    );
-  rebuildModeOptions();
-  if (state.autoCycle) setAutoCycle(true);
-
-  bgColorInput.value = state.bgColor;
-  brightnessSlider.value = state.bgBrightness;
-  blurSlider.value = state.bgBlur;
-  smoothingCheckbox.checked = state.smoothingEnabled;
-  radialMirroredCheckbox.checked = state.radialMode === "mirrored";
-  kaleidoClipCheckbox.checked = state.kaleidoClipEnabled;
-  barsAlignmentSelect.value = state.barsAlignment;
-  waveformStyleSelect.value = state.waveformStyle;
-  cascadeFrequencyCheckbox.checked =
-    state.cascadeFrequencyOrder === "treble-to-bass";
-  cascadeFillSelect.value = state.cascadeFillStyle;
-  sensitivitySlider.value = state.sensitivity;
-  bassSensitivityCheckbox.checked = state.bassSensitivityEnabled;
-  bassSensitivityAmountSlider.value = state.bassSensitivityAmount * 100;
-  bassSensitivityAmountRow.hidden = !state.bassSensitivityEnabled;
-  if (typeof valueHandlingSelect !== "undefined" && valueHandlingSelect)
-    valueHandlingSelect.value = state.valueHandling;
-  glowSlider.value = state.glowIntensity;
-  colorGradientCheckbox.checked = state.colorGradientEnabled;
-  trailsCheckbox.checked = state.trailsEnabled;
-  trailDurationSlider.value = state.trailDuration;
-  trailFpsSlider.value = state.trailMaxFps;
-  wakeLockCheckbox.checked = state.wakeLockEnabled;
-  if (typeof reactiveVignetteCheckbox !== "undefined")
-    reactiveVignetteCheckbox.checked = state.reactiveVignette;
-  if (typeof crtFilterCheckbox !== "undefined")
-    crtFilterCheckbox.checked = state.crtFilter;
-  if (typeof beatFlashCheckbox !== "undefined")
-    beatFlashCheckbox.checked = state.beatFlash;
-  particleDensitySlider.value = state.particleDensity;
-  particleStyleSelect.value = state.particleStyle;
-  if (typeof mediaMetadataCheckbox !== "undefined")
-    mediaMetadataCheckbox.checked = state.mediaMetadataEnabled;
-  if (typeof mediaDisplaySelect !== "undefined")
-    mediaDisplaySelect.value = state.mediaDisplay;
-  if (typeof applyMediaMetadataUi === "function") applyMediaMetadataUi();
-  updateSliderLabels();
-  updateBgRowsVisibility();
-  syncSelectsToState();
-  applyBackground();
-  if (typeof applyFxOverlay === "function") applyFxOverlay();
 }

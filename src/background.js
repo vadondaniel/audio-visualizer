@@ -387,7 +387,6 @@ function updateVisualOptionRows() {
   colorGradientCheckbox.disabled = !gradientAvailable;
   smoothingRow.style.display =
     currentMode === "particles" || currentMode === "waveform" ? "none" : "";
-  if (typeof refreshMediaForMode === "function") refreshMediaForMode();
 }
 
 function syncSelectsToState() {
@@ -395,6 +394,7 @@ function syncSelectsToState() {
   themeSelect.value = state.theme;
   colorGradientCheckbox.checked = state.colorGradientEnabled;
   updateVisualOptionRows();
+  if (typeof refreshMediaForMode === "function") refreshMediaForMode();
 }
 
 function updateSliderLabels() {

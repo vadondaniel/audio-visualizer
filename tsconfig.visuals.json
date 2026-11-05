@@ -18,6 +18,7 @@
     "src/audio-pipeline.js",
     "src/mode-registry.js",
     "src/mode-runtime.js",
+    "src/settings-actions.js",
     "src/visuals/*.js",
     "__tests__/types/*.cjs",
     "types/visual-globals.d.ts"

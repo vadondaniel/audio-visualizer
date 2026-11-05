@@ -100,41 +100,29 @@ function syncMediaThemeColors() {
   updateMediaRendererColors();
 }
 
-const MEDIA_POSITION_GROUPS = {
-  focus: [
-    { value: "above", label: "Above focus" },
-    { value: "below", label: "Below focus" },
-  ],
-  free: [
-    { value: "auto", label: "Best fit" },
-    { value: "top-left", label: "Top left" },
-    { value: "top", label: "Top" },
-    { value: "top-right", label: "Top right" },
-    { value: "right", label: "Right" },
-    { value: "bottom-right", label: "Bottom right" },
-    { value: "bottom", label: "Bottom" },
-    { value: "bottom-left", label: "Bottom left" },
-    { value: "left", label: "Left" },
-  ],
+const MEDIA_POSITION_LABELS = {
+  above: "Above focus",
+  below: "Below focus",
+  auto: "Best fit",
+  "top-left": "Top left",
+  top: "Top",
+  "top-right": "Top right",
+  right: "Right",
+  "bottom-right": "Bottom right",
+  bottom: "Bottom",
+  "bottom-left": "Bottom left",
+  left: "Left",
 };
+const MEDIA_POSITION_GROUPS = Object.fromEntries(
+  Object.entries(SettingsActions.MEDIA_POSITIONS).map(([group, positions]) => [
+    group,
+    positions.map((value) => ({ value, label: MEDIA_POSITION_LABELS[value] })),
+  ])
+);
 
 function isFocusMediaMode(mode) {
   return ModeRegistry.get(mode)?.media.group === "focus";
 }
-
-const MEDIA_POSITION_VALUES = new Set([
-  "auto",
-  "above",
-  "below",
-  "top-left",
-  "top",
-  "top-right",
-  "right",
-  "bottom-right",
-  "bottom",
-  "bottom-left",
-  "left",
-]);
 
 function getMediaPosition(mode = MODES[state.mode] || "bars") {
   return (
@@ -144,10 +132,7 @@ function getMediaPosition(mode = MODES[state.mode] || "bars") {
 }
 
 function setMediaPosition(mode, position) {
-  if (!MEDIA_POSITION_VALUES.has(position)) return;
-  if (!state.mediaTextPositions || typeof state.mediaTextPositions !== "object")
-    state.mediaTextPositions = {};
-  state.mediaTextPositions[mode] = position;
+  settingsActions.setMediaPosition(mode, position);
 }
 
 function syncMediaPositionOptions() {
@@ -155,7 +140,6 @@ function syncMediaPositionOptions() {
   const options = isFocusMediaMode(mode)
     ? MEDIA_POSITION_GROUPS.focus
     : MEDIA_POSITION_GROUPS.free;
-  const current = getMediaPosition(mode);
   mediaTextPositionSelect.replaceChildren(
     ...options.map(({ value, label }) => {
       const option = document.createElement("option");
@@ -165,10 +149,6 @@ function syncMediaPositionOptions() {
     })
   );
 
-  const allowed = new Set(options.map((option) => option.value));
-  if (!allowed.has(current)) {
-    setMediaPosition(mode, ModeRegistry.get(mode).media.defaultPosition);
-  }
   mediaTextPositionSelect.value = getMediaPosition(mode);
 }
 
@@ -184,7 +164,6 @@ function applyMediaMetadataUi() {
   const enabled = Boolean(state.mediaMetadataEnabled);
   mediaMetadataCheckbox.checked = enabled;
   mediaDisplayRow.hidden = !enabled;
-  syncMediaPositionOptions();
   const display =
     MEDIA_DISPLAYS[state.mediaDisplay] || MEDIA_DISPLAYS["cover-title-artist"];
   mediaTextPositionRow.hidden = !enabled || !(display.title || display.artist);
@@ -192,12 +171,7 @@ function applyMediaMetadataUi() {
 }
 
 function setMediaMetadataEnabled(enabled) {
-  state.mediaMetadataEnabled = Boolean(enabled);
-  if (window.electronAPI?.setMediaMetadataEnabled) {
-    window.electronAPI.setMediaMetadataEnabled(state.mediaMetadataEnabled);
-  }
-  applyMediaMetadataUi();
-  saveSettings();
+  settingsActions.set("mediaMetadataEnabled", Boolean(enabled));
 }
 
 function updateMediaLayout() {

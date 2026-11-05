@@ -102,17 +102,10 @@ function setModeManagerOpen(open) {
 }
 
 function applyModePreferences() {
-  Object.assign(
-    state,
-    ModeList.normalize(MODES, state.modeOrder, state.disabledModes)
-  );
-  const enabled = ModeList.enabled(state.modeOrder, state.disabledModes);
-  if (!enabled.includes(MODES[state.mode]))
-    state.mode = MODES.indexOf(enabled[0]);
-  rebuildModeOptions();
-  syncSelectsToState();
-  renderModeManager();
-  saveSettings();
+  settingsActions.setModePreferences({
+    order: state.modeOrder,
+    disabled: state.disabledModes,
+  });
 }
 
 manageModesBtn.addEventListener("click", () => setModeManagerOpen(true));
@@ -120,18 +113,19 @@ modeManagerList.addEventListener("change", (e) => {
   const control = e.target.closest('input[data-action="enable"]');
   if (!control) return;
   const id = control.dataset.mode;
-  state.disabledModes = control.checked
+  const disabled = control.checked
     ? state.disabledModes.filter((mode) => mode !== id)
     : [...state.disabledModes, id];
-  applyModePreferences();
+  settingsActions.setModePreferences({ order: state.modeOrder, disabled });
 });
 // Reorder with the keyboard as well as pointer dragging.
 function moveMode(id, to) {
   const from = state.modeOrder.indexOf(id);
   if (from < 0 || to < 0 || to >= state.modeOrder.length || from === to) return;
-  state.modeOrder.splice(from, 1);
-  state.modeOrder.splice(to, 0, id);
-  applyModePreferences();
+  const order = [...state.modeOrder];
+  order.splice(from, 1);
+  order.splice(to, 0, id);
+  settingsActions.setModePreferences({ order, disabled: state.disabledModes });
   document.getElementById("modeManagerStatus").textContent =
     `${modeLabel(id)} moved to position ${to + 1}`;
 }
@@ -182,15 +176,18 @@ modeManagerList.addEventListener("drop", (e) => {
   if (!draggedMode) return;
   e.preventDefault();
   const id = draggedMode;
+  const order = state.modeOrder.filter((mode) => mode !== id);
   if (dragPlacement) {
-    const order = state.modeOrder.filter((mode) => mode !== id);
     const to = order.indexOf(dragPlacement.id) + Number(dragPlacement.after);
     order.splice(to, 0, id);
-    state.modeOrder = order;
   }
+  const nextOrder = dragPlacement ? order : state.modeOrder;
   draggedMode = null;
   dragPlacement = null;
-  applyModePreferences();
+  settingsActions.setModePreferences({
+    order: nextOrder,
+    disabled: state.disabledModes,
+  });
   modeManagerList
     .querySelector(`[data-action="reorder"][data-mode="${id}"]`)
     ?.focus();

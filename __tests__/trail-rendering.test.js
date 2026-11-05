@@ -144,6 +144,27 @@ test.each([
   (slider, field, value) => {
     const app = setup();
     const handlers = {};
+    app.context.settingsActions = require("../src/settings-actions").create({
+      state: app.context.state,
+      registry: require("../src/mode-registry"),
+      modeList: require("../src/mode-list"),
+      themeCount: 14,
+      save: app.context.saveSettings,
+      effects: new Proxy(
+        {
+          syncControls: jest.fn(),
+          labels: app.context.updateSliderLabels,
+          resetTrails: app.evaluate("resetTrailHistory"),
+        },
+        {
+          get(target, key) {
+            if (key in target) return target[key];
+            throw Error(`Unexpected effect for a trail slider: ${String(key)}`);
+          },
+        }
+      ),
+      timers: { setInterval, clearInterval },
+    });
     for (const name of ["trailDurationSlider", "trailFpsSlider"]) {
       app.context[name] = {
         addEventListener: (_event, callback) => {
@@ -162,6 +183,8 @@ test.each([
     app.render(0);
     handlers[slider]({ target: { value } });
     expect(app.context.state[field]).toBe(Number(value));
+    expect(app.context.updateSliderLabels).toHaveBeenCalledTimes(1);
+    expect(app.context.saveSettings).toHaveBeenCalledTimes(1);
     expect(app.evaluate("nextTrailCaptureMs")).toBeNull();
     expect(app.evaluate("trailFrames.length + trailCanvasPool.length")).toBe(0);
     app.render(1);

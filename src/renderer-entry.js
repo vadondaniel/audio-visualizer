@@ -56,8 +56,10 @@
     for (const path of [
       "visual-mode-host.js",
       "visuals/loop.js",
+      "settings-actions.js",
       "media.js",
       "mode-controls.js",
+      "settings-ui.js",
       "ui.js",
     ])
       await loadScript(path);

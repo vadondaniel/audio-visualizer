@@ -3,6 +3,10 @@
   if (typeof module === "object" && module.exports) module.exports = factory();
   else root.ModeList = factory();
 })(typeof window !== "undefined" ? window : globalThis, function () {
+  /** @param {readonly string[]} modes
+   * @param {unknown} order
+   * @param {unknown} disabled
+   * @returns {{modeOrder:string[],disabledModes:string[]}} */
   function normalize(modes, order, disabled) {
     const known = new Set(modes);
     const modeOrder = [
@@ -21,10 +25,15 @@
     return { modeOrder, disabledModes };
   }
 
+  /** @param {readonly string[]} order
+   * @param {readonly string[]} disabled */
   function enabled(order, disabled) {
     return order.filter((id) => !disabled.includes(id));
   }
 
+  /** @param {readonly string[]} order
+   * @param {readonly string[]} disabled
+   * @param {string} current */
   function next(order, disabled, current) {
     const available = enabled(order, disabled);
     return available[(available.indexOf(current) + 1) % available.length];

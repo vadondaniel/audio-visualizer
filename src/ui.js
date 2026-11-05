@@ -43,10 +43,7 @@ window.addEventListener("click", (e) => {
 });
 
 modeSelect.addEventListener("change", (e) => {
-  state.mode = parseInt(e.target.value, 10);
-  updateVisualOptionRows();
-  if (typeof refreshMediaForMode === "function") refreshMediaForMode();
-  saveSettings();
+  settingsActions.selectMode(MODES[parseInt(e.target.value, 10)]);
 });
 
 function hslToRgb(h, s, l) {
@@ -200,111 +197,85 @@ function restartUiAccentAnimation() {
 }
 
 themeSelect.addEventListener("change", (e) => {
-  state.theme = parseInt(e.target.value, 10);
-  applyThemeUiColors();
-  restartUiAccentAnimation();
-  updateVisualOptionRows();
-  saveSettings();
+  settingsActions.set("theme", parseInt(e.target.value, 10));
 });
 
 colorGradientCheckbox.addEventListener("change", (e) => {
-  state.colorGradientEnabled = e.target.checked;
-  saveSettings();
+  settingsActions.set("colorGradientEnabled", e.target.checked);
 });
 
 smoothingCheckbox.addEventListener("change", (e) => {
-  state.smoothingEnabled = e.target.checked;
-  saveSettings();
+  settingsActions.set("smoothingEnabled", e.target.checked);
 });
 
 barsAlignmentSelect.addEventListener("change", (e) => {
-  state.barsAlignment = e.target.value;
-  saveSettings();
+  settingsActions.set("barsAlignment", e.target.value);
 });
 
 waveformStyleSelect.addEventListener("change", (e) => {
-  state.waveformStyle = e.target.value;
-  saveSettings();
+  settingsActions.set("waveformStyle", e.target.value);
 });
 
 cascadeFrequencyCheckbox.addEventListener("change", (e) => {
-  state.cascadeFrequencyOrder = e.target.checked
-    ? "treble-to-bass"
-    : "bass-to-treble";
-  saveSettings();
+  settingsActions.set(
+    "cascadeFrequencyOrder",
+    e.target.checked ? "treble-to-bass" : "bass-to-treble"
+  );
 });
 
 cascadeFillSelect.addEventListener("change", (e) => {
-  state.cascadeFillStyle = e.target.value;
-  saveSettings();
+  settingsActions.set("cascadeFillStyle", e.target.value);
 });
 
 radialMirroredCheckbox.addEventListener("change", (e) => {
-  state.radialMode = e.target.checked ? "mirrored" : "full";
-  saveSettings();
+  settingsActions.set("radialMode", e.target.checked ? "mirrored" : "full");
 });
 
 kaleidoClipCheckbox.addEventListener("change", (e) => {
-  state.kaleidoClipEnabled = e.target.checked;
-  saveSettings();
+  settingsActions.set("kaleidoClipEnabled", e.target.checked);
 });
 
 sensitivitySlider.addEventListener("input", (e) => {
-  state.sensitivity = parseFloat(e.target.value);
-  updateSliderLabels();
-  saveSettings();
+  settingsActions.set("sensitivity", parseFloat(e.target.value));
 });
 
 bassSensitivityCheckbox.addEventListener("change", () => {
-  state.bassSensitivityEnabled = bassSensitivityCheckbox.checked;
-  bassSensitivityAmountRow.hidden = !state.bassSensitivityEnabled;
-  saveSettings();
+  settingsActions.set(
+    "bassSensitivityEnabled",
+    bassSensitivityCheckbox.checked
+  );
 });
 bassSensitivityAmountSlider.addEventListener("input", () => {
-  state.bassSensitivityAmount = Number(bassSensitivityAmountSlider.value) / 100;
-  updateSliderLabels();
-  saveSettings();
+  settingsActions.set(
+    "bassSensitivityAmount",
+    Number(bassSensitivityAmountSlider.value) / 100
+  );
 });
 
 if (valueHandlingSelect) {
   valueHandlingSelect.addEventListener("change", (e) => {
-    state.valueHandling = e.target.value;
-    saveSettings();
+    settingsActions.set("valueHandling", e.target.value);
   });
 }
 
 glowSlider.addEventListener("input", (e) => {
-  state.glowIntensity = parseFloat(e.target.value);
-  updateSliderLabels();
-  saveSettings();
+  settingsActions.set("glowIntensity", parseFloat(e.target.value));
 });
 
 trailsCheckbox.addEventListener("change", (e) => {
-  state.trailsEnabled = e.target.checked;
-  updateTrailVisibility();
-  if (!state.trailsEnabled) resetTrailHistory();
-  saveSettings();
+  settingsActions.set("trailsEnabled", e.target.checked);
 });
 
 trailDurationSlider.addEventListener("input", (e) => {
-  state.trailDuration = parseInt(e.target.value, 10);
-  updateSliderLabels();
-  resetTrailHistory();
-  saveSettings();
+  settingsActions.set("trailDuration", parseInt(e.target.value, 10));
 });
 
 trailFpsSlider.addEventListener("input", (e) => {
-  state.trailMaxFps = parseInt(e.target.value, 10);
-  updateSliderLabels();
-  resetTrailHistory();
-  saveSettings();
+  settingsActions.set("trailMaxFps", parseInt(e.target.value, 10));
 });
 
 wakeLockCheckbox.addEventListener("change", (e) => {
-  state.wakeLockEnabled = e.target.checked;
-  if (state.wakeLockEnabled) requestWakeLock();
-  else releaseWakeLock();
-  saveSettings();
+  settingsActions.set("wakeLockEnabled", e.target.checked);
 });
 
 function updateTrailVisibility() {
@@ -314,88 +285,54 @@ function updateTrailVisibility() {
 }
 
 bgTypeSelect.addEventListener("change", (e) => {
-  state.bgType = e.target.value;
-  updateBgRowsVisibility();
-  applyBackground();
-  saveSettings();
+  settingsActions.set("bgType", e.target.value);
 });
 
 bgColorInput.addEventListener("input", (e) => {
-  state.bgColor = e.target.value;
-  applyBackground();
-  saveSettings();
+  settingsActions.set("bgColor", e.target.value);
 });
 
 bgImageInput.addEventListener("change", async (e) => {
   const file = e.target.files && e.target.files[0];
   if (!file) return;
   try {
-    state.bgImageDataUrl = await readImageFile(file);
-    state.bgImageName = file.name;
-    state.bgType = "image";
-    updateBgRowsVisibility();
-    applyBackground();
-    saveSettings();
+    const dataUrl = await readImageFile(file);
+    settingsActions.setBackgroundImage({ dataUrl, name: file.name });
   } catch (err) {
     console.warn("Could not use that background image", err);
   }
 });
 
 clearBgImageBtn.addEventListener("click", () => {
-  state.bgImageDataUrl = null;
-  state.bgImageName = null;
-  state.bgType = "color";
-  bgImageInput.value = "";
-  updateBgRowsVisibility();
-  applyBackground();
-  saveSettings();
+  settingsActions.clearBackgroundImage();
 });
 
 brightnessSlider.addEventListener("input", (e) => {
-  state.bgBrightness = parseFloat(e.target.value);
-  updateSliderLabels();
-  applyBackground();
-  saveSettings();
+  settingsActions.set("bgBrightness", parseFloat(e.target.value));
 });
 
 blurSlider.addEventListener("input", (e) => {
-  state.bgBlur = parseFloat(e.target.value);
-  updateSliderLabels();
-  applyBackground();
-  saveSettings();
+  settingsActions.set("bgBlur", parseFloat(e.target.value));
 });
 
 reactiveVignetteCheckbox.addEventListener("change", (e) => {
-  state.reactiveVignette = e.target.checked;
-  applyFxOverlay();
-  saveSettings();
+  settingsActions.set("reactiveVignette", e.target.checked);
 });
 
 crtFilterCheckbox.addEventListener("change", (e) => {
-  state.crtFilter = e.target.checked;
-  applyFxOverlay();
-  saveSettings();
+  settingsActions.set("crtFilter", e.target.checked);
 });
 
 beatFlashCheckbox.addEventListener("change", (e) => {
-  state.beatFlash = e.target.checked;
-  applyFxOverlay();
-  saveSettings();
+  settingsActions.set("beatFlash", e.target.checked);
 });
 
-function wireParticleSlider(slider, key) {
-  slider.addEventListener("input", (e) => {
-    state[key] = parseFloat(e.target.value);
-    updateSliderLabels();
-    saveSettings();
-  });
-}
-
-wireParticleSlider(particleDensitySlider, "particleDensity");
+particleDensitySlider.addEventListener("input", (e) =>
+  settingsActions.set("particleDensity", parseFloat(e.target.value))
+);
 
 particleStyleSelect.addEventListener("change", (e) => {
-  state.particleStyle = e.target.value;
-  saveSettings();
+  settingsActions.set("particleStyle", e.target.value);
 });
 
 mediaMetadataCheckbox.addEventListener("change", (e) => {
@@ -403,32 +340,15 @@ mediaMetadataCheckbox.addEventListener("change", (e) => {
 });
 
 mediaDisplaySelect.addEventListener("change", (e) => {
-  state.mediaDisplay = e.target.value;
-  updateMediaLayout();
-  mediaTextPositionRow.hidden =
-    !state.mediaMetadataEnabled ||
-    !["title", "title-artist", "cover-title", "cover-title-artist"].includes(
-      state.mediaDisplay
-    );
-  saveSettings();
+  settingsActions.set("mediaDisplay", e.target.value);
 });
 
-mediaTextPositionSelect.addEventListener("change", (e) => {
-  const mode = MODES[state.mode] || "bars";
-  if (typeof setMediaPosition === "function")
-    setMediaPosition(mode, e.target.value);
-  updateMediaLayout();
-  saveSettings();
-});
+mediaTextPositionSelect.addEventListener("change", (e) =>
+  settingsActions.setMediaPosition(MODES[state.mode], e.target.value)
+);
 
 // Initialize settings from localStorage into UI and state
 loadSettings();
-if (state.mediaMetadataEnabled && window.electronAPI?.setMediaMetadataEnabled) {
-  window.electronAPI.setMediaMetadataEnabled(true);
-}
-applyThemeUiColors();
-restartUiAccentAnimation();
-updateTrailVisibility();
 
 // ---------- input & hud ----------
 let hudTimeout;
@@ -488,13 +408,7 @@ hotkeysOverlay.addEventListener("click", (e) => {
 });
 
 const KEY_ACTIONS = {
-  c: () => {
-    state.theme = (state.theme + 1) % THEMES.length;
-    applyThemeUiColors();
-    restartUiAccentAnimation();
-    syncSelectsToState();
-    saveSettings();
-  },
+  c: () => settingsActions.cycleTheme(),
   f: () => window.electronAPI.toggleFullscreen(),
   t: () => window.electronAPI.toggleAlwaysOnTop(),
   s: () => {
@@ -503,7 +417,6 @@ const KEY_ACTIONS = {
   },
   " ": () => {
     setAutoCycle(!state.autoCycle);
-    saveSettings();
   },
   escape: () => window.electronAPI.quit(),
 };
@@ -533,10 +446,7 @@ window.addEventListener("keydown", (e) => {
     const enabledModes = ModeList.enabled(state.modeOrder, state.disabledModes);
     const mode = enabledModes[Number(e.key) - 1];
     if (!mode) return;
-    state.mode = MODES.indexOf(mode);
-    syncSelectsToState();
-    if (typeof refreshMediaForMode === "function") refreshMediaForMode();
-    saveSettings();
+    settingsActions.selectMode(mode);
     return;
   }
   const action = KEY_ACTIONS[e.key.toLowerCase()];

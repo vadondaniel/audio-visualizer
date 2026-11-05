@@ -4,3 +4,4 @@ declare var AudioMath: typeof import("../src/audio-math");
 declare var AudioPipeline: typeof import("../src/audio-pipeline");
 declare var ModeRegistry: typeof import("../src/mode-registry");
 declare var ModeRuntime: typeof import("../src/mode-runtime");
+declare var SettingsActions: typeof import("../src/settings-actions");
