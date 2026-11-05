@@ -171,14 +171,15 @@ function drawPrism(bassLevel, midLevel, trebleLevel, dtSec) {
     }
   }
   ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(0, 0, radius, 0, Math.PI * 2);
-  const rim = ctx.createLinearGradient(-radius, -radius, radius, radius);
-  for (let i = 0; i <= 6; i++)
-    rim.addColorStop(i / 6, themeCssColor(currentHue(i / 6), 90, 75, 0.75));
-  ctx.strokeStyle = rim;
   ctx.lineWidth = Math.max(1, size * 0.0016);
-  ctx.stroke();
+  // Match each arc to the band centered on it, including animated themes.
+  for (let i = 0; i < PRISM_BANDS; i++) {
+    const angle = i * step - Math.PI / 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, angle, angle + step);
+    ctx.strokeStyle = themeCssColor(currentHue(i / PRISM_BANDS), 95, 70, 0.75);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 

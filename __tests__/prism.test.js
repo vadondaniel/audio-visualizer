@@ -186,6 +186,38 @@ test("Prism applies the selected curve once over its dB range, with proportional
   expect(app.context.prismAudioLevel(-100, -65, "logarithmic", 1)).toBe(0);
 });
 
+test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
+  "rim arcs match their bands' angular colors in %s",
+  (theme) => {
+    const app = setup(null);
+    app.read(
+      `state.theme = THEMES.findIndex(t=>t.name===${JSON.stringify(theme)}); state.hueShift=137`
+    );
+    expect(app.context.state.theme).toBeGreaterThanOrEqual(0);
+    for (const gradient of [true, false]) {
+      app.context.state.colorGradientEnabled = gradient;
+      const strokes = [];
+      app.ctx.stroke.mockImplementation(() =>
+        strokes.push(app.ctx.strokeStyle)
+      );
+      app.ctx.arc.mockClear();
+      app.draw();
+      const count = app.read("PRISM_BANDS");
+      const rim = strokes.slice(-count);
+      const arcs = app.ctx.arc.mock.calls.slice(-count);
+      for (let i = 0; i < count; i++) {
+        expect(rim[i]).toBe(
+          app.read(`themeCssColor(currentHue(${i}/PRISM_BANDS),95,70,0.75)`)
+        );
+        expect(arcs[i][3]).toBeCloseTo((i * Math.PI * 2) / count - Math.PI / 2);
+        expect(arcs[i][4]).toBeCloseTo(
+          ((i + 1) * Math.PI * 2) / count - Math.PI / 2
+        );
+      }
+    }
+  }
+);
+
 test("bands connect neighboring inner and outer peaks, including the closing seam", () => {
   const app = setup();
   app.draw();
