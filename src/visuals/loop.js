@@ -120,41 +120,15 @@ function loop(timestamp = performance.now()) {
 
   const modeTimer = diagnosticCall("beginRender");
 
-  switch (MODES[state.mode]) {
-    case "bars":
-      drawBars(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "radial":
-      drawRadial(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "waveform":
-      drawWaveform(bassLevel, midLevel, trebleLevel);
-      break;
-    case "particles":
-      drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs);
-      break;
-    case "kaleidoscope":
-      drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "tunnel":
-      drawTunnel(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "waves":
-      drawWaves(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "aurora":
-      drawAurora(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "cascade":
-      drawCascade(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "orbit":
-      drawOrbit(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-    case "prism":
-      drawPrism(bassLevel, midLevel, trebleLevel, dtSec);
-      break;
-  }
+  const frame = prepareVisualFrame(
+    timestamp,
+    elapsedMs,
+    bass,
+    bassLevel,
+    midLevel,
+    trebleLevel
+  );
+  visualModeController.render(MODES[state.mode], ctx, frame);
   diagnosticCall("endRender", modeTimer);
 
   const trailTimer = diagnosticCall("beginTrail");

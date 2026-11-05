@@ -14,6 +14,8 @@
     "waves",
     "aurora",
     "cascade",
+    "orbit",
+    "prism",
   ];
   const MODE_NAMES =
     Array.isArray(MODES) && MODES.length
@@ -213,6 +215,7 @@
     if (typeof applyBackground === "function") applyBackground();
     if (typeof applyFxOverlay === "function") applyFxOverlay();
     if (typeof resetTrailHistory === "function") resetTrailHistory();
+    if (typeof resetVisualModes === "function") resetVisualModes();
     if (typeof clearFrame === "function") clearFrame();
   }
 
@@ -515,6 +518,7 @@
     timeData = new Uint8Array(bufferLength);
     audio.resetClock();
     if (typeof resetTrailHistory === "function") resetTrailHistory();
+    if (typeof resetVisualModes === "function") resetVisualModes();
     await sleepActive(250);
     counter.start();
     await sleepActive(
@@ -588,6 +592,7 @@
     state.mode = modeIndex;
     if (typeof lastFrameTime !== "undefined") lastFrameTime = 0;
     if (typeof resetTrailHistory === "function") resetTrailHistory();
+    if (typeof resetVisualModes === "function") resetVisualModes();
     if (typeof audioClockMs !== "undefined") audioClockMs = 0;
     if (typeof bassHistory !== "undefined") bassHistory.length = 0;
     if (typeof beatCooldownMsLeft !== "undefined") beatCooldownMsLeft = 0;

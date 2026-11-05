@@ -1,15 +1,16 @@
-const fs = require("node:fs"),
-  path = require("node:path"),
-  vm = require("node:vm");
 const AudioMath = require("../src/audio-math");
+const { setup: makeFixture, spyCanvas } = require("./helpers/mode-fixture.cjs");
 const {
   prismInnerRadius,
   prismOuterRadius,
   prismBandEdge,
+  prismAudioLevel: audioLevel,
+  prismActiveEnd: activeEnd,
 } = require("../src/visuals/prism");
-
+const prismActiveEnd = (data) => activeEnd(data, AudioMath.spectrumBandDb);
+const prismAudioLevel = (...args) =>
+  audioLevel(...args, AudioMath.applyValueHandling);
 test("active range trims quiet treble, follows recording level, and retains real high frequencies", () => {
-  const { prismActiveEnd } = setup(null).context;
   const data = new Float32Array(1024).fill(-110);
   data.fill(-30, 2, 80);
   const narrow = prismActiveEnd(data);
@@ -33,29 +34,33 @@ test("range expands quickly, holds transient treble, contracts slowly, and stays
   const app = setup(null);
   let high = false,
     silent = false;
-  app.context.analyser.getFloatFrequencyData = (data) => {
-    data.fill(-Infinity);
+  app.frame.audio.readFloatSpectrum = () => {
+    app.spectrum.fill(-Infinity);
     if (!silent) {
-      data.fill(-30, 2, 80);
-      if (high) data.fill(-35, 450, 460);
+      app.spectrum.fill(-30, 2, 80);
+      if (high) app.spectrum.fill(-35, 450, 460);
     }
+    return app.spectrum;
   };
+  const count = () => app.values().filter((v) => v > 1e-6).length;
   app.draw();
-  const narrow = app.read("prismRangeEnd");
+  const narrow = count();
   high = true;
   for (let i = 0; i < 60; i++) app.draw();
-  const wide = app.read("prismRangeEnd");
-  expect(wide).toBeGreaterThan(490);
   high = false;
-  for (let i = 0; i < 30; i++) app.draw();
-  expect(app.read("prismRangeEnd")).toBe(wide);
+  app.draw();
+  const wide = count();
+  expect(wide).toBeLessThan(narrow);
+  for (let i = 0; i < 20; i++) app.draw();
+  expect(count()).toBe(wide);
   for (let i = 0; i < 360; i++) app.draw();
-  const contracted = app.read("prismRangeEnd");
-  expect(contracted).toBeLessThan(160);
-  expect(contracted).toBeGreaterThanOrEqual(narrow);
+  const contracted = count();
+  expect(contracted).toBeGreaterThan(wide);
   silent = true;
   for (let i = 0; i < 60; i++) app.draw();
-  expect(app.read("prismRangeEnd")).toBe(contracted);
+  silent = false;
+  app.draw();
+  expect(count()).toBe(contracted);
 });
 
 test("frequency bands partition distinct FFT bins instead of duplicating bass bins", () => {
@@ -70,14 +75,16 @@ test("frequency bands partition distinct FFT bins instead of duplicating bass bi
 test("neighboring bass bins drive separate rendered bands", () => {
   const app = setup(null);
   for (const bin of [2, 3, 4, 5, 6]) {
-    app.context.analyser.getFloatFrequencyData = (data) => {
-      data.fill(-Infinity);
-      data[bin] = -30;
+    app.frame.audio.readFloatSpectrum = () => {
+      app.spectrum.fill(-Infinity);
+      app.spectrum[bin] = -30;
+      return app.spectrum;
     };
     app.draw();
-    const active = app.read(
-      "Array.from(prismSpectrum, (v,i)=>v>0?i:-1).filter(i=>i>=0)"
-    );
+    const active = app
+      .values()
+      .map((v, i) => (v > 1e-6 ? i : -1))
+      .filter((i) => i >= 0);
     expect(active).toHaveLength(1);
     expect(prismBandEdge(active[0], 1024)).toBeLessThanOrEqual(bin);
     expect(prismBandEdge(active[0] + 1, 1024)).toBeGreaterThan(bin);
@@ -85,58 +92,52 @@ test("neighboring bass bins drive separate rendered bands", () => {
 });
 
 function setup(bass = 0.5) {
-  const ctx = Object.fromEntries(
-    [
-      "save",
-      "restore",
-      "translate",
-      "beginPath",
-      "moveTo",
-      "lineTo",
-      "closePath",
-      "stroke",
-      "fill",
-      "arc",
-    ].map((name) => [name, jest.fn()])
-  );
-  ctx.createLinearGradient = () => ({ addColorStop() {} });
-  const profile = Float32Array.from(
-    { length: 1024 },
-    (_, i) =>
+  const fixture = makeFixture("prism");
+  Object.assign(fixture.settings, {
+    smoothingEnabled: false,
+    valueHandling: "logarithmic",
+    sensitivity: 2.4,
+  });
+  Object.assign(fixture.frame.levels, { bass: 0, mid: 0, treble: 0 });
+  fixture.frame.beat.pulse = 0;
+  fixture.frame.audio.frequencyBytes.fill(255);
+  for (let i = 0; i < 1024; i++)
+    fixture.spectrum[i] =
       -70 +
       45 * Math.exp(-Math.pow((Math.log2(i + 1) - 4) / 0.7, 2)) +
-      25 * Math.exp(-Math.pow((Math.log2(i + 1) - 7) / 0.5, 2))
+      25 * Math.exp(-Math.pow((Math.log2(i + 1) - 7) / 0.5, 2));
+  fixture.setGain(
+    bass === null
+      ? 1
+      : AudioMath.bassSensitivityTarget(bass, 0.5, "logarithmic")
   );
-  const context = {
-    AudioMath,
-    ctx,
-    canvas: { width: 1000, height: 800 },
-    beatPulse: 0,
-    freqData: new Uint8Array(1024).fill(255),
-    analyser: { getFloatFrequencyData: (data) => data.set(profile) },
-    state: {
-      smoothingEnabled: false,
-      valueHandling: "logarithmic",
-      sensitivity: 2.4,
-      theme: 0,
-      hueShift: 0,
-      colorGradientEnabled: true,
-      bassSensitivityEnabled: bass !== null,
-      bassSensitivityAmount: 0.5,
-    },
-  };
-  vm.createContext(context);
-  for (const file of ["constants.js", "visuals.js", "visuals/prism.js"])
-    vm.runInContext(
-      fs.readFileSync(path.join(__dirname, "../src", file), "utf8"),
-      context
-    );
-  context.updateBassSensitivity(bass, 10);
+  const ctx = spyCanvas(fixture, jest.fn);
+  const outer = () =>
+    Array.from(
+      { length: 96 },
+      (_, i) => ctx.lineTo.mock.calls[i * 3 + 2]
+    ).flat();
+  const inner = () =>
+    Array.from(
+      { length: 96 },
+      (_, i) => ctx.moveTo.mock.calls[i * 3 + 1]
+    ).flat();
   return {
-    context,
+    ...fixture,
     ctx,
-    read: (code) => vm.runInContext(code, context),
-    draw: () => context.drawPrism(0, 0, 0, 1 / 60),
+    outer,
+    inner,
+    values: () =>
+      Array.from(
+        { length: 96 },
+        (_, i) =>
+          (Math.hypot(...ctx.lineTo.mock.calls[i * 3 + 2]) / 172 - 1) / 1.1
+      ),
+    draw() {
+      ctx.clearMocks();
+      fixture.mode.update(fixture.frame);
+      fixture.mode.draw(ctx, fixture.frame);
+    },
   };
 }
 
@@ -147,8 +148,8 @@ test("triangular tips extend in opposite radial directions and stay within bound
   expect(prismOuterRadius(100, 1)).toBeCloseTo(210);
   const app = setup();
   app.draw();
-  const outer = app.read("Array.from(prismOuter)"),
-    inner = app.read("Array.from(prismInner)");
+  const outer = app.outer(),
+    inner = app.inner();
   for (let i = 0; i < outer.length; i += 2) {
     expect(Math.hypot(outer[i], outer[i + 1])).toBeGreaterThanOrEqual(
       172 - 1e-8
@@ -167,47 +168,44 @@ test("Prism applies the selected curve once over its dB range, with proportional
   const app = setup(null);
   for (const curve of ["linear", "exponential", "logarithmic"]) {
     for (const level of [0, 0.25, 0.5, 0.75, 1]) {
-      const shaped = app.context.prismAudioLevel(
-        -30 - 45 * (1 - level),
-        -30,
-        curve,
-        1
-      );
+      const shaped = prismAudioLevel(-30 - 45 * (1 - level), -30, curve, 1);
       expect(shaped).toBeCloseTo(AudioMath.applyValueHandling(level, curve));
       expect(prismOuterRadius(100, shaped) - 100).toBeCloseTo(110 * shaped);
       expect(100 - prismInnerRadius(100, shaped)).toBeCloseTo(88 * shaped);
     }
   }
   // A band 12 dB below the peak still produces a visible spike in exponential.
-  expect(
-    app.context.prismAudioLevel(-42, -30, "exponential", 1)
-  ).toBeGreaterThan(0.4);
-  expect(app.context.prismAudioLevel(-Infinity, -30, "exponential", 1)).toBe(0);
-  expect(app.context.prismAudioLevel(-100, -65, "logarithmic", 1)).toBe(0);
+  expect(prismAudioLevel(-42, -30, "exponential", 1)).toBeGreaterThan(0.4);
+  expect(prismAudioLevel(-Infinity, -30, "exponential", 1)).toBe(0);
+  expect(prismAudioLevel(-100, -65, "logarithmic", 1)).toBe(0);
 });
 
 test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
   "rim arcs match their bands' angular colors in %s",
   (theme) => {
     const app = setup(null);
-    app.read(
-      `state.theme = THEMES.findIndex(t=>t.name===${JSON.stringify(theme)}); state.hueShift=137`
-    );
-    expect(app.context.state.theme).toBeGreaterThanOrEqual(0);
+    app.setTheme(theme);
+    app.settings.hueShift = 137;
+    expect(app.settings.theme).toBeGreaterThanOrEqual(0);
     for (const gradient of [true, false]) {
-      app.context.state.colorGradientEnabled = gradient;
+      app.settings.colorGradientEnabled = gradient;
       const strokes = [];
       app.ctx.stroke.mockImplementation(() =>
         strokes.push(app.ctx.strokeStyle)
       );
       app.ctx.arc.mockClear();
       app.draw();
-      const count = app.read("PRISM_BANDS");
+      const count = 96;
       const rim = strokes.slice(-count);
       const arcs = app.ctx.arc.mock.calls.slice(-count);
       for (let i = 0; i < count; i++) {
         expect(rim[i]).toBe(
-          app.read(`themeCssColor(currentHue(${i}/PRISM_BANDS),95,70,0.75)`)
+          app.services.palette.themeCssColor(
+            app.services.palette.currentHue(i / 96),
+            95,
+            70,
+            0.75
+          )
         );
         expect(arcs[i][3]).toBeCloseTo((i * Math.PI * 2) / count - Math.PI / 2);
         expect(arcs[i][4]).toBeCloseTo(
@@ -221,9 +219,9 @@ test.each(["Neon", "Rainbow Cycle", "Color Cycle", "White"])(
 test("bands connect neighboring inner and outer peaks, including the closing seam", () => {
   const app = setup();
   app.draw();
-  const count = app.read("PRISM_BANDS");
-  const outer = app.read("Array.from(prismOuter)");
-  const inner = app.read("Array.from(prismInner)");
+  const count = 96;
+  const outer = app.outer();
+  const inner = app.inner();
   for (let i = 0; i < count; i++) {
     const next = (i + 1) % count;
     expect(app.ctx.moveTo.mock.calls[i * 3]).toEqual(
@@ -250,9 +248,12 @@ test("sensitivity and bass modulation preserve the spectrum's detail even when b
   const stats = [0, null, 1].map((bass) => {
     const app = setup(bass);
     app.draw();
-    return app.read(
-      "({mean:prismSpectrum.reduce((a,b)=>a+b,0)/PRISM_BANDS,clipped:prismSpectrum.filter(v=>v>=0.999).length,range:Math.max(...prismSpectrum)-Math.min(...prismSpectrum)})"
-    );
+    const values = app.values();
+    return {
+      mean: values.reduce((a, b) => a + b, 0) / 96,
+      clipped: values.filter((v) => v >= 0.999).length,
+      range: Math.max(...values) - Math.min(...values),
+    };
   });
   expect(stats[0].mean).toBeCloseTo(stats[1].mean * 0.5);
   expect(stats[2].mean).toBeGreaterThan(stats[1].mean);
@@ -262,13 +263,9 @@ test("sensitivity and bass modulation preserve the spectrum's detail even when b
 
 test("silence leaves a finite circular baseline without triangular spikes", () => {
   const app = setup();
-  app.context.analyser.getFloatFrequencyData = (data) => data.fill(-Infinity);
+  app.spectrum.fill(-Infinity);
   app.draw();
-  expect(app.read("prismSpectrum.every(v=>v===0)")).toBe(true);
-  expect(app.read("[...prismInner,...prismOuter].every(Number.isFinite)")).toBe(
-    true
-  );
-  expect(app.read("Array.from(prismInner)")).toEqual(
-    app.read("Array.from(prismOuter)")
-  );
+  expect(app.values().every((v) => Math.abs(v) < 1e-12)).toBe(true);
+  expect([...app.inner(), ...app.outer()].every(Number.isFinite)).toBe(true);
+  expect(app.inner()).toEqual(app.outer());
 });

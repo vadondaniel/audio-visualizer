@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const AudioMath = require("../src/audio-math");
+const { setup: makeFixture } = require("./helpers/mode-fixture.cjs");
 
 const source = (file) =>
   fs.readFileSync(path.join(__dirname, "../src", file), "utf8");
@@ -13,6 +14,8 @@ function setup({ enabled = true, amount = 0.5, bass = 0.5 } = {}) {
       fillRect: jest.fn(),
       moveTo: jest.fn(),
       lineTo: jest.fn(),
+      bezierCurveTo: jest.fn(),
+      rotate: jest.fn(),
       createLinearGradient: () => gradient,
     },
     {
@@ -52,16 +55,44 @@ function setup({ enabled = true, amount = 0.5, bass = 0.5 } = {}) {
     ),
   };
   vm.createContext(context);
-  for (const file of [
-    "constants.js",
-    "visuals.js",
-    "visuals/bars.js",
-    "visuals/waveform.js",
-    "visuals/orbit.js",
-  ])
+  for (const file of ["constants.js", "visuals.js"])
     vm.runInContext(source(file), context);
   context.updateBassSensitivity(bass, 10);
-  return { context, ctx, read: (code) => vm.runInContext(code, context) };
+  const fixture = makeFixture("bars");
+  const modes = {};
+  const floatData = new Float32Array(1024);
+  const render = (name) => {
+    const frame = fixture.frame;
+    frame.settings = context.state;
+    frame.audio.frequencyBytes = context.freqData;
+    frame.audio.timeBytes = context.timeData;
+    Object.assign(frame.levels, { bass: 0, mid: 0, treble: 0 });
+    frame.beat.pulse = 0;
+    frame.audio.readFloatSpectrum = () => {
+      if (context.analyser?.getFloatFrequencyData)
+        context.analyser.getFloatFrequencyData(floatData);
+      else
+        for (let i = 0; i < 1024; i++)
+          floatData[i] = -100 + (context.freqData[i] * 70) / 255;
+      return floatData;
+    };
+    const mode = (modes[name] ||= require("../src/visuals/" + name).createMode({
+      ...fixture.services,
+      modulate: context.applyBassModulation,
+      palette: {
+        currentHue: context.currentHue,
+        themeCssColor: context.themeCssColor,
+      },
+    }));
+    mode.update(frame);
+    mode.draw(ctx, frame);
+  };
+  return {
+    context,
+    ctx,
+    render,
+    read: (code) => vm.runInContext(code, context),
+  };
 }
 
 test.each([
@@ -172,7 +203,7 @@ test("saved bass controls validate types and ranges while preserving old default
 test("the same spectral bars get quieter/louder with bass, with no double gain", () => {
   const heights = [0, 0.5, 1].map((bass) => {
     const app = setup({ bass });
-    app.context.drawBars(0, 0, 0, 1 / 60);
+    app.render("bars");
     return app.ctx.fillRect.mock.calls[0][3];
   });
   expect(heights[0]).toBeCloseTo(heights[1] * 0.5);
@@ -183,7 +214,7 @@ test("waveform amplitude follows bass without changing its samples or timing", (
   const amplitudes = [0, 0.5, 1].map((bass) => {
     const app = setup({ bass });
     const original = Array.from(app.context.timeData);
-    app.context.drawWaveform(0, 0, 0);
+    app.render("waveform");
     expect(Array.from(app.context.timeData)).toEqual(original);
     return Math.max(
       ...app.ctx.lineTo.mock.calls.map(([, y]) => Math.abs(y - 400))
@@ -205,10 +236,24 @@ test("Orbit's direct float path and rope forces follow gain without flattening o
             -65 + 40 * Math.exp(-Math.pow((Math.log2(i + 1) - 4) / 0.8, 2));
       },
     };
-    for (let i = 0; i < 60; i++) app.context.drawOrbit(0, 0, 0, 1 / 60);
-    return app.read(
-      "({mean:orbitSpectrum.reduce((a,b)=>a+b,0)/orbitSpectrum.length, rope:orbitDisplacement.reduce((a,b)=>a+b,0)/orbitDisplacement.length, angle:orbitRotation, clipped:orbitSpectrum.filter(v=>v>=0.999).length})"
+    for (let i = 0; i < 60; i++) app.render("orbit");
+    const radius = 184;
+    const moves = app.ctx.moveTo.mock.calls.slice(-129, -1),
+      lines = app.ctx.lineTo.mock.calls.slice(-128);
+    const levels = lines.map(
+      (p, i) =>
+        (Math.hypot(...p) - Math.hypot(...moves[i])) / radius / 0.7 -
+        0.025 / 0.7
     );
+    const rope = app.ctx.bezierCurveTo.mock.calls
+      .slice(-192)
+      .map((p) => (0.92 - Math.hypot(...p.slice(-2)) / radius) / 0.5);
+    return {
+      mean: levels.reduce((a, b) => a + b, 0) / levels.length,
+      rope: rope.reduce((a, b) => a + b, 0) / rope.length,
+      angle: app.ctx.rotate.mock.calls.at(-1)[0],
+      clipped: levels.filter((v) => v >= 0.999).length,
+    };
   });
   expect(stats[0].mean).toBeCloseTo(stats[1].mean * 0.5);
   expect(stats[0].rope).toBeLessThan(stats[1].rope);
@@ -237,7 +282,15 @@ test.each([0, 255])(
       updateBeat: jest.fn(),
       clearFrame: jest.fn(),
       renderTrailHistory: jest.fn(),
-      drawBars: jest.fn(),
+      prepareVisualFrame: (
+        timestampMs,
+        elapsedMs,
+        rawBass,
+        bass,
+        mid,
+        treble
+      ) => ({ levels: { rawBass, bass, mid, treble } }),
+      visualModeController: { render: jest.fn() },
       renderProceduralBackground: jest.fn(),
       updateFxLive: jest.fn(),
     });
@@ -252,7 +305,9 @@ test.each([0, 255])(
         "logarithmic"
       ) * 2.4
     );
-    expect(app.context.drawBars.mock.calls.at(-1)[1]).toBe(rawMid);
+    expect(
+      app.context.visualModeController.render.mock.calls.at(-1)[2].levels.mid
+    ).toBe(rawMid);
     const expectedGain = byteBass === 0 ? 0.5 : 1.5;
     expect(app.read("bassSensitivityGain")).toBeCloseTo(expectedGain, 5);
     expect(app.context.updateFxLive.mock.calls.at(-1)[1]).toBeCloseTo(
@@ -262,7 +317,9 @@ test.each([0, 255])(
     expect(app.context.updateBeat.mock.calls.at(-1)[0]).toBe(byteBass);
     expect(Array.from(app.context.freqData)).toEqual(Array.from(input));
     const background = app.context.renderProceduralBackground.mock.calls.at(-1);
-    expect(background[5]).toBe(app.context.drawBars.mock.calls.at(-1)[0]);
+    expect(background[5]).toBe(
+      app.context.visualModeController.render.mock.calls.at(-1)[2].levels.bass
+    );
     expect(background[6]).toBe(0);
   }
 );

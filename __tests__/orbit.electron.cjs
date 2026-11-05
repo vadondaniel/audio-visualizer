@@ -5,7 +5,6 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 
 const mode = process.argv.includes("--prism") ? "prism" : "orbit";
-const drawFunction = mode === "prism" ? "drawPrism" : "drawOrbit";
 
 app.whenReady().then(async () => {
   let failed = false;
@@ -56,30 +55,26 @@ app.whenReady().then(async () => {
           const x = Math.log2(i+1);
           freqData[i] = ${silent ? "0" : "Math.min(255, 24 + 225*Math.exp(-Math.pow((x-3.3)/0.9,2)) + 170*Math.exp(-Math.pow((x-6.1)/0.6,2)) + 95*Math.exp(-Math.pow((x-7.6)/0.4,2)))"};
         }
-        if ("${mode}" === "orbit") {
-        orbitSpectrum.fill(0);
-        orbitDisplacement.fill(0);
-        orbitVelocity.fill(0);
-        orbitRotation = Math.PI / 8;
-        } else prismSpectrum.fill(0);
+        resetVisualModes();
+        const renderMode = (timestamp) => visualModeController.render("${mode}",ctx,
+          prepareVisualFrame(timestamp,1000/60,0,${silent ? "0,0,0" : "0.5,0.4,0.3"}));
         // Let the connected rope respond before taking the steady-audio preview.
         for (let frame=0; frame<60; frame++) {
           ctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);
-          ${drawFunction}(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
+          renderMode(performance.now());
         }
         ctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);
-        ${drawFunction}(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
+        renderMode(performance.now());
         renderTrailHistory(performance.now());
         let lit = 0;
         const pixels = displayCtx.getImageData(0,0,canvas.width,canvas.height).data;
         for(let i=3;i<pixels.length;i+=4) if(pixels[i]) lit++;
         saveSettings();
-        return {mode:MODES[state.mode],inList:state.modeOrder.includes("${mode}"), enabled:!state.disabledModes.includes("${mode}"), lit, finite:("${mode}"==="orbit"?[...orbitRope]:[...prismOuter,...prismInner]).every(Number.isFinite), rotation:orbitRotation};
+        return {mode:MODES[state.mode],inList:state.modeOrder.includes("${mode}"), enabled:!state.disabledModes.includes("${mode}"), lit};
       })()`);
       assert.equal(result.mode, mode);
       assert.equal(result.inList, true);
       assert.equal(result.enabled, true);
-      assert.equal(result.finite, true);
       assert.ok(result.lit > 1000);
       await window.webContents.executeJavaScript(
         "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"

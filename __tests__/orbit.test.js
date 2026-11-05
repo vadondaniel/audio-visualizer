@@ -1,6 +1,4 @@
-const fs = require("node:fs");
-const path = require("node:path");
-const vm = require("node:vm");
+const { setup: makeFixture, spyCanvas } = require("./helpers/mode-fixture.cjs");
 const {
   orbitMirrorPosition,
   orbitInnerRadius,
@@ -10,58 +8,58 @@ const {
 const AudioMath = require("../src/audio-math");
 
 function setup(energy = 0) {
-  const ctx = Object.fromEntries(
-    [
-      "save",
-      "restore",
-      "translate",
-      "rotate",
-      "beginPath",
-      "moveTo",
-      "lineTo",
-      "stroke",
-      "fill",
-      "arc",
-      "bezierCurveTo",
-      "closePath",
-    ].map((name) => [name, jest.fn()])
-  );
-  ctx.createLinearGradient = () => ({ addColorStop() {} });
-  const context = {
-    ctx,
-    canvas: { width: 1000, height: 800 },
-    VISUAL_TUNING: {
-      orbit: { radiusFrac: 0.23, spinPerSec: 0.065, releasePerSec: 8 },
-    },
-    state: {
-      theme: 0,
-      smoothingEnabled: false,
-      sensitivity: 1,
-      valueHandling: "linear",
-    },
-    THEMES: [{}],
-    freqData: new Uint8Array(1024).fill(energy),
-    beatPulse: 0,
-    bandAverage: AudioMath.bandAverage,
-    smoothTowards: AudioMath.smoothTowards,
-    applyValueHandling: AudioMath.applyValueHandling,
-    spectrumBandDb: AudioMath.spectrumBandDb,
-    spectrumResponseLevel: AudioMath.spectrumResponseLevel,
-    currentHue: () => 0,
-    themeCssColor: () => "#fff",
-    applyGlow() {},
-    applyBassModulation: (value) => value,
+  const fixture = makeFixture("orbit");
+  Object.assign(fixture.settings, {
+    smoothingEnabled: false,
+    sensitivity: 1,
+    valueHandling: "linear",
+  });
+  fixture.frame.audio.frequencyBytes.fill(energy);
+  fixture.frame.beat.pulse = 0;
+  fixture.frame.audio.readFloatSpectrum = () =>
+    Float32Array.from(
+      fixture.frame.audio.frequencyBytes,
+      (v) => -100 + (v * 70) / 255
+    );
+  const ctx = spyCanvas(fixture, jest.fn);
+  const points = () => {
+    const curves = ctx.bezierCurveTo.mock.calls.slice(-192);
+    return [
+      curves.at(-1).slice(-2),
+      ...curves.slice(0, -1).map((c) => c.slice(-2)),
+    ].flat();
   };
-  vm.createContext(context);
-  vm.runInContext(
-    fs.readFileSync(path.join(__dirname, "../src/visuals/orbit.js"), "utf8"),
-    context
-  );
+  const values = () =>
+    fixture.canvas.events
+      .slice(0, 128)
+      .map(
+        (e) =>
+          (Math.hypot(...e[2][1].slice(1)) - Math.hypot(...e[2][0].slice(1))) /
+            184 /
+            0.7 -
+          0.025 / 0.7
+      );
+  const displacements = () => {
+    const p = points();
+    return Array.from(
+      { length: 192 },
+      (_, i) => (0.92 - Math.hypot(p[i * 2], p[i * 2 + 1]) / 184) / 0.5
+    );
+  };
   return {
+    ...fixture,
     ctx,
-    context,
-    draw: vm.runInContext("drawOrbit", context),
-    read: (code) => vm.runInContext(code, context),
+    points,
+    values,
+    displacements,
+    draw(bass, mid, treble, dt) {
+      Object.assign(fixture.frame.levels, { bass, mid, treble });
+      fixture.frame.dtSec = dt;
+      fixture.frame.elapsedMs = dt * 1000;
+      fixture.canvas.clear();
+      fixture.mode.update(fixture.frame);
+      fixture.mode.draw(ctx, fixture.frame);
+    },
   };
 }
 
@@ -85,8 +83,8 @@ test("audio pulls the rope inward while extending bars outward", () => {
     loud = setup(255);
   quiet.draw(0, 0, 0, 1 / 60);
   loud.draw(0, 0, 0, 1 / 60);
-  expect(loud.read("Math.hypot(orbitRope[0], orbitRope[1])")).toBeLessThan(
-    quiet.read("Math.hypot(orbitRope[0], orbitRope[1])")
+  expect(Math.hypot(...loud.points().slice(0, 2))).toBeLessThan(
+    Math.hypot(...quiet.points().slice(0, 2))
   );
   const length = (app) =>
     Math.hypot(...app.ctx.lineTo.mock.calls[0]) -
@@ -96,10 +94,10 @@ test("audio pulls the rope inward while extending bars outward", () => {
 
 test("rope is one closed smooth path with exact four-way symmetry", () => {
   const app = setup();
-  for (let i = 0; i < app.context.freqData.length; i++)
-    app.context.freqData[i] = Math.round(127 + 120 * Math.sin(i / 9));
+  for (let i = 0; i < app.frame.audio.frequencyBytes.length; i++)
+    app.frame.audio.frequencyBytes[i] = Math.round(127 + 120 * Math.sin(i / 9));
   app.draw(0.5, 0.5, 0.5, 1 / 60);
-  const points = app.read("Array.from(orbitRope)");
+  const points = app.points();
   const count = points.length / 2;
   for (let i = 0; i < count; i++) {
     const oppositeX = (count / 2 - i + count) % count;
@@ -199,7 +197,7 @@ test("all layers use one rotation and its speed is independent of frame rate", (
     expect(app.ctx.rotate).toHaveBeenCalledTimes(hz);
     expect(app.ctx.save).toHaveBeenCalledTimes(hz);
     expect(app.ctx.restore).toHaveBeenCalledTimes(hz);
-    return app.read("orbitRotation");
+    return app.ctx.rotate.mock.calls.at(-1)[0];
   });
   expect(angles[0]).toBeCloseTo(0.065);
   expect(angles[1]).toBeCloseTo(angles[0]);
@@ -215,33 +213,30 @@ test("loud audio retains band detail at logarithmic handling and maximum sensiti
       28 * Math.exp(-Math.pow((x - 7) / 0.5, 2))
     );
   });
-  app.context.state.valueHandling = "logarithmic";
-  app.context.state.sensitivity = 2.5;
-  app.context.analyser = {
-    getFloatFrequencyData: jest.fn((data) => data.set(profile)),
-  };
+  app.settings.valueHandling = "logarithmic";
+  app.settings.sensitivity = 2.5;
+  const readSpectrum = jest.fn(() => profile);
+  app.frame.audio.readFloatSpectrum = readSpectrum;
   for (let i = 0; i < 60; i++) app.draw(0, 0, 0, 1 / 60);
-  expect(app.context.analyser.getFloatFrequencyData).toHaveBeenCalledTimes(60);
+  expect(readSpectrum).toHaveBeenCalledTimes(60);
+  expect(app.values().filter((value) => value >= 0.999).length).toBeLessThan(4);
+  expect(Math.max(...app.values()) - Math.min(...app.values())).toBeGreaterThan(
+    0.3
+  );
   expect(
-    app.read("orbitSpectrum.filter(value => value >= 0.999).length")
-  ).toBeLessThan(4);
-  expect(
-    app.read("Math.max(...orbitSpectrum) - Math.min(...orbitSpectrum)")
-  ).toBeGreaterThan(0.3);
-  expect(
-    app.read("Math.max(...orbitDisplacement) - Math.min(...orbitDisplacement)")
+    Math.max(...app.displacements()) - Math.min(...app.displacements())
   ).toBeGreaterThan(0.1);
 });
 
 test("input headroom preserves gain control without amplifying silence or quiet noise", () => {
   const app = setup();
-  const low = app.read('orbitAudioLevel(-50, -35, "logarithmic", 1)');
-  const high = app.read('orbitAudioLevel(-50, -35, "logarithmic", 2.5)');
+  const low = AudioMath.spectrumResponseLevel(-50, -35, "logarithmic", 1);
+  const high = AudioMath.spectrumResponseLevel(-50, -35, "logarithmic", 2.5);
   expect(high).toBeGreaterThan(low);
   expect(high).toBeLessThan(1);
-  app.context.state.sensitivity = 2.5;
-  app.context.analyser = { getFloatFrequencyData: (data) => data.fill(-110) };
+  app.settings.sensitivity = 2.5;
+  app.frame.audio.readFloatSpectrum = () => new Float32Array(1024).fill(-110);
   for (let i = 0; i < 60; i++) app.draw(0, 0, 0, 1 / 60);
-  expect(app.read("Math.max(...orbitSpectrum)")).toBe(0);
-  expect(app.read("Math.max(...orbitDisplacement)")).toBe(0);
+  expect(Math.max(...app.values())).toBeCloseTo(0);
+  expect(Math.max(...app.displacements())).toBeCloseTo(0);
 });

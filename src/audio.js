@@ -157,6 +157,7 @@ if (typeof module === "object" && module.exports) {
 }
 
 function cleanupAudioCapture() {
+  if (typeof resetVisualModes === "function") resetVisualModes();
   if (typeof resetBassSensitivity === "function") resetBassSensitivity();
   audioEventCleanup.forEach((cleanup) => cleanup());
   audioEventCleanup = [];

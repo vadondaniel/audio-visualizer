@@ -79,8 +79,7 @@ function applyGlow(color, blur) {
   ctx.shadowColor = scaled > 0 ? color : "transparent";
 }
 
-// ---------- particle system (used by 'particles' mode) ----------
-const particles = [];
+// ---------- trail compositing ----------
 const trailFrames = [];
 const trailCanvasPool = [];
 let nextTrailCaptureMs = null;
