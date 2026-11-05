@@ -163,6 +163,29 @@ test("triangular tips extend in opposite radial directions and stay within bound
   }
 });
 
+test("Prism applies the selected curve once over its dB range, with proportional geometry", () => {
+  const app = setup(null);
+  for (const curve of ["linear", "exponential", "logarithmic"]) {
+    for (const level of [0, 0.25, 0.5, 0.75, 1]) {
+      const shaped = app.context.prismAudioLevel(
+        -30 - 45 * (1 - level),
+        -30,
+        curve,
+        1
+      );
+      expect(shaped).toBeCloseTo(AudioMath.applyValueHandling(level, curve));
+      expect(prismOuterRadius(100, shaped) - 100).toBeCloseTo(110 * shaped);
+      expect(100 - prismInnerRadius(100, shaped)).toBeCloseTo(88 * shaped);
+    }
+  }
+  // A band 12 dB below the peak still produces a visible spike in exponential.
+  expect(
+    app.context.prismAudioLevel(-42, -30, "exponential", 1)
+  ).toBeGreaterThan(0.4);
+  expect(app.context.prismAudioLevel(-Infinity, -30, "exponential", 1)).toBe(0);
+  expect(app.context.prismAudioLevel(-100, -65, "logarithmic", 1)).toBe(0);
+});
+
 test("bands connect neighboring inner and outer peaks, including the closing seam", () => {
   const app = setup();
   app.draw();

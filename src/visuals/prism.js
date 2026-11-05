@@ -48,11 +48,20 @@ function prismActiveEnd(data) {
 }
 
 function prismOuterRadius(radius, level) {
-  return radius * (1 + Math.pow(Math.min(1, Math.max(0, level)), 1.7) * 1.1);
+  return radius * (1 + Math.min(1, Math.max(0, level)) * 1.1);
 }
 
 function prismInnerRadius(radius, level) {
-  return radius * (1 - Math.pow(Math.min(1, Math.max(0, level)), 1.4) * 0.88);
+  return radius * (1 - Math.min(1, Math.max(0, level)) * 0.88);
+}
+
+function prismAudioLevel(db, referenceDb, curve, sensitivity) {
+  if (!Number.isFinite(db) || db <= -100) return 0;
+  // A 45 dB display range preserves musical detail before the selected
+  // response curve. Applying exponential to amplitude ratios crushes it.
+  const level = Math.max(0, Math.min(1, 1 + (db - referenceDb) / 45));
+  const gain = Math.max(0.5, Math.min(2.5, sensitivity));
+  return applyValueHandling((level * gain) / (1 + (gain - 1) * level), curve);
 }
 
 function updatePrismSpectrum(dtSec) {
@@ -91,7 +100,7 @@ function updatePrismSpectrum(dtSec) {
     : 0;
   for (let i = 0; i < PRISM_BANDS; i++) {
     const target = applyBassModulation(
-      spectrumResponseLevel(
+      prismAudioLevel(
         prismBandDb[i],
         prismPeakDb,
         state.valueHandling,
