@@ -11,6 +11,7 @@ const fs = require("fs");
 const IPC = require("./ipc-channels");
 const { toggleAlwaysOnTop } = require("./window-state");
 const { spawn } = require("child_process");
+const { acquireSingleInstance } = require("./single-instance");
 
 let mainWindow;
 let mediaWatcher = null;
@@ -171,35 +172,67 @@ function createWindow() {
   );
 }
 
-app.whenReady().then(createWindow);
+function buildMediaWatcher() {
+  return new Promise((resolve, reject) => {
+    const build = spawn(
+      "powershell.exe",
+      [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        path.join(__dirname, "..", "scripts", "build-media-watcher.ps1"),
+      ],
+      { windowsHide: true, stdio: "inherit" }
+    );
+    build.once("error", reject);
+    build.once("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Media watcher build failed (exit code ${code}).`));
+    });
+  });
+}
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+if (acquireSingleInstance(app, () => mainWindow)) {
+  app
+    .whenReady()
+    .then(async () => {
+      if (!app.isPackaged) await buildMediaWatcher();
+      createWindow();
+    })
+    .catch((error) => {
+      console.error("Could not start Audio Visualizer:", error.message);
+      app.exit(1);
+    });
 
-app.on("activate", () => {
-  if (BrowserWindow.getAllWindows().length === 0) createWindow();
-});
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+  });
 
-ipcMain.on(IPC.TOGGLE_FULLSCREEN, () => {
-  if (!mainWindow) return;
-  mainWindow.setFullScreen(!mainWindow.isFullScreen());
-});
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 
-ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
-  if (!mainWindow) return;
-  toggleAlwaysOnTop(mainWindow);
-});
+  ipcMain.on(IPC.TOGGLE_FULLSCREEN, () => {
+    if (!mainWindow) return;
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+  });
 
-ipcMain.on(IPC.QUIT_APP, () => {
-  app.quit();
-});
+  ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
+    if (!mainWindow) return;
+    toggleAlwaysOnTop(mainWindow);
+  });
 
-ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
+  ipcMain.on(IPC.QUIT_APP, () => {
+    app.quit();
+  });
 
-ipcMain.on(IPC.SET_MEDIA_METADATA_ENABLED, (_event, enabled) => {
-  if (enabled) startMediaWatcher();
-  else stopMediaWatcher();
-});
+  ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
 
-app.on("before-quit", stopMediaWatcher);
+  ipcMain.on(IPC.SET_MEDIA_METADATA_ENABLED, (_event, enabled) => {
+    if (enabled) startMediaWatcher();
+    else stopMediaWatcher();
+  });
+
+  app.on("before-quit", stopMediaWatcher);
+}

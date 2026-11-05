@@ -4,7 +4,7 @@
   "description": "Real-time system audio visualizer",
   "main": "src/main.js",
   "scripts": {
-    "start": "npm run build:media-watcher && electron .",
+    "start": "electron .",
     "dist": "electron-builder --win",
     "test": "jest",
     "format": "npm run format:js && npm run format:cs && npm run format:ps1",
