@@ -7,23 +7,17 @@
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas, beatPulse;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
-      bands = signals.bands;
 
-      beatPulse = frame.beat.pulse;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
 
-    let bands;
+    function drawBars(ctx, frame) {
+      const bassLevel = frame.signals.levels.bass;
+      const midLevel = frame.signals.levels.mid;
+      const state = frame.settings;
+      const canvas = frame;
+      const bands = frame.signals.bands;
+      const beatPulse = frame.beat.pulse;
 
-    function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
       const { baseYFrac, heightScale } = VISUAL_TUNING.bars;
       const barCount = 96;
 
@@ -43,7 +37,7 @@
           (0.82 + bassLevel * 0.2 + midLevel * 0.12 + beatPulse * 0.15);
         const hue = currentHue(i / barCount);
         ctx.fillStyle = themeCssColor(hue, 90, 50 + v * 20, 1);
-        applyGlow(ctx.fillStyle, 14);
+        applyGlow(ctx, ctx.fillStyle, 14, state.glowIntensity);
 
         if (isCenter) {
           const halfH = h * 0.68;
@@ -60,19 +54,8 @@
     }
 
     return {
-      update(frame) {
-        bind(frame);
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawBars(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update() {},
+      draw: drawBars,
       reset() {},
     };
   }

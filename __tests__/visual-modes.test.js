@@ -4,10 +4,40 @@ const {
   setup,
   canonical,
   runtime,
+  makeCanvas,
 } = require("./helpers/mode-fixture.cjs");
 const geometry = require("./fixtures/mode-geometry-baseline.json");
 
 describe.each(names)("%s lifecycle", (name) => {
+  test("uses replacement frame inputs and drawing contexts without retaining borrowed buffers", () => {
+    const a = setup(name),
+      b = setup(name);
+    a.process();
+    b.process();
+    a.mode.update(a.frame);
+    b.mode.update(b.frame);
+    a.mode.draw(a.canvas.ctx, a.frame);
+    const replacement = {
+      ...a.frame,
+      audio: undefined,
+      width: 360,
+      height: 720,
+      settings: { ...a.settings, glowIntensity: 0 },
+      signals: structuredClone(a.frame.signals),
+      beat: { pulse: 0.15, justHit: false },
+    };
+    replacement.signals.bands.fill(0.25);
+    replacement.signals.waveform.fill(-0.2);
+    const before = structuredClone(replacement);
+    const left = makeCanvas(),
+      right = makeCanvas();
+    a.mode.draw(left.ctx, replacement);
+    b.mode.draw(right.ctx, replacement);
+    expect(canonical(left.events)).toEqual(canonical(right.events));
+    expect(replacement).toEqual(before);
+    expect(left.events.length).toBeGreaterThan(0);
+    expect(left.depth).toBe(0);
+  });
   test.each(["landscape", "portrait"])(
     "preserves geometry with explicit finished signals in %s",
     (scene) => {
@@ -99,6 +129,18 @@ describe.each(names)("%s lifecycle", (name) => {
     expect(a.canvas.depth).toBe(0);
   });
 });
+
+test.each([0, 0.5, 2])(
+  "shared glow applies intensity %s and clears a previous shadow",
+  (intensity) => {
+    const ctx = { shadowBlur: 99, shadowColor: "red" };
+    runtime.applyGlow(ctx, "cyan", 12, intensity);
+    expect(ctx.shadowBlur).toBe(12 * intensity);
+    expect(ctx.shadowColor).toBe(intensity > 0 ? "cyan" : "transparent");
+    runtime.applyGlow(ctx, "red", 0, intensity);
+    expect(ctx).toEqual({ shadowBlur: 0, shadowColor: "transparent" });
+  }
+);
 
 test("reset storage retains allocated buffers, restores nested values, and drops transient entries", () => {
   const buffer = new Float32Array([3, 4]);

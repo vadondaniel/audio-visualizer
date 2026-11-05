@@ -160,6 +160,7 @@ function setup(name, { seed = 12345 } = {}) {
     math,
     constants,
     restore: runtime.restore,
+    applyGlow: runtime.applyGlow,
     createRandom: () => runtime.createRandom(seed),
     loadImage: () => ({ complete: false, width: 0 }),
     palette: {

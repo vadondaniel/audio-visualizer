@@ -7,24 +7,21 @@
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas, beatPulse, mediaArt;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
-      bands = signals.bands;
 
-      beatPulse = frame.beat.pulse;
-      mediaArt = frame.mediaArt;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
 
-    let bands;
+    function drawRadial(ctx, frame) {
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const state = frame.settings;
+      const canvas = frame;
+      const bands = frame.signals.bands;
+      const beatPulse = frame.beat.pulse;
+      const mediaArt = frame.mediaArt;
 
-    function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
       const { baseRFrac, lengthScale } = VISUAL_TUNING.radial;
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
@@ -61,7 +58,7 @@
         const hue = currentHue(normalized);
         ctx.strokeStyle = themeCssColor(hue, 90, 60, 1);
         ctx.lineWidth = 2.4;
-        applyGlow(ctx.strokeStyle, 10);
+        applyGlow(ctx, ctx.strokeStyle, 10, state.glowIntensity);
         ctx.beginPath();
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
@@ -121,7 +118,7 @@
       ctx.arc(cx, cy, focusR, 0, Math.PI * 2);
       ctx.lineWidth = 2.4;
       ctx.strokeStyle = themeCssColor(currentHue(0), 90, 70, 0.76);
-      applyGlow(ctx.strokeStyle, 10);
+      applyGlow(ctx, ctx.strokeStyle, 10, state.glowIntensity);
       ctx.stroke();
 
       ctx.shadowBlur = 0;
@@ -129,19 +126,8 @@
     }
 
     return {
-      update(frame) {
-        bind(frame);
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawRadial(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update() {},
+      draw: drawRadial,
       reset() {},
     };
   }

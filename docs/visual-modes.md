@@ -69,6 +69,14 @@ and `createRandom()`. Random streams are instance-owned callable generators with
 `getState()` and `setState()` for reset. The controller also accepts the host's
 `consumeBeat()` callback. Modes do not access DOM globals, devices, or clocks.
 
+`services.applyGlow(ctx, color, blur, intensity)` provides shared shadow scaling;
+pass the current settings' glow intensity explicitly. Internal update functions
+receive `frame`, and draw functions receive `(ctx, frame)`. Read frame fields and
+borrowed signal buffers locally rather than binding them to instance variables.
+Helpers take explicit frame/context dependencies plus meaningful geometry or
+prepared visual values. Instance closures retain simulation state and reusable
+render buffers, not the current frame or canvas context.
+
 Keep geometry, animation, and visual physics in modes. Sampling, normalization,
 controls, and audio smoothing belong to the pipeline's named profiles.
 

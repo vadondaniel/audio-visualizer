@@ -27,6 +27,7 @@ const visualModeController = ModeRuntime.createController(
     createRandom: () =>
       ModeRuntime.createRandom(Math.floor(Math.random() * 4294967296)),
     restore: ModeRuntime.restore,
+    applyGlow: ModeRuntime.applyGlow,
     loadImage(src) {
       const image = new Image();
       image.src = src;

@@ -9,19 +9,8 @@
     const themeCssColor = services.palette.themeCssColor;
     const loadImage = services.loadImage;
     const random = services.createRandom();
-    let signals, ctx, state, canvas, beatPulse, mediaArt;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
 
-      beatPulse = frame.beat.pulse;
-      mediaArt = frame.mediaArt;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     const prepared = {};
     // ---------- Cascade mode (Trap / NCS 180Â° Mirrored Intense Wave Visualizer) ----------
     const CASCADE_BARS = 128;
@@ -42,7 +31,17 @@
     }));
 
     const centerLogoImg = loadImage("icon.png");
-    function updateCascade(bassLevel, midLevel, trebleLevel, dtSec) {
+    function updateCascade(frame) {
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const dtSec = frame.dtSec;
+      const canvas = frame;
+      const signals = frame.signals;
+      const beatPulse = frame.beat.pulse;
+
       const W = canvas.width;
       const H = canvas.height;
       const cx = W / 2;
@@ -172,7 +171,11 @@
       prepared.H = H;
       prepared.discBaseR = discBaseR;
     }
-    function drawCascade(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawCascade(ctx, frame) {
+      const state = frame.settings;
+      const beatPulse = frame.beat.pulse;
+      const mediaArt = frame.mediaArt;
+
       const { cx, minDim, cy, energy, waveBaseR, W, H, discBaseR } = prepared;
       // 1. Draw floating ambient bass bokeh sparks in the background
       ctx.save();
@@ -186,7 +189,7 @@
         if (pAlpha > 0.04) {
           const pHue = currentHue(p.distFrac);
           ctx.fillStyle = themeCssColor(pHue, 90, 75, pAlpha);
-          applyGlow(ctx.fillStyle, 8);
+          applyGlow(ctx, ctx.fillStyle, 8, state.glowIntensity);
           ctx.beginPath();
           ctx.arc(px, py, p.size * (1 + beatPulse * 0.4), 0, Math.PI * 2);
           ctx.fill();
@@ -272,7 +275,12 @@
           1.2,
           2.8 * (1 - swFrac) * (1 + sw.intensity * 0.5)
         );
-        applyGlow(ctx.strokeStyle, 10 * (1 - swFrac) * sw.intensity);
+        applyGlow(
+          ctx,
+          ctx.strokeStyle,
+          10 * (1 - swFrac) * sw.intensity,
+          state.glowIntensity
+        );
         ctx.stroke();
       }
       ctx.restore();
@@ -326,10 +334,12 @@
       ctx.strokeStyle = cascadeRingStyle(0.95, 65);
       ctx.lineWidth = 3.6 + beatPulse * 1.4;
       applyGlow(
+        ctx,
         THEMES[state.theme].rainbow
           ? "rgba(255, 255, 255, 0.7)"
           : ctx.strokeStyle,
-        14 + beatPulse * 10
+        14 + beatPulse * 10,
+        state.glowIntensity
       );
       ctx.stroke();
 
@@ -343,7 +353,7 @@
       traceContour(2.2);
       ctx.strokeStyle = "rgba(255, 255, 255, 0.98)";
       ctx.lineWidth = 2.0;
-      applyGlow("rgba(255, 255, 255, 0.85)", 6);
+      applyGlow(ctx, "rgba(255, 255, 255, 0.85)", 6, state.glowIntensity);
       ctx.stroke();
 
       // Layer D: Inner Neon Line
@@ -353,10 +363,12 @@
         : themeCssColor(accentHue, 100, 70, 0.9);
       ctx.lineWidth = 2.6 + beatPulse * 1.0;
       applyGlow(
+        ctx,
         THEMES[state.theme].rainbow
           ? "rgba(255, 255, 255, 0.7)"
           : ctx.strokeStyle,
-        8
+        8,
+        state.glowIntensity
       );
       ctx.stroke();
       ctx.restore();
@@ -377,7 +389,7 @@
           85,
           peakAlpha * 0.9
         );
-        applyGlow(ctx.fillStyle, 6);
+        applyGlow(ctx, ctx.fillStyle, 6, state.glowIntensity);
         ctx.beginPath();
         ctx.arc(px, py, 2.0 + beatPulse * 1.0, 0, Math.PI * 2);
         ctx.fill();
@@ -393,7 +405,7 @@
       ctx.fill();
       ctx.strokeStyle = themeCssColor(themeHue, 90, 65, 0.85);
       ctx.lineWidth = 2.8 + beatPulse * 1.8;
-      applyGlow(ctx.strokeStyle, 12 + beatPulse * 8);
+      applyGlow(ctx, ctx.strokeStyle, 12 + beatPulse * 8, state.glowIntensity);
       ctx.stroke();
 
       // Render centered logo / icon inside circular clip
@@ -494,25 +506,8 @@
       cascadeParticles,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateCascade(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawCascade(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update: updateCascade,
+      draw: drawCascade,
       reset() {
         random.setState(initialRandomState);
         services.restore(cascadeLiveBands, initial.cascadeLiveBands);

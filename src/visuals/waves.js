@@ -7,18 +7,8 @@
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
     const random = services.createRandom();
-    let signals, ctx, state, canvas, beatPulse;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
 
-      beatPulse = frame.beat.pulse;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     // ---------- Liquid Waves mode (True Spectral Fluid Dynamics) ----------
     const WAVES_LAYERS = 4;
     const WAVES_POINTS = 80;
@@ -41,7 +31,11 @@
       vx: 0,
     }));
 
-    function drawWaves(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawWaves(ctx, frame) {
+      const state = frame.settings;
+      const canvas = frame;
+      const beatPulse = frame.beat.pulse;
+
       // Smooth interpolation helper for spectral energy across normalized position u [0, 1]
       function getSpectralEnergy(u) {
         const pos = Math.max(
@@ -182,7 +176,12 @@
 
         ctx.strokeStyle = themeCssColor(layerHue, 95, 72, 1);
         ctx.lineWidth = 1.8 + l * 0.4 + punchBass * 1.6 + beatPulse * 1.2;
-        applyGlow(ctx.strokeStyle, 12 + punchBass * 12);
+        applyGlow(
+          ctx,
+          ctx.strokeStyle,
+          12 + punchBass * 12,
+          state.glowIntensity
+        );
         ctx.stroke();
 
         // 4. Dynamic Crest Foam (Pronounced threshold on surges & beat hits)
@@ -236,7 +235,12 @@
           sp.airborne ? 92 : 82,
           sporeAlpha
         );
-        applyGlow(ctx.fillStyle, sp.airborne ? 16 : 8);
+        applyGlow(
+          ctx,
+          ctx.fillStyle,
+          sp.airborne ? 16 : 8,
+          state.glowIntensity
+        );
         ctx.beginPath();
         ctx.arc(
           sporeX,
@@ -252,7 +256,12 @@
       ctx.shadowBlur = 0;
     }
 
-    function updateWaves(bassLevel, midLevel, trebleLevel, dtSec) {
+    function updateWaves(frame) {
+      const dtSec = frame.dtSec;
+      const canvas = frame;
+      const signals = frame.signals;
+      const beatPulse = frame.beat.pulse;
+
       // 1. Smooth 16 musical frequency bands (from 35 Hz sub-bass to 16 kHz brilliance)
       // This eliminates high-frequency FFT pixel noise while capturing every musical nuance
       // Visual exception: broaden the fluid surface/curtain envelope after processing.
@@ -307,25 +316,8 @@
       wavesSpores,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateWaves(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawWaves(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update: updateWaves,
+      draw: drawWaves,
       reset() {
         random.setState(initialRandomState);
         services.restore(wavesEnvelope, initial.wavesEnvelope);

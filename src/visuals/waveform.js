@@ -7,20 +7,20 @@
     const { THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas, waveformSamples, bufferLength, beatPulse;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
-      waveformSamples = signals.waveform;
-      bufferLength = signals.waveform.length;
-      beatPulse = frame.beat.pulse;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
-    function drawWaveform(bassLevel, midLevel, trebleLevel) {
+
+    const { applyGlow } = services;
+    function drawWaveform(ctx, frame) {
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const state = frame.settings;
+      const canvas = frame;
+      const waveformSamples = frame.signals.waveform;
+      const bufferLength = frame.signals.waveform.length;
+      const beatPulse = frame.beat.pulse;
+
       const midY = canvas.height / 2;
       ctx.lineWidth = 2.5 + midLevel * 1.5 + trebleLevel + beatPulse * 3;
       ctx.lineJoin = "round";
@@ -58,7 +58,12 @@
         ctx.shadowBlur = 0;
         ctx.shadowColor = "transparent";
       } else {
-        applyGlow(themeCssColor(currentHue(0.5), 90, 60, 1), 16);
+        applyGlow(
+          ctx,
+          themeCssColor(currentHue(0.5), 90, 60, 1),
+          16,
+          state.glowIntensity
+        );
       }
 
       const slice = canvas.width / bufferLength;
@@ -103,19 +108,8 @@
     }
 
     return {
-      update(frame) {
-        bind(frame);
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawWaveform(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update() {},
+      draw: drawWaveform,
       reset() {},
     };
   }

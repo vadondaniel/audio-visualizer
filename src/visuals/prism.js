@@ -16,25 +16,19 @@
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
-      prismSpectrum = signals.bands;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
-    // Radial bands join their neighboring peaks on both sides of the circle.
 
-    let prismSpectrum;
+    const { applyGlow } = services;
+    // Radial bands join their neighboring peaks on both sides of the circle.
 
     const prismOuter = new Float64Array(PRISM_BANDS * 2);
     const prismInner = new Float64Array(PRISM_BANDS * 2);
 
-    function drawPrism(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawPrism(ctx, frame) {
+      const bassLevel = frame.signals.levels.bass;
+      const state = frame.settings;
+      const canvas = frame;
+      const prismSpectrum = frame.signals.bands;
+
       const size = Math.min(canvas.width, canvas.height);
       const radius =
         size * VISUAL_TUNING.prism.radiusFrac * (1 + bassLevel * 0.035);
@@ -74,7 +68,12 @@
         ctx.moveTo(iX, iY);
         ctx.lineTo(prismInner[next * 2], prismInner[next * 2 + 1]);
         ctx.strokeStyle = themeCssColor(hue, 95, 70, 0.4 + level * 0.6);
-        applyGlow(themeCssColor(hue, 95, 65, 1), 8 + level * 7);
+        applyGlow(
+          ctx,
+          themeCssColor(hue, 95, 65, 1),
+          8 + level * 7,
+          state.glowIntensity
+        );
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(iX, iY);
@@ -112,19 +111,8 @@
 
     const initial = structuredClone({ prismOuter, prismInner });
     return {
-      update(frame) {
-        bind(frame);
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawPrism(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update() {},
+      draw: drawPrism,
       reset() {
         services.restore(prismOuter, initial.prismOuter);
         services.restore(prismInner, initial.prismInner);

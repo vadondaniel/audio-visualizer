@@ -7,18 +7,8 @@
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
     const random = services.createRandom();
-    let signals, ctx, state, canvas, beatPulse;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
 
-      beatPulse = frame.beat.pulse;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     // ---------- Aurora Borealis mode (Celestial Audiorange Curtains) ----------
     const AURORA_BANDS = 24;
     const auroraEnvelope = new Array(AURORA_BANDS).fill(0);
@@ -47,7 +37,12 @@
       maxLife: 2.2 + random() * 3.2,
     }));
 
-    function drawAurora(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawAurora(ctx, frame) {
+      const trebleLevel = frame.signals.levels.treble;
+      const state = frame.settings;
+      const canvas = frame;
+      const beatPulse = frame.beat.pulse;
+
       const W = canvas.width;
       const H = canvas.height;
 
@@ -281,8 +276,10 @@
             ctx.lineWidth =
               1.4 + (c === 2 ? 1.6 : 0.6) + intensity * 1.2 + beatPulse * 1.2;
             applyGlow(
+              ctx,
               themeCssColor(baseCurtainHue, 100, 75, edgeAlpha),
-              10 + intensity * 14 + c * 4
+              10 + intensity * 14 + c * 4,
+              state.glowIntensity
             );
             ctx.stroke();
           }
@@ -330,7 +327,11 @@
       ctx.fillRect(0, H * 0.75, W, H * 0.25);
     }
 
-    function updateAurora(bassLevel, midLevel, trebleLevel, dtSec) {
+    function updateAurora(frame) {
+      const bassLevel = frame.signals.levels.bass;
+      const dtSec = frame.dtSec;
+      const signals = frame.signals;
+
       // 1. Smooth 24 audiorange frequency bands (from sub-bass ~30Hz to brilliance ~15kHz)
       // This maps the entire audio spectrum continuously across the visualizer width
       // Visual exception: broaden the fluid surface/curtain envelope after processing.
@@ -365,25 +366,8 @@
       auroraSparks,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateAurora(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawAurora(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update: updateAurora,
+      draw: drawAurora,
       reset() {
         random.setState(initialRandomState);
         services.restore(auroraEnvelope, initial.auroraEnvelope);

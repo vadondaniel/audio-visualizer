@@ -14,20 +14,8 @@
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
     const random = services.createRandom();
-    let signals, ctx, state, canvas, beatPulse, beatJustHit, audioClockMs;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
 
-      beatPulse = frame.beat.pulse;
-      beatJustHit = frame.beat.justHit;
-      audioClockMs = frame.audioClockMs;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     const prepared = {};
     const particles = [];
     const bandSpawnAccum = [0, 0, 0];
@@ -59,7 +47,7 @@
       },
     };
 
-    function getParticleStyle() {
+    function getParticleStyle(state) {
       return PARTICLE_STYLES[state.particleStyle] || PARTICLE_STYLES.flow;
     }
 
@@ -102,8 +90,10 @@
       };
     }
 
-    function spawnBandParticle(band, energyRatio) {
-      const style = getParticleStyle();
+    function spawnBandParticle(frame, band, energyRatio) {
+      const state = frame.settings;
+      const canvas = frame;
+      const style = getParticleStyle(state);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       const angle = random() * Math.PI * 2;
@@ -146,8 +136,10 @@
       );
     }
 
-    function spawnBeatRing(bass, bassLevel) {
-      const style = getParticleStyle();
+    function spawnBeatRing(frame, bass, bassLevel) {
+      const state = frame.settings;
+      const canvas = frame;
+      const style = getParticleStyle(state);
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       const count = Math.max(8, Math.floor((bass / 4.2) * style.burst));
@@ -183,7 +175,15 @@
       }
     }
 
-    function drawParticleSpectrum(bassLevel, midLevel, trebleLevel, radius) {
+    function drawParticleSpectrum(ctx, frame, radius) {
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const state = frame.settings;
+      const canvas = frame;
+      const signals = frame.signals;
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       const dots = 110;
@@ -205,7 +205,8 @@
         const hue = currentHue(t + particlePhase * 0.006);
 
         ctx.fillStyle = themeCssColor(hue, 96, 72, Math.min(0.65, alpha));
-        if (r > 1.2) applyGlow(ctx.fillStyle, 4 + v * 5);
+        if (r > 1.2)
+          applyGlow(ctx, ctx.fillStyle, 4 + v * 5, state.glowIntensity);
         ctx.beginPath();
         ctx.arc(x, y, r, 0, Math.PI * 2);
         ctx.fill();
@@ -215,7 +216,10 @@
       ctx.restore();
     }
 
-    function drawParticleCore(bassLevel, midLevel, trebleLevel, energy) {
+    function drawParticleCore(ctx, frame, midLevel, energy) {
+      const state = frame.settings;
+      const canvas = frame;
+      const beatPulse = frame.beat.pulse;
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
       const minDim = Math.min(canvas.width, canvas.height);
@@ -250,7 +254,7 @@
           0.16 + energy * 0.14 - ring * 0.035
         );
         ctx.lineWidth = 1.1 + beatPulse * (1.3 - ring * 0.25);
-        applyGlow(ctx.strokeStyle, 7 + beatPulse * 5);
+        applyGlow(ctx, ctx.strokeStyle, 7 + beatPulse * 5, state.glowIntensity);
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
@@ -292,17 +296,25 @@
     const PARTICLE_HUE_BINS = 12;
     const PARTICLE_ALPHA_BINS = 4;
 
-    function beginParticleBatch() {
+    function beginParticleBatch(ctx) {
       ctx.beginPath();
     }
 
-    function updateParticles(
-      bass,
-      bassLevel,
-      midLevel,
-      trebleLevel,
-      elapsedMs
-    ) {
+    function updateParticles(frame) {
+      const bass = frame.signals.features.rawBass;
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const elapsedMs = frame.elapsedMs;
+      const state = frame.settings;
+      const canvas = frame;
+      const signals = frame.signals;
+      const beatPulse = frame.beat.pulse;
+      const beatJustHit = frame.beat.justHit;
+      const audioClockMs = frame.audioClockMs;
+
       const dt = elapsedMs / FRAME_MS;
 
       const rawEnergy = bassLevel * 0.48 + midLevel * 0.3 + trebleLevel * 0.22;
@@ -374,17 +386,17 @@
           (0.82 + contrast * 0.26);
         bandSpawnAccum[b] += rate * (dt / 60);
         while (bandSpawnAccum[b] >= 1) {
-          spawnBandParticle(PARTICLE_BANDS[b], levels[b]);
+          spawnBandParticle(frame, PARTICLE_BANDS[b], levels[b]);
           bandSpawnAccum[b] -= 1;
         }
       }
 
       if (beatJustHit) {
-        spawnBeatRing(bass, bassLevel);
+        spawnBeatRing(frame, bass, bassLevel);
       }
 
       const decayScale = 1.55 - energyTrend * 0.9;
-      const style = getParticleStyle();
+      const style = getParticleStyle(state);
       const speedScale =
         (0.24 + energyNow * 2.45 + dimensionalBass * 0.52 + transient * 0.48) *
         style.speed;
@@ -554,7 +566,13 @@
       prepared.transient = transient;
       prepared.contrast = contrast;
     }
-    function drawParticles(bass, bassLevel, midLevel, trebleLevel, elapsedMs) {
+    function drawParticles(ctx, frame) {
+      const midLevel = frame.signals.levels.mid;
+      const trebleLevel = frame.signals.levels.treble;
+      const state = frame.settings;
+      const beatPulse = frame.beat.pulse;
+      const canvas = frame;
+
       const {
         cx,
         cy,
@@ -587,7 +605,7 @@
 
       const coreRadius =
         minDim * (0.055 + energyNow * 0.032 + beatPulse * 0.045);
-      drawParticleSpectrum(bassLevel, midLevel, trebleLevel, coreRadius * 1.25);
+      drawParticleSpectrum(ctx, frame, coreRadius * 1.25);
 
       ctx.lineCap = "round";
       // Batched trails: 12 hue groups, one stroke per group. Only sufficiently large
@@ -595,7 +613,7 @@
       // on subpixel streaks.
       const trailWidthScale = theme.rainbow ? 0.78 : 0.55;
       for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
-        beginParticleBatch();
+        beginParticleBatch(ctx);
         let hasPath = false;
         for (let i = 0; i < rr.count; i++) {
           if (rr.bin[i] !== hb || rr.r[i] <= 2.2) continue;
@@ -621,7 +639,7 @@
       for (let ab = 0; ab < PARTICLE_ALPHA_BINS; ab++) {
         const alpha = (ab + 0.5) / PARTICLE_ALPHA_BINS;
         for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
-          beginParticleBatch();
+          beginParticleBatch(ctx);
           let hasPath = false;
           for (let i = 0; i < rr.count; i++) {
             if (rr.bin[i] !== hb || rr.alphaBin[i] !== ab) continue;
@@ -647,7 +665,7 @@
       // Glow is now a separate, coarse-grained pass. The shadow state changes only once
       // per hue bucket, and only large luminous particles participate.
       for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
-        beginParticleBatch();
+        beginParticleBatch(ctx);
         let maxR = 0;
         let hasGlow = false;
         for (let i = 0; i < rr.count; i++) {
@@ -672,7 +690,7 @@
       // Retain the strongest highlights, but only for genuinely large particles.
       if (theme.rainbow) {
         for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
-          beginParticleBatch();
+          beginParticleBatch(ctx);
           let hasPath = false;
           for (let i = 0; i < rr.count; i++) {
             const r = rr.r[i];
@@ -693,9 +711,9 @@
       }
 
       drawParticleCore(
-        Math.min(1, bassLevel * 0.7 + dimensionalBass * 0.5),
+        ctx,
+        frame,
         Math.min(1, midLevel * 0.65 + dimensionalMid * 0.55),
-        Math.min(1, trebleLevel * 0.62 + dimensionalTreble * 0.52),
         Math.min(1, energyNow * 0.72 + transient * 0.2 + contrast * 0.08)
       );
       ctx.globalCompositeOperation = "source-over";
@@ -713,27 +731,8 @@
       particleRender,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateParticles(
-          frame.signals.features.rawBass,
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.elapsedMs
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawParticles(
-          frame.signals.features.rawBass,
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.elapsedMs
-        );
-      },
+      update: updateParticles,
+      draw: drawParticles,
       reset() {
         random.setState(initialRandomState);
         services.restore(particles, initial.particles);

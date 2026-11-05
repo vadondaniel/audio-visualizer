@@ -5,6 +5,10 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRuntime = api;
 })(globalThis, function () {
+  function applyGlow(ctx, color, blur, intensity) {
+    ctx.shadowBlur = blur * intensity;
+    ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
+  }
   function createRandom(seed) {
     let state = seed >>> 0 || 1;
     const random = () => {
@@ -106,5 +110,11 @@
       },
     };
   }
-  return { restore, createRandom, createFloatSpectrumReader, createController };
+  return {
+    applyGlow,
+    restore,
+    createRandom,
+    createFloatSpectrumReader,
+    createController,
+  };
 });

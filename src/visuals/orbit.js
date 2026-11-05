@@ -53,24 +53,13 @@
     const { VISUAL_TUNING, THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas, beatPulse;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
-      orbitSpectrum = signals.bands;
 
-      beatPulse = frame.beat.pulse;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     // One spectrum quarter reflected across both local axes. The entire assembly
     // shares one rotation; audio pulls the rope inward and pushes bars outward.
     const ORBIT_BANDS = 40;
     const ORBIT_ROPE_POINTS = 192;
-    let orbitSpectrum;
+
     const orbitRope = new Float64Array(ORBIT_ROPE_POINTS * 2);
     const orbitDisplacement = new Float64Array(ORBIT_BANDS + 1);
     const orbitVelocity = new Float64Array(ORBIT_BANDS + 1);
@@ -88,7 +77,7 @@
       );
     }
 
-    function orbitSmoothedBand(index, spread) {
+    function orbitSmoothedBand(index, spread, orbitSpectrum) {
       let sum = 0;
       for (let offset = -spread; offset <= spread; offset++)
         sum +=
@@ -97,17 +86,23 @@
       return sum / ((spread + 1) * (spread + 1));
     }
 
-    function orbitEnvelope(position, spread = 2) {
+    function orbitEnvelope(position, orbitSpectrum, spread = 2) {
       const at = position * ORBIT_BANDS;
       const index = Math.floor(at);
       const fraction = at - index;
       return (
-        orbitSmoothedBand(index, spread) * (1 - fraction) +
-        orbitSmoothedBand(index + 1, spread) * fraction
+        orbitSmoothedBand(index, spread, orbitSpectrum) * (1 - fraction) +
+        orbitSmoothedBand(index + 1, spread, orbitSpectrum) * fraction
       );
     }
 
-    function drawOrbit(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawOrbit(ctx, frame) {
+      const bassLevel = frame.signals.levels.bass;
+      const state = frame.settings;
+      const canvas = frame;
+      const beatPulse = frame.beat.pulse;
+      const orbitSpectrum = frame.signals.bands;
+
       const tuning = VISUAL_TUNING.orbit;
       const size = Math.min(canvas.width, canvas.height);
       const radius =
@@ -124,10 +119,13 @@
       for (let i = 0; i < barCount; i++) {
         const angle = ((i + 0.5) * Math.PI * 2) / barCount;
         const position = orbitMirrorPosition(angle);
-        const length = orbitOuterLength(radius, orbitEnvelope(position));
+        const length = orbitOuterLength(
+          radius,
+          orbitEnvelope(position, orbitSpectrum)
+        );
         const inner = radius + gap;
         ctx.strokeStyle = themeCssColor(currentHue(position), 90, 60, 1);
-        applyGlow(ctx.strokeStyle, 2.5);
+        applyGlow(ctx, ctx.strokeStyle, 2.5, state.glowIntensity);
         ctx.beginPath();
         ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
         ctx.lineTo(
@@ -191,12 +189,20 @@
       ctx.strokeStyle = gradient;
       ctx.lineWidth = Math.max(2.5, size * 0.006);
       ctx.lineJoin = "round";
-      applyGlow(themeCssColor(currentHue(0.5), 90, 65, 1), 12);
+      applyGlow(
+        ctx,
+        themeCssColor(currentHue(0.5), 90, 65, 1),
+        12,
+        state.glowIntensity
+      );
       ctx.stroke();
       ctx.restore();
     }
 
-    function updateOrbit(bassLevel, midLevel, trebleLevel, dtSec) {
+    function updateOrbit(frame) {
+      const dtSec = frame.dtSec;
+      const orbitSpectrum = frame.signals.bands;
+
       const tuning = VISUAL_TUNING.orbit;
 
       advanceOrbitRope(
@@ -218,25 +224,8 @@
       orbitRotation,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateOrbit(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawOrbit(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update: updateOrbit,
+      draw: drawOrbit,
       reset() {
         services.restore(orbitRope, initial.orbitRope);
         services.restore(orbitDisplacement, initial.orbitDisplacement);

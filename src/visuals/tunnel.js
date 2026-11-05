@@ -6,19 +6,8 @@
   function createMode(services) {
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    let signals, ctx, state, canvas, beatPulse, timestampMs;
-    function bind(frame) {
-      state = frame.settings;
-      canvas = frame;
-      signals = frame.signals;
 
-      beatPulse = frame.beat.pulse;
-      timestampMs = frame.timestampMs;
-    }
-    function applyGlow(color, blur) {
-      ctx.shadowBlur = blur * state.glowIntensity;
-      ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
-    }
+    const { applyGlow } = services;
     const prepared = {};
     // ---------- Cyber Tunnel mode (spatial, audio-dimensional tunnel) ----------
     let tunnelMotionBassPrev = 0,
@@ -54,7 +43,18 @@
       return ring * TUNNEL_SEGMENTS + seg;
     }
 
-    function updateTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
+    function updateTunnel(frame) {
+      const {
+        bass: bassLevel,
+        mid: midLevel,
+        treble: trebleLevel,
+      } = frame.signals.levels;
+      const dtSec = frame.dtSec;
+      const canvas = frame;
+      const signals = frame.signals;
+      const beatPulse = frame.beat.pulse;
+      const timestampMs = frame.timestampMs;
+
       const time = timestampMs * 0.001;
 
       const bass = bassLevel;
@@ -295,7 +295,9 @@
       prepared.mids = mids;
       prepared.bass = bass;
     }
-    function drawTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
+    function drawTunnel(ctx, frame) {
+      const state = frame.settings;
+
       const {
         dormantMids,
         activeMids,
@@ -485,7 +487,12 @@
           activeBass * 0.36 +
           peakBass * 0.6 +
           beatFront * (1.2 + drop);
-        applyGlow(ctx.strokeStyle, 1 + depth * 1.8 + treble * 1.25);
+        applyGlow(
+          ctx,
+          ctx.strokeStyle,
+          1 + depth * 1.8 + treble * 1.25,
+          state.glowIntensity
+        );
         ctx.stroke();
       }
       ctx.restore();
@@ -517,7 +524,12 @@
           alpha
         );
         ctx.lineWidth = 1.2 + tunnelPulse * 2.4 + bass * 1.2;
-        applyGlow(ctx.strokeStyle, 2 + tunnelPulse * 5);
+        applyGlow(
+          ctx,
+          ctx.strokeStyle,
+          2 + tunnelPulse * 5,
+          state.glowIntensity
+        );
         ctx.stroke();
         ctx.restore();
       }
@@ -552,7 +564,12 @@
           pulseAlpha
         );
         ctx.lineWidth = 3.2 + pulse.strength * 5.5 + bass * 2.2;
-        applyGlow(ctx.strokeStyle, 5 + pulse.strength * 9);
+        applyGlow(
+          ctx,
+          ctx.strokeStyle,
+          5 + pulse.strength * 9,
+          state.glowIntensity
+        );
         ctx.stroke();
 
         if (pulse.width > 0.045) {
@@ -596,25 +613,8 @@
       tunnelDepthEnergy,
     });
     return {
-      update(frame) {
-        bind(frame);
-        updateTunnel(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
-      draw(context, frame) {
-        ctx = context;
-        bind(frame);
-        drawTunnel(
-          frame.signals.levels.bass,
-          frame.signals.levels.mid,
-          frame.signals.levels.treble,
-          frame.dtSec
-        );
-      },
+      update: updateTunnel,
+      draw: drawTunnel,
       reset() {
         tunnelMotionBassPrev = 0;
         tunnelMotionTreblePrev = 0;
