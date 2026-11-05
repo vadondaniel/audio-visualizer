@@ -7,6 +7,7 @@ const {
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
+require("../scripts/verification-paths.cjs").configureProfile(app);
 const projectRoot = path.resolve(__dirname, "..");
 
 const args = new Map();

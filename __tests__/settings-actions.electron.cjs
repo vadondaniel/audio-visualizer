@@ -1,28 +1,20 @@
-// Run with: npx electron __tests__/settings-actions.electron.cjs
-const { app, BrowserWindow, ipcMain } = require("electron");
-const path = require("node:path");
-app.whenReady().then(async () => {
-  const window = new BrowserWindow({
+const { runCheck } = require("./helpers/electron-harness.cjs");
+// Run with: npm run test:electron -- settings-actions
+
+runCheck(async ({ createWindow, loadRenderer, errors }) => {
+  const window = createWindow({
     show: false,
     width: 1280,
     height: 720,
     webPreferences: {
-      preload: path.join(__dirname, "../src/preload.js"),
-      additionalArguments: ["--app-packaged=true"],
       partition: "settings-actions-check",
-      sandbox: false,
+
       backgroundThrottling: false,
     },
   });
-  ipcMain.handle("get-performance-metrics", () => []);
-  const errors = [];
-  window.webContents.on("console-message", (event) => {
-    if (event.level === "error") errors.push(event.message);
-  });
-  try {
-    await window.loadFile(path.join(__dirname, "../src/index.html"));
-    await window.webContents.executeJavaScript("window.rendererReady");
-    await window.webContents.executeJavaScript(`(async()=>{
+
+  await loadRenderer(window);
+  await window.webContents.executeJavaScript(`(async()=>{
       const check=(condition,message)=>{if(!condition)throw Error(message);};
       let writes=0,mediaRefreshes=0;
       const originalSave=Storage.prototype.setItem,originalMedia=updateMediaLayout;
@@ -89,21 +81,14 @@ app.whenReady().then(async () => {
         Storage.prototype.setItem=originalSave;updateMediaLayout=originalMedia;settingsActions.dispose();
       }
     })()`);
-    for (const width of [1280, 360]) {
-      window.setContentSize(width, 720);
-      await window.webContents.executeJavaScript(
-        `(()=>{settingsActions.selectMode('radial');settingsActions.setMediaPosition('radial','above');if(mediaOverlay.dataset.mediaLayout!=='focus'||mediaTextPositionSelect.value!=='above')throw Error('Focus layout');settingsActions.selectMode('orbit');settingsActions.setMediaPosition('orbit','bottom-right');if(mediaOverlay.dataset.mediaLayout!=='free'||mediaTextPositionSelect.value!=='bottom-right')throw Error('Free layout');})()`
-      );
-    }
-    if (errors.length) throw Error(errors.join("\n"));
-    console.log(
-      "PASS: settings controls, shortcut parity, single-save/media effects, legacy restoration, image input/clear, persistence, and desktop/narrow media positions"
+  for (const width of [1280, 360]) {
+    window.setContentSize(width, 720);
+    await window.webContents.executeJavaScript(
+      `(()=>{settingsActions.selectMode('radial');settingsActions.setMediaPosition('radial','above');if(mediaOverlay.dataset.mediaLayout!=='focus'||mediaTextPositionSelect.value!=='above')throw Error('Focus layout');settingsActions.selectMode('orbit');settingsActions.setMediaPosition('orbit','bottom-right');if(mediaOverlay.dataset.mediaLayout!=='free'||mediaTextPositionSelect.value!=='bottom-right')throw Error('Free layout');})()`
     );
-    window.destroy();
-    app.exit(0);
-  } catch (error) {
-    console.error(error);
-    window.destroy();
-    app.exit(1);
   }
+  if (errors.length) throw Error(errors.join("\n"));
+  console.log(
+    "PASS: settings controls, shortcut parity, single-save/media effects, legacy restoration, image input/clear, persistence, and desktop/narrow media positions"
+  );
 });

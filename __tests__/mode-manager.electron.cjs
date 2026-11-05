@@ -1,35 +1,27 @@
-// Run with: npx electron __tests__/mode-manager.electron.cjs
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { runCheck } = require("./helpers/electron-harness.cjs");
+// Run with: npm run test:electron -- mode-manager
+
 const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
-const IPC = require("../src/ipc-channels");
 
-app.whenReady().then(async () => {
-  let failed = false;
-  const window = new BrowserWindow({
-    show: false,
-    width: 1280,
-    height: 720,
-    webPreferences: {
-      preload: path.join(__dirname, "../src/preload.js"),
-      additionalArguments: ["--app-packaged=true"],
-      partition: "mode-manager-check",
-      sandbox: false,
-    },
-  });
-  ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
-  window.webContents.on("console-message", (event) => {
-    if (event.level === "error") console.error(event.message);
-  });
-  try {
-    await window.loadFile(path.join(__dirname, "../src/index.html"));
-    await window.webContents.executeJavaScript("window.rendererReady");
+runCheck(
+  async ({ createWindow, loadRenderer, reloadRenderer, artifactDir }) => {
+    const window = createWindow({
+      show: false,
+      width: 1280,
+      height: 720,
+      webPreferences: {
+        partition: "mode-manager-check",
+      },
+    });
+
+    await loadRenderer(window);
     await window.webContents.executeJavaScript(
       'startOverlay.style.display = "none"; settingsBtn.click();'
     );
-    const dir = path.join(__dirname, "../dist/ui-check");
-    fs.mkdirSync(dir, { recursive: true });
+    const dir = artifactDir;
+
     if (process.argv.includes("--baseline")) {
       await new Promise((resolve) => setTimeout(resolve, 250));
       fs.writeFileSync(
@@ -104,11 +96,7 @@ app.whenReady().then(async () => {
         return { order: state.modeOrder, disabled: state.disabledModes, mode: state.mode };
       })()`);
       assert.equal(result.order[0], "cascade");
-      await window.reload();
-      await new Promise((resolve) =>
-        window.webContents.once("did-finish-load", resolve)
-      );
-      await window.webContents.executeJavaScript("window.rendererReady");
+      await reloadRenderer(window);
       const restored = await window.webContents.executeJavaScript(
         `({order:state.modeOrder,disabled:state.disabledModes,mode:state.mode, options:[...modeSelect.options].map(o=>o.textContent)})`
       );
@@ -243,11 +231,5 @@ app.whenReady().then(async () => {
         if (modeManager.open) throw Error("Backdrop closes the dialog");
       })()`);
     }
-  } catch (error) {
-    console.error(error);
-    failed = true;
-  } finally {
-    window.destroy();
-    app.exit(failed ? 1 : 0);
   }
-});
+);

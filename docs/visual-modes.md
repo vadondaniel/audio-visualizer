@@ -113,4 +113,6 @@ fingerprints captured from the pre-pipeline implementations. The tests therefore
 check geometry independently of intentional audio changes. The older
 `mode-render-baseline.json` remains a historical raw-input reference; neither
 fixture should be regenerated to conceal an unexplained rendering change.
-No music files are test fixtures.
+No music files are test fixtures. See [fixture provenance](rendering-fixtures.md)
+for their source commits and deterministic setup, and [verification commands](verification.md)
+for focused tests, Electron checks, and bounded benchmarks.

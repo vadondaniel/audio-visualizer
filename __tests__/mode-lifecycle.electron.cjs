@@ -1,29 +1,20 @@
-// Run with: npx electron __tests__/mode-lifecycle.electron.cjs
-const { app, BrowserWindow, ipcMain } = require("electron");
-const path = require("node:path");
-app.whenReady().then(async () => {
-  const window = new BrowserWindow({
+const { runCheck } = require("./helpers/electron-harness.cjs");
+// Run with: npm run test:electron -- mode-lifecycle
+
+runCheck(async ({ createWindow, loadRenderer, errors }) => {
+  const window = createWindow({
     show: false,
     width: 1000,
     height: 800,
     webPreferences: {
-      preload: path.join(__dirname, "../src/preload.js"),
-      additionalArguments: ["--app-packaged=true"],
       partition: "mode-lifecycle-check",
-      sandbox: false,
+
       backgroundThrottling: false,
     },
   });
-  ipcMain.handle("get-performance-metrics", () => []);
-  let failed = false;
-  const errors = [];
-  window.webContents.on("console-message", (e) => {
-    if (e.level === "error") errors.push(e.message);
-  });
-  try {
-    await window.loadFile(path.join(__dirname, "../src/index.html"));
-    await window.webContents.executeJavaScript("window.rendererReady");
-    await window.webContents.executeJavaScript(`(async () => {
+
+  await loadRenderer(window);
+  await window.webContents.executeJavaScript(`(async () => {
       const check=(value,message)=>{if(!value)throw Error(message);};
       state.trailsEnabled=false;state.mediaMetadataEnabled=false;
       const installInput=()=>{
@@ -65,15 +56,8 @@ app.whenReady().then(async () => {
       check(prepareVisualFrame(1000,16,0,0,0,0).mediaArt===null,"Disabled metadata excludes cover");
       cleanupAudioCapture();
     })()`);
-    if (errors.length) throw Error(errors.join("\n"));
-    console.log(
-      "PASS: mode switching, settings, resize, capture reset, beat ownership, and media-art routing"
-    );
-  } catch (error) {
-    console.error(error);
-    failed = true;
-  } finally {
-    window.destroy();
-    app.exit(failed ? 1 : 0);
-  }
+  if (errors.length) throw Error(errors.join("\n"));
+  console.log(
+    "PASS: mode switching, settings, resize, capture reset, beat ownership, and media-art routing"
+  );
 });

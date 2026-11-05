@@ -1,25 +1,24 @@
-// Run with: npx electron __tests__/mode-registry.electron.cjs
-const { app, BrowserWindow, ipcMain, net } = require("electron");
+const { runCheck } = require("./helpers/electron-harness.cjs");
+// Run with: npm run test:electron -- mode-registry
+const { net } = require("electron");
 const fs = require("node:fs"),
   path = require("node:path"),
   assert = require("node:assert/strict");
 const { fileURLToPath } = require("node:url");
-app.whenReady().then(async () => {
-  const window = new BrowserWindow({
+runCheck(async ({ createWindow, loadRenderer, expectRendererErrors }) => {
+  const window = createWindow({
+    packaged: false,
     show: false,
     width: 1280,
     height: 720,
     webPreferences: {
-      preload: path.join(__dirname, "../src/preload.js"),
-      additionalArguments: ["--app-packaged=false"],
       partition: "registry-integration",
-      sandbox: false,
+
       backgroundThrottling: false,
     },
   });
-  ipcMain.handle("get-performance-metrics", () => []);
-  let failure = null,
-    failed = false;
+
+  let failure = null;
   const registryPath = path.resolve(__dirname, "../src/mode-registry.js");
   const syntheticPath = path.resolve(__dirname, "../src/visuals/test-mode.js");
   window.webContents.session.protocol.handle("file", async (request) => {
@@ -55,9 +54,9 @@ app.whenReady().then(async () => {
     }
     return net.fetch(request.url, { bypassCustomProtocolHandlers: true });
   });
+
   try {
-    await window.loadFile(path.join(__dirname, "../src/index.html"));
-    await window.webContents.executeJavaScript("window.rendererReady");
+    await loadRenderer(window);
     const result = await window.webContents.executeJavaScript(`(()=>{
     const check=(value,message)=>{if(!value)throw Error(message);};
     check(!startBtn.disabled,'Start becomes enabled after readiness');
@@ -90,28 +89,29 @@ app.whenReady().then(async () => {
     assert.equal(benchmark.results[0].mode, "test-mode");
     for (const kind of ["missing", "unregistered", "runtime"]) {
       failure = kind;
-      await window.loadFile(path.join(__dirname, "../src/index.html"));
-      const error = await window.webContents.executeJavaScript(
-        "window.rendererReady.then(()=>null,error=>error.message)"
+      await expectRendererErrors(
+        window,
+        /Could not load visuals\/test-mode\.js|Module did not register mode: test-mode|Synthetic runtime failure|Failed to load resource/,
+        async () => {
+          await loadRenderer(window, { waitForReady: false });
+          const error = await window.webContents.executeJavaScript(
+            "window.rendererReady.then(()=>null,error=>error.message)"
+          );
+          assert.ok(error, `Startup must reject ${kind}`);
+          const visible = await window.webContents.executeJavaScript(
+            `({disabled:document.getElementById('startBtn').disabled,error:getComputedStyle(document.getElementById('errorMsg')).display,message:document.getElementById('errorMsg').textContent,host:typeof visualModeController})`
+          );
+          assert.equal(visible.disabled, true);
+          assert.equal(visible.error, "block");
+          assert.match(visible.message, /Could not initialize/);
+          assert.equal(visible.host, "undefined");
+        }
       );
-      assert.ok(error, `Startup must reject ${kind}`);
-      const visible = await window.webContents.executeJavaScript(
-        `({disabled:document.getElementById('startBtn').disabled,error:getComputedStyle(document.getElementById('errorMsg')).display,message:document.getElementById('errorMsg').textContent,host:typeof visualModeController})`
-      );
-      assert.equal(visible.disabled, true);
-      assert.equal(visible.error, "block");
-      assert.match(visible.message, /Could not initialize/);
-      assert.equal(visible.host, "undefined");
     }
     console.log(
       "PASS: synthetic mode discovery, saved settings, selector/manager, media defaults, benchmark discovery, and visible startup failures"
     );
-  } catch (error) {
-    console.error(error);
-    failed = true;
   } finally {
     window.webContents.session.protocol.unhandle("file");
-    window.destroy();
-    app.exit(failed ? 1 : 0);
   }
 });

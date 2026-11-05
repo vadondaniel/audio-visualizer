@@ -7,6 +7,12 @@
     "start": "electron .",
     "dist": "electron-builder --win",
     "test": "jest",
+    "test:unit": "jest --runInBand",
+    "test:audio": "jest --runInBand --runTestsByPath __tests__/audio.test.js __tests__/audio-math.test.js __tests__/audio-pipeline.test.js __tests__/bass-sensitivity.test.js",
+    "test:visuals": "jest --runInBand --runTestsByPath __tests__/visual-modes.test.js __tests__/orbit.test.js __tests__/prism.test.js __tests__/trail-math.test.js __tests__/trail-rendering.test.js __tests__/mode-registry.test.js",
+    "test:settings": "jest --runInBand --runTestsByPath __tests__/settings-actions.test.js __tests__/mode-list.test.js __tests__/media.test.js __tests__/window-state.test.js",
+    "test:electron": "node scripts/verify.cjs electron",
+    "check": "npm run check:types && npm run test:unit",
     "check:types": "tsc --project tsconfig.visuals.json",
     "format": "npm run format:js && npm run format:cs && npm run format:ps1",
     "format:js": "prettier --write .",
@@ -15,7 +21,8 @@
     "format:check": "npm run format:check:js && npm run format:check:cs",
     "format:check:js": "prettier --check .",
     "format:check:cs": "dotnet format media-watcher/media-watcher.csproj --verify-no-changes",
-    "benchmark": "electron benchmarks/benchmark.js",
+    "benchmark": "node scripts/verify.cjs benchmark",
+    "benchmark:smoke": "node scripts/verify.cjs benchmark-smoke",
     "build:media-watcher": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\build-media-watcher.ps1"
   },
   "devDependencies": {

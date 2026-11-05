@@ -1,17 +1,10 @@
-// Run with: npx electron __tests__/single-instance.electron.cjs
+// Run with: npm run test:electron -- single-instance
+const { runCheck } = require("./helpers/electron-harness.cjs");
 const { app, BrowserWindow } = require("electron");
-const path = require("node:path");
-const fs = require("node:fs");
 const { spawn } = require("node:child_process");
 const assert = require("node:assert/strict");
 const { acquireSingleInstance } = require("../src/single-instance");
 
-const profile = path.join(
-  __dirname,
-  "../dist/ui-check/single-instance-profile"
-);
-fs.mkdirSync(profile, { recursive: true });
-app.setPath("userData", profile);
 const secondary = process.argv.includes("--secondary");
 let window;
 const calls = [];
@@ -28,9 +21,9 @@ if (!acquireSingleInstance(app, () => (window ? windowPolicy : undefined))) {
   console.error("Secondary unexpectedly acquired the lock");
   app.exit(1);
 } else {
-  app.whenReady().then(async () => {
-    let failed = false;
-    window = new BrowserWindow({
+  runCheck(async ({ createWindow }) => {
+    window = createWindow({
+      withRenderer: false,
       show: false,
       webPreferences: { partition: "single-instance-check" },
     });
@@ -78,13 +71,8 @@ if (!acquireSingleInstance(app, () => (window ? windowPolicy : undefined))) {
       console.log(
         "PASS: real second Electron process exits cleanly, activates primary, and creates no second window or cache errors"
       );
-    } catch (error) {
-      console.error(error);
-      failed = true;
     } finally {
       if (child && child.exitCode === null) child.kill();
-      window.destroy();
-      app.exit(failed ? 1 : 0);
     }
   });
 }
