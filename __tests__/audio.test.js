@@ -125,11 +125,12 @@ describe("initAudio", () => {
     await jest.advanceTimersByTimeAsync(800);
     expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
     expect(context.close).toHaveBeenCalledTimes(1);
+    expect(context.resume).toHaveBeenCalledTimes(2);
     jest.useRealTimers();
 
     context.state = "suspended";
     await expect(recoverAudioCapture()).resolves.toBeUndefined();
-    expect(context.resume).toHaveBeenCalledTimes(2);
+    expect(context.resume).toHaveBeenCalledTimes(3);
     expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
 
     let finishResume;
@@ -148,7 +149,7 @@ describe("initAudio", () => {
     finishResume();
     await expect(firstRecovery).resolves.toBeUndefined();
     await expect(secondRecovery).resolves.toBeUndefined();
-    expect(context.resume).toHaveBeenCalledTimes(3);
+    expect(context.resume).toHaveBeenCalledTimes(4);
     expect(navigator.mediaDevices.getDisplayMedia).toHaveBeenCalledTimes(2);
 
     const inactiveHandler = mediaStream.addEventListener.mock.calls.find(
