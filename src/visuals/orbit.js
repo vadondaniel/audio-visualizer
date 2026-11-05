@@ -1,8 +1,16 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("orbit", api.createMode);
 })(globalThis, function () {
+  /** @param {Float64Array} displacement
+   * @param {Float64Array} velocity
+   * @param {import('../visual-contracts').Samples} target
+   * @param {Float64Array} acceleration
+   * @param {number} dtSec */
   function advanceOrbitRope(
     displacement,
     velocity,
@@ -49,6 +57,10 @@
   function orbitOuterLength(radius, level) {
     return radius * (0.025 + Math.min(1, Math.max(0, level)) * 0.7);
   }
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const { VISUAL_TUNING, THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
@@ -77,6 +89,9 @@
       );
     }
 
+    /**
+     * @param {import("../visual-contracts").Samples} orbitSpectrum
+     */
     function orbitSmoothedBand(index, spread, orbitSpectrum) {
       let sum = 0;
       for (let offset = -spread; offset <= spread; offset++)
@@ -86,6 +101,9 @@
       return sum / ((spread + 1) * (spread + 1));
     }
 
+    /**
+     * @param {import("../visual-contracts").Samples} orbitSpectrum
+     */
     function orbitEnvelope(position, orbitSpectrum, spread = 2) {
       const at = position * ORBIT_BANDS;
       const index = Math.floor(at);
@@ -96,6 +114,10 @@
       );
     }
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawOrbit(ctx, frame) {
       const bassLevel = frame.signals.levels.bass;
       const state = frame.settings;
@@ -199,6 +221,9 @@
       ctx.restore();
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateOrbit(frame) {
       const dtSec = frame.dtSec;
       const orbitSpectrum = frame.signals.bands;

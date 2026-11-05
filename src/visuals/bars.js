@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("bars", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
@@ -10,6 +17,10 @@
 
     const { applyGlow } = services;
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawBars(ctx, frame) {
       const bassLevel = frame.signals.levels.bass;
       const midLevel = frame.signals.levels.mid;

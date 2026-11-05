@@ -1,5 +1,6 @@
 // Application adapter: owns the frame and resolves globals before calling modes.
 const visualSpectrumReader = ModeRuntime.createFloatSpectrumReader();
+/** @type {import('./visual-contracts').FrameStorage} */
 const visualFrame = {
   width: 0,
   height: 0,
@@ -14,7 +15,7 @@ const visualFrame = {
 };
 const visualModeController = ModeRuntime.createController(
   ModeRegistry.getFactories(),
-  {
+  /** @satisfies {import('./visual-contracts').HostServices} */ ({
     constants: {
       VISUAL_TUNING,
       THEMES,
@@ -36,10 +37,11 @@ const visualModeController = ModeRuntime.createController(
     consumeBeat() {
       beatJustHit = false;
     },
-  }
+  })
 );
 
 const audioPipeline = AudioPipeline.create();
+/** @type {Omit<import('./visual-contracts').PipelineInput,'frequencyBytes'|'timeBytes'> & {frequencyBytes:Uint8Array|null,timeBytes:Uint8Array|null}} */
 const visualAudioInput = {
   frequencyBytes: null,
   timeBytes: null,
@@ -47,6 +49,9 @@ const visualAudioInput = {
   readFloatSpectrum: visualSpectrumReader.read,
   beatPulse: 0,
 };
+/** @param {number} timestampMs
+ * @param {number} elapsedMs
+ * @returns {import('./visual-contracts').Frame} */
 function prepareVisualFrame(timestampMs, elapsedMs) {
   visualFrame.width = canvas.width;
   visualFrame.height = canvas.height;
@@ -59,7 +64,14 @@ function prepareVisualFrame(timestampMs, elapsedMs) {
   visualAudioInput.timeBytes = timeData;
   visualAudioInput.sampleRate = audioCtx?.sampleRate || 48000;
   visualAudioInput.beatPulse = beatPulse;
-  audioPipeline.update(visualAudioInput, state, visualFrame);
+  // Acquisition buffers have been installed by the active capture before rendering.
+  audioPipeline.update(
+    /** @type {import('./visual-contracts').PipelineInput} */ (
+      visualAudioInput
+    ),
+    state,
+    visualFrame
+  );
   visualFrame.signals = audioPipeline.forMode(MODES[state.mode]);
   visualFrame.beat.pulse = beatPulse;
   visualFrame.beat.justHit = beatJustHit;
@@ -75,7 +87,8 @@ function prepareVisualFrame(timestampMs, elapsedMs) {
     image.naturalHeight > 0
       ? image
       : null;
-  return visualFrame;
+  // Signals and media availability have now been resolved for this frame.
+  return /** @type {import('./visual-contracts').Frame} */ (visualFrame);
 }
 
 function resetVisualModes() {

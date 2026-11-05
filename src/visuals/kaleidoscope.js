@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("kaleidoscope", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const { KALEIDO_BARS, VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
@@ -14,6 +21,10 @@
 
     let kaleidoFlash = 0;
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawKaleidoscope(ctx, frame) {
       const bassLevel = frame.signals.levels.bass;
       const midLevel = frame.signals.levels.mid;
@@ -98,6 +109,9 @@
       ctx.shadowBlur = 0;
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateKaleidoscope(frame) {
       const dtSec = frame.dtSec;
       const state = frame.settings;

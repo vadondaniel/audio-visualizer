@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("cascade", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const { THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
@@ -11,11 +18,14 @@
     const random = services.createRandom();
 
     const { applyGlow } = services;
-    const prepared = {};
+    // Populated completely by update before draw; reset clears the same object.
+    const prepared =
+      /** @type {{cx:number,minDim:number,cy:number,energy:number,waveBaseR:number,W:number,H:number,discBaseR:number}} */ ({});
     // ---------- Cascade mode (Trap / NCS 180Â° Mirrored Intense Wave Visualizer) ----------
     const CASCADE_BARS = 128;
     const cascadeLiveBands = new Float32Array(CASCADE_BARS).fill(0);
     const cascadeSustainedPeaks = new Float32Array(CASCADE_BARS).fill(0);
+    /** @type {{offset:number,maxOffset:number,intensity:number,age:number,life:number}[]} */
     const cascadeDropRipples = [];
     let cascadeDropTime = 0;
     let cascadeDropImpulse = 0;
@@ -31,6 +41,9 @@
     }));
 
     const centerLogoImg = loadImage("icon.png");
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateCascade(frame) {
       const {
         bass: bassLevel,
@@ -171,6 +184,10 @@
       prepared.H = H;
       prepared.discBaseR = discBaseR;
     }
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawCascade(ctx, frame) {
       const state = frame.settings;
       const beatPulse = frame.beat.pulse;

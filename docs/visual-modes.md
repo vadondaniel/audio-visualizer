@@ -49,7 +49,8 @@ their own save/restore calls too. Draw requires an update after creation or rese
 The host reuses the frame object and its nested records. Treat them as read-only;
 do not retain their values as history without copying the data needed.
 
-- `width`, `height`: canvas pixels; `settings`: current application settings.
+- `width`, `height`: canvas pixels; `settings`: the read-only visual settings view.
+  Audio controls belong to the pipeline and are excluded from this view.
 - `timestampMs`: renderer timestamp; `elapsedMs`: clamped frame duration;
   `dtSec`: the same duration in seconds; `audioClockMs`: existing beat/history clock.
 - `signals`: finished, borrowed audio outputs from the [audio pipeline](audio-pipeline.md).
@@ -79,6 +80,33 @@ render buffers, not the current frame or canvas context.
 
 Keep geometry, animation, and visual physics in modes. Sampling, normalization,
 controls, and audio smoothing belong to the pipeline's named profiles.
+
+## Checked contracts
+
+Run `npm run check:types` for the focused, no-output JavaScript check. Shared
+JSDoc contracts live in `src/visual-contracts.js`, a type-only module which is not
+loaded by the renderer. It defines `Frame`, `Signals`, `Services`, lifecycle
+factories, pipeline inputs, settings, and registry metadata. Import these types
+in JSDoc when adding a factory or a helper that consumes frame/context inputs.
+
+`Frame` has finished signals and read-only nested inputs; sample buffers expose
+only indexed reads and length. These types express borrowed ownership, not runtime
+freezing or copies. The host's `FrameStorage` permits nullable signals during
+initialization/reset; `prepareVisualFrame` resolves them before returning a valid
+`Frame`. Mode services exclude the controller's host-only beat-consumption hook.
+
+The check covers every mode module, the registry, lifecycle runtime, audio
+pipeline, and referenced math utilities. Browser namespace declarations provide
+the script APIs without exposing legacy capture globals. The host adapter is
+annotated for editors, but broad checking of capture/UI/settings code is deferred.
+Null checking is enabled; implicit types remain permitted in unrelated helpers.
+Prepared render records rely on the existing update-before-draw lifecycle, and
+their initialization assertions are documented beside their reusable storage.
+
+`__tests__/types/visual-contracts.cjs` contains positive examples and expected
+compiler errors for invalid access, mutation, services, and lifecycle methods.
+It is compiled, never executed. Runtime and geometry tests remain necessary:
+types cannot verify signal ranges, simulation order, or buffer lifetimes.
 
 `mode-geometry-baseline.json` supplies synthetic finished signals and drawing
 fingerprints captured from the pre-pipeline implementations. The tests therefore

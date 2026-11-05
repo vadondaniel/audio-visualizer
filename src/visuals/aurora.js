@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("aurora", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
@@ -37,6 +44,10 @@
       maxLife: 2.2 + random() * 3.2,
     }));
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawAurora(ctx, frame) {
       const trebleLevel = frame.signals.levels.treble;
       const state = frame.settings;
@@ -327,6 +338,9 @@
       ctx.fillRect(0, H * 0.75, W, H * 0.25);
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateAurora(frame) {
       const bassLevel = frame.signals.levels.bass;
       const dtSec = frame.dtSec;

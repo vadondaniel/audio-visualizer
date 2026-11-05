@@ -1,10 +1,14 @@
 // Immutable mode metadata and explicit factory registration, shared by browser
 // startup, the audio pipeline, settings, benchmarks, and Node tests.
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry = api;
 })(globalThis, function () {
+  /** @type {ReadonlyArray<import('./visual-contracts').ModeDefinition>} */
   const DEFINITIONS = [
     {
       id: "bars",
@@ -139,9 +143,13 @@
       },
     },
   ];
+  /** @param {ReadonlyArray<import('./visual-contracts').ModeDefinition>} definitions
+   * @returns {import('./visual-contracts').Registry} */
   function createRegistry(definitions) {
-    const byId = new Map(),
-      factories = new Map();
+    /** @type {Map<string, import('./visual-contracts').ModeEntry>} */
+    const byId = new Map();
+    /** @type {Map<string, import('./visual-contracts').ModeFactory>} */
+    const factories = new Map();
     const entries = Object.freeze(
       definitions.map((definition, index) => {
         if (!/^[a-z][a-z0-9-]*$/.test(definition.id) || byId.has(definition.id))
@@ -181,7 +189,10 @@
     const audioProfiles = Object.freeze(
       Object.fromEntries(entries.map((entry) => [entry.id, entry.audio]))
     );
+    /** @type {Promise<void>|null} */
     let loading = null;
+    /** @param {string} id
+     * @param {import('./visual-contracts').ModeFactory} factory */
     function registerFactory(id, factory) {
       if (!byId.has(id)) throw Error(`Unknown visual mode: ${id}`);
       if (factories.has(id)) throw Error(`Duplicate mode factory: ${id}`);
@@ -199,17 +210,19 @@
         return mode;
       });
     }
+    /** @returns {Readonly<Record<string, import('./visual-contracts').ModeFactory>>} */
     function getFactories() {
       return Object.freeze(
         Object.fromEntries(
           entries.map((entry) => {
-            if (!factories.has(entry.id))
-              throw Error(`Missing mode factory: ${entry.id}`);
-            return [entry.id, factories.get(entry.id)];
+            const factory = factories.get(entry.id);
+            if (!factory) throw Error(`Missing mode factory: ${entry.id}`);
+            return [entry.id, factory];
           })
         )
       );
     }
+    /** @param {(src:string)=>Promise<void>} loadModule */
     function loadFactories(loadModule) {
       if (!loading)
         loading = (async () => {

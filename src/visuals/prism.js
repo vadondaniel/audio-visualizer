@@ -1,3 +1,6 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -12,6 +15,10 @@
     return radius * (1 - Math.min(1, Math.max(0, level)) * 0.88);
   }
 
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
@@ -23,6 +30,10 @@
     const prismOuter = new Float64Array(PRISM_BANDS * 2);
     const prismInner = new Float64Array(PRISM_BANDS * 2);
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawPrism(ctx, frame) {
       const bassLevel = frame.signals.levels.bass;
       const state = frame.settings;

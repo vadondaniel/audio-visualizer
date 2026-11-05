@@ -8,6 +8,9 @@
 //    renderer.js, so everything below ends up as `window.AudioMath`.
 //  - In tests: `require("./audio-math")` gets the same object via
 //    module.exports (Node has no `window`, so it falls back to that).
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} factory */
 (function (root, factory) {
   if (typeof module === "object" && module.exports) {
     module.exports = factory();
@@ -18,6 +21,9 @@
   // Averages a slice of a frequency-data array between two fractional
   // positions (0-1) along its length. Used to turn the raw FFT bins into a
   // single bass/mid/treble energy number.
+  /** @param {import('./visual-contracts').Samples} data
+   * @param {number} loFrac
+   * @param {number} hiFrac */
   function bandAverage(data, loFrac, hiFrac) {
     const lo = Math.floor(data.length * loFrac);
     const hi = Math.floor(data.length * hiFrac);
@@ -28,6 +34,9 @@
 
   // Maps a raw energy value onto a clamped 0-1 range, given a noise floor
   // to ignore and a range that maps to "full strength".
+  /** @param {number} value
+   * @param {number} [floor]
+   * @param {number} [range] */
   function normalizeEnergy(value, floor = 20, range = 210) {
     return Math.min(1, Math.max(0, (value - floor) / range));
   }
@@ -37,6 +46,9 @@
   // exp-decay term computed by the caller from a release rate and elapsed
   // time). Never eases *up* — that's what makes hits feel snappy and
   // releases feel smooth.
+  /** @param {number} current
+   * @param {number} target
+   * @param {number} remainingFraction */
   function smoothTowards(current, target, remainingFraction) {
     return target >= current
       ? target
@@ -51,6 +63,10 @@
     return (a + delta * t + 360) % 360;
   }
 
+  /** @param {import('./visual-contracts').Theme} theme
+   * @param {number} hueShift
+   * @param {number} [offset]
+   * @param {boolean} [gradientEnabled] */
   function computeHue(theme, hueShift, offset = 0, gradientEnabled = true) {
     if (theme.rainbow) {
       const rotation = theme.cycle ? hueShift : 0;
@@ -279,6 +295,8 @@
   // - "exponential": sharpens peaks, compresses quiet floor (super punchy)
   // - "linear": direct 1:1 proportional response
   // - "logarithmic": perceptual decibel-style curve (amplifies quiet details, smooths peaks)
+  /** @param {number} value
+   * @param {import('./visual-contracts').ResponseCurve} [curve] */
   function applyValueHandling(value, curve = "exponential") {
     const clamped = Math.max(0, Math.min(1, value));
     if (curve === "linear") {
@@ -291,6 +309,9 @@
     return Math.pow(clamped, 2.5);
   }
 
+  /** @param {import('./visual-contracts').Samples} data
+   * @param {number} lo
+   * @param {number} hi */
   function spectrumBandDb(data, lo, hi) {
     let power = 0;
     for (let bin = lo; bin < hi; bin++)
@@ -298,10 +319,16 @@
     return power > 0 ? 10 * Math.log10(power / (hi - lo)) : -Infinity;
   }
 
+  /** @param {number} bass
+   * @param {number} amount
+   * @param {import('./visual-contracts').ResponseCurve} [curve] */
   function bassSensitivityTarget(bass, amount, curve = "linear") {
     return 1 + amount * (2 * applyValueHandling(bass, curve) - 1);
   }
 
+  /** @param {import('./visual-contracts').Samples} data
+   * @param {number} sampleRate
+   * @param {number} fftSize */
   function bassPowerLevel(data, sampleRate, fftSize) {
     const binHz = sampleRate / fftSize;
     if (!(binHz > 0)) return 0;
@@ -325,6 +352,9 @@
     return normalizeEnergy(10 * Math.log10(power / weight), -65, 40);
   }
 
+  /** @param {number} current
+   * @param {number} target
+   * @param {number} dtSec */
   function smoothBassSensitivity(current, target, dtSec) {
     const timeConstant = target > current ? 0.04 : 0.12;
     return (
@@ -332,6 +362,8 @@
     );
   }
 
+  /** @param {number} value
+   * @param {number} gain */
   function applyBassGain(value, gain) {
     if (gain === 1) return value;
     if (gain <= 1) return value * gain;

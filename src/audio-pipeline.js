@@ -1,4 +1,7 @@
 // Audio measurements and control processing live here, never in drawing modes.
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {(math:typeof import('./audio-math'), registry:import('./visual-contracts').Registry)=>T} build */
 (function (root, build) {
   if (typeof module === "object" && module.exports)
     module.exports = build(require("./audio-math"), require("./mode-registry"));
@@ -22,9 +25,16 @@
   // Profiles describe audio exceptions and sampling, not drawing behavior.
   const PROFILES = registry.audioProfiles;
 
+  /** @param {import('./visual-contracts').Samples} bytes */
   function legacyBass(bytes) {
     return math.bandAverage(bytes, 0, 0.015);
   }
+  /** @param {import('./visual-contracts').Samples} data
+   * @param {number} sampleRate
+   * @param {number} fftSize
+   * @param {number} lowHz
+   * @param {number} highHz
+   * @param {import('./visual-contracts').Samples} [powers] */
   function powerBandDb(data, sampleRate, fftSize, lowHz, highHz, powers) {
     const binHz = sampleRate / fftSize;
     if (!(binHz > 0) || !data.length) return -Infinity;
@@ -48,12 +58,17 @@
       ? 10 * Math.log10(power / weight)
       : -Infinity;
   }
+  /** @param {number} db
+   * @param {number} referenceDb
+   * @param {'db'|'amplitude'} [domain] */
   function normalize(db, referenceDb, domain = "db") {
     if (!Number.isFinite(db) || db <= -100) return 0;
     return domain === "amplitude"
       ? Math.min(1, 10 ** ((db - referenceDb) / 20))
       : clamp(1 + (db - referenceDb) / 45);
   }
+  /** @param {number} level
+   * @param {Readonly<import('./visual-contracts').AudioSettings>} settings */
   function controlled(level, settings) {
     return math.applyValueHandling(
       math.applyBassGain(level, settings.sensitivity),
@@ -77,6 +92,9 @@
       Math.floor(start + index + (extra * (250 ** (index / count) - 1)) / 249)
     );
   }
+  /** @param {import('./visual-contracts').Samples} data
+   * @param {import('./visual-contracts').Samples} [powers]
+   * @param {number} [count] */
   function prismActiveEnd(data, powers, count = 96) {
     const start = Math.floor(data.length * 0.002),
       end = Math.floor(data.length * 0.5);
@@ -99,12 +117,17 @@
     return Math.min(end, Math.max(start + count, Math.ceil(last * 1.1) + 4));
   }
 
+  /** @param {{registry?:import('./visual-contracts').Registry}} [options]
+   * @returns {import('./visual-contracts').Pipeline} */
   function create({ registry: sourceRegistry = registry } = {}) {
     const definitions = sourceRegistry.audioProfiles;
-    let input = null,
-      settings = null,
-      spectrum = null,
-      referenceDb = -65,
+    /** @type {import('./visual-contracts').PipelineInput|null} */
+    let input = null;
+    /** @type {Readonly<import('./visual-contracts').AudioSettings>|null} */
+    let settings = null;
+    /** @type {import('./visual-contracts').Samples|null} */
+    let spectrum = null;
+    let referenceDb = -65,
       dt = 0,
       generation = 0;
     let bassMultiplier = 1,
@@ -137,27 +160,31 @@
     const commonNeutral = new Float64Array(8),
       commonFinal = new Float64Array(8);
     const normalizedLevels = new Float64Array(3);
+    /** @typedef {{neutral:Float64Array,bands:Float64Array,generation:number,rangeEnd:number,rangeHold:number,envelopeNeutral:number,envelopeFinal:number,output:import('./visual-contracts').CommonSignals & {bands:Float64Array,motionBands:Float64Array,rangeEndHz:number,envelopes:{aurora:number},motionEnvelopes:{aurora:number}}}} ProfileState */
+    /** @type {Record<string,ProfileState>} */
     const profiles = Object.fromEntries(
-      Object.entries(definitions).map(([id, profile]) => [
-        id,
-        {
-          neutral: new Float64Array(profile.count),
-          bands: new Float64Array(profile.count),
-          generation: -1,
-          rangeEnd: 0,
-          rangeHold: 0,
-          envelopeNeutral: 0,
-          envelopeFinal: 0,
-          output: {
-            ...common,
-            bands: new Float64Array(0),
-            motionBands: new Float64Array(0),
-            rangeEndHz: 0,
-            envelopes: { aurora: 0 },
-            motionEnvelopes: { aurora: 0 },
+      Object.entries(definitions).map(
+        /** @returns {[string,ProfileState]} */ ([id, profile]) => [
+          id,
+          {
+            neutral: new Float64Array(profile.count),
+            bands: new Float64Array(profile.count),
+            generation: -1,
+            rangeEnd: 0,
+            rangeHold: 0,
+            envelopeNeutral: 0,
+            envelopeFinal: 0,
+            output: {
+              ...common,
+              bands: new Float64Array(0),
+              motionBands: new Float64Array(0),
+              rangeEndHz: 0,
+              envelopes: { aurora: 0 },
+              motionEnvelopes: { aurora: 0 },
+            },
           },
-        },
-      ])
+        ]
+      )
     );
     for (const profile of Object.values(profiles)) {
       profile.output.bands = profile.bands;
@@ -215,11 +242,21 @@
         });
       }
     }
+    /** @param {number} target
+     * @param {number} current
+     * @param {number} rate */
     function filter(target, current, rate) {
-      return settings.smoothingEnabled
+      // Only called after update has installed settings, including from forMode.
+      return /** @type {Readonly<import('./visual-contracts').AudioSettings>} */ (
+        settings
+      ).smoothingEnabled
         ? math.smoothTowards(current, target, Math.exp(-rate * dt))
         : target;
     }
+    /** @param {import('./visual-contracts').PipelineInput} nextInput
+     * @param {Readonly<import('./visual-contracts').AudioSettings>} nextSettings
+     * @param {import('./visual-contracts').Timing} timing
+     * @returns {Readonly<import('./visual-contracts').CommonSignals>} */
     function update(nextInput, nextSettings, timing) {
       input = nextInput;
       settings = nextSettings;
@@ -227,7 +264,7 @@
       generation++;
       const bytes = input.frequencyBytes,
         time = input.timeBytes;
-      spectrum = input.spectrumDb || input.readFloatSpectrum?.();
+      spectrum = input.spectrumDb || input.readFloatSpectrum?.() || null;
       if (!spectrum) {
         if (fallback.length !== bytes.length)
           fallback = new Float32Array(bytes.length);
@@ -348,11 +385,14 @@
       return common;
     }
 
+    /** @param {string} id
+     * @returns {import('./visual-contracts').Signals} */
     function forMode(id) {
       const spec = definitions[id],
         profile = profiles[id];
       if (!spec) throw Error(`Unknown audio profile: ${id}`);
-      if (!input) throw Error("Audio pipeline requires update before forMode");
+      if (!input || !settings || !spectrum)
+        throw Error("Audio pipeline requires update before forMode");
       if (profile.generation === generation) return profile.output;
       profile.generation = generation;
       const sampler = spec.sampler;

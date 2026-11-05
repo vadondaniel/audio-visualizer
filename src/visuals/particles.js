@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("particles", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const {
       PARTICLE_BANDS,
@@ -16,9 +23,13 @@
     const random = services.createRandom();
 
     const { applyGlow } = services;
-    const prepared = {};
+    // Populated completely by update before draw; reset clears the same object.
+    /** @typedef {{cx:number,cy:number,minDim:number,theme:import('../visual-contracts').Theme,rr:typeof particleRender,dimensionalBass:number,dimensionalMid:number,dimensionalTreble:number,transient:number,contrast:number}} Prepared */
+    const prepared = /** @type {Prepared} */ ({});
+    /** @type {ReturnType<typeof makeParticle>[]} */
     const particles = [];
     const bandSpawnAccum = [0, 0, 0];
+    /** @type {{value:number,t:number}[]} */
     const energyHistory = [];
     const PARTICLE_STYLES = {
       flow: {
@@ -47,15 +58,20 @@
       },
     };
 
+    /**
+     * @param {Readonly<import("../visual-contracts").VisualSettings>} state
+     */
     function getParticleStyle(state) {
       return PARTICLE_STYLES[state.particleStyle] || PARTICLE_STYLES.flow;
     }
 
+    /** @type {{radius:number,speed:number,life:number,width:number,hueOffset:number}[]} */
     const particleShockwaves = [];
     let energyNow = 0;
     let energyTrend = 0;
     let particlePhase = 0;
 
+    /** @param {{x:number,y:number,angle:number,speed:number,decay:number,drag:number,size:number,hueOffset:number,twinkleSpeed?:number,orbitStrength?:number,outwardBias?:number,z?:number}} options */
     function makeParticle({
       x,
       y,
@@ -90,6 +106,11 @@
       };
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     * @param {import('../visual-contracts').ParticleBand} band
+     * @param {number} energyRatio
+     */
     function spawnBandParticle(frame, band, energyRatio) {
       const state = frame.settings;
       const canvas = frame;
@@ -136,6 +157,9 @@
       );
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function spawnBeatRing(frame, bass, bassLevel) {
       const state = frame.settings;
       const canvas = frame;
@@ -175,6 +199,10 @@
       }
     }
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawParticleSpectrum(ctx, frame, radius) {
       const {
         bass: bassLevel,
@@ -216,6 +244,10 @@
       ctx.restore();
     }
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawParticleCore(ctx, frame, midLevel, energy) {
       const state = frame.settings;
       const canvas = frame;
@@ -296,10 +328,16 @@
     const PARTICLE_HUE_BINS = 12;
     const PARTICLE_ALPHA_BINS = 4;
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     */
     function beginParticleBatch(ctx) {
       ctx.beginPath();
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateParticles(frame) {
       const bass = frame.signals.features.rawBass;
       const {
@@ -566,6 +604,10 @@
       prepared.transient = transient;
       prepared.contrast = contrast;
     }
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawParticles(ctx, frame) {
       const midLevel = frame.signals.levels.mid;
       const trebleLevel = frame.signals.levels.treble;

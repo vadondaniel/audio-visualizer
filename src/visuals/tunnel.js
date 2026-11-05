@@ -1,14 +1,23 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("tunnel", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
 
     const { applyGlow } = services;
-    const prepared = {};
+    // Populated completely by update before draw; reset clears the same object.
+    const prepared =
+      /** @type {{dormantMids:number,activeMids:number,peakMids:number,dormantTreble:number,activeTreble:number,peakTreble:number,drop:number,treble:number,activeBass:number,peakBass:number,mids:number,bass:number}} */ ({});
     // ---------- Cyber Tunnel mode (spatial, audio-dimensional tunnel) ----------
     let tunnelMotionBassPrev = 0,
       tunnelMotionTreblePrev = 0;
@@ -20,6 +29,7 @@
     let tunnelBassPrev = 0;
     let tunnelMidPrev = 0;
     let tunnelTreblePrev = 0;
+    /** @type {{phase:number,strength:number,width:number}[]} */
     let tunnelDropPulses = [];
     let tunnelDropCooldown = 0;
 
@@ -43,6 +53,9 @@
       return ring * TUNNEL_SEGMENTS + seg;
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateTunnel(frame) {
       const {
         bass: bassLevel,
@@ -295,6 +308,10 @@
       prepared.mids = mids;
       prepared.bass = bass;
     }
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawTunnel(ctx, frame) {
       const state = frame.settings;
 

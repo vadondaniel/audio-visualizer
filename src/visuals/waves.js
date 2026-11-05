@@ -1,8 +1,15 @@
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.ModeRegistry.registerFactory("waves", api.createMode);
 })(globalThis, function () {
+  /**
+   * @param {import("../visual-contracts").Services} services
+   * @returns {import("../visual-contracts").Mode}
+   */
   function createMode(services) {
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
@@ -18,6 +25,8 @@
 
     // Dynamic bioluminescent spores / airborne spray particles
     const WAVES_SPORES_COUNT = 55;
+    /** @typedef {{xNorm:number,layer:number,speed:number,size:number,twinkle:number,twinkleSpeed:number,airborne:boolean,yOffset:number,vy:number,vx:number,surfaceXNorm?:number}} Spore */
+    /** @type {Spore[]} */
     const wavesSpores = Array.from({ length: WAVES_SPORES_COUNT }, () => ({
       xNorm: random(),
       layer: Math.floor(random() * WAVES_LAYERS),
@@ -31,6 +40,10 @@
       vx: 0,
     }));
 
+    /**
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function drawWaves(ctx, frame) {
       const state = frame.settings;
       const canvas = frame;
@@ -211,10 +224,12 @@
       // Quiet passages: Spores bob peacefully on the glassy surface, softly twinkling
       // Loud drops / beat kicks: Spores are thrown into the air as glowing ballistic spray!
       for (let sp of wavesSpores) {
+        // update always sets the sampled surface position before drawing.
+        const surfaceXNorm = /** @type {number} */ (sp.surfaceXNorm);
         const layerPts = layerPoints[sp.layer] || layerPoints[0];
-        const pIdx = Math.floor(sp.surfaceXNorm * (WAVES_POINTS - 1));
+        const pIdx = Math.floor(surfaceXNorm * (WAVES_POINTS - 1));
         const surfacePt = layerPts[pIdx] || {
-          x: sp.surfaceXNorm * canvas.width,
+          x: surfaceXNorm * canvas.width,
           y: canvas.height * 0.65,
         };
         const sporeX = surfacePt.x;
@@ -256,6 +271,9 @@
       ctx.shadowBlur = 0;
     }
 
+    /**
+     * @param {import("../visual-contracts").Frame} frame
+     */
     function updateWaves(frame) {
       const dtSec = frame.dtSec;
       const canvas = frame;
