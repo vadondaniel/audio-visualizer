@@ -1,0 +1,136 @@
+// Radial bands join their neighboring peaks on both sides of the circle.
+const PRISM_BANDS = 96;
+const prismSpectrum = new Float64Array(PRISM_BANDS);
+const prismBandDb = new Float64Array(PRISM_BANDS);
+const prismOuter = new Float64Array(PRISM_BANDS * 2);
+const prismInner = new Float64Array(PRISM_BANDS * 2);
+let prismFftDb = new Float32Array(0);
+let prismPeakDb = -65;
+
+function prismBandEdge(index, binCount) {
+  const start = Math.floor(binCount * 0.002);
+  const end = Math.floor(binCount * 0.5);
+  // Reserve one distinct bin per band, then distribute the remaining bins
+  // logarithmically. Pure log spacing repeats bins at the bass end.
+  const extra = Math.max(0, end - start - PRISM_BANDS);
+  return Math.min(
+    binCount,
+    Math.floor(
+      start + index + (extra * (Math.pow(250, index / PRISM_BANDS) - 1)) / 249
+    )
+  );
+}
+
+function prismOuterRadius(radius, level) {
+  return radius * (1 + Math.pow(Math.min(1, Math.max(0, level)), 1.7) * 1.1);
+}
+
+function prismInnerRadius(radius, level) {
+  return radius * (1 - Math.pow(Math.min(1, Math.max(0, level)), 1.4) * 0.88);
+}
+
+function updatePrismSpectrum(dtSec) {
+  if (prismFftDb.length !== freqData.length)
+    prismFftDb = new Float32Array(freqData.length);
+  if (typeof analyser !== "undefined" && analyser?.getFloatFrequencyData)
+    analyser.getFloatFrequencyData(prismFftDb);
+  else
+    for (let i = 0; i < freqData.length; i++)
+      prismFftDb[i] = -100 + (freqData[i] * 70) / 255;
+  let peak = -65;
+  for (let i = 0; i < PRISM_BANDS; i++) {
+    const lo = prismBandEdge(i, freqData.length);
+    const hi = prismBandEdge(i + 1, freqData.length);
+    prismBandDb[i] = spectrumBandDb(prismFftDb, lo, hi);
+    peak = Math.max(peak, prismBandDb[i]);
+  }
+  prismPeakDb = Math.max(peak, prismPeakDb - Math.max(0, dtSec) * 12);
+  const remaining = state.smoothingEnabled
+    ? Math.exp(-VISUAL_TUNING.prism.releasePerSec * dtSec)
+    : 0;
+  for (let i = 0; i < PRISM_BANDS; i++) {
+    const target = applyBassModulation(
+      spectrumResponseLevel(
+        prismBandDb[i],
+        prismPeakDb,
+        state.valueHandling,
+        state.sensitivity
+      )
+    );
+    prismSpectrum[i] = smoothTowards(prismSpectrum[i], target, remaining);
+  }
+}
+
+function drawPrism(bassLevel, midLevel, trebleLevel, dtSec) {
+  updatePrismSpectrum(dtSec);
+  const size = Math.min(canvas.width, canvas.height);
+  const radius =
+    size * VISUAL_TUNING.prism.radiusFrac * (1 + bassLevel * 0.035);
+  const step = (Math.PI * 2) / PRISM_BANDS;
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.lineWidth = Math.max(1, size * 0.0018);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  for (let i = 0; i < PRISM_BANDS; i++) {
+    const angle = i * step - Math.PI / 2;
+    const tipAngle = angle + step / 2;
+    const level = prismSpectrum[i];
+    const outer = prismOuterRadius(radius, level),
+      inner = prismInnerRadius(radius, level);
+    const oX = Math.cos(tipAngle) * outer,
+      oY = Math.sin(tipAngle) * outer;
+    const iX = Math.cos(tipAngle) * inner,
+      iY = Math.sin(tipAngle) * inner;
+    prismOuter[i * 2] = oX;
+    prismOuter[i * 2 + 1] = oY;
+    prismInner[i * 2] = iX;
+    prismInner[i * 2 + 1] = iY;
+  }
+  for (let i = 0; i < PRISM_BANDS; i++) {
+    const next = (i + 1) % PRISM_BANDS;
+    const level = prismSpectrum[i];
+    const oX = prismOuter[i * 2],
+      oY = prismOuter[i * 2 + 1];
+    const iX = prismInner[i * 2],
+      iY = prismInner[i * 2 + 1];
+    const hue = currentHue(i / PRISM_BANDS);
+    // Connect actual neighboring peaks, including the closing seam.
+    ctx.beginPath();
+    ctx.moveTo(oX, oY);
+    ctx.lineTo(prismOuter[next * 2], prismOuter[next * 2 + 1]);
+    ctx.moveTo(iX, iY);
+    ctx.lineTo(prismInner[next * 2], prismInner[next * 2 + 1]);
+    ctx.strokeStyle = themeCssColor(hue, 95, 70, 0.4 + level * 0.6);
+    applyGlow(themeCssColor(hue, 95, 65, 1), 8 + level * 7);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(iX, iY);
+    ctx.lineTo(oX, oY);
+    ctx.globalAlpha = 0.25 + level * 0.45;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.beginPath();
+    ctx.arc(iX, iY, Math.max(0.7, size * 0.0015), 0, Math.PI * 2);
+    ctx.fillStyle = themeCssColor(hue, 85, 85, 0.65 + level * 0.35);
+    ctx.fill();
+    if (level > 0.25) {
+      ctx.beginPath();
+      ctx.arc(oX, oY, Math.max(1, size * 0.002), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  const rim = ctx.createLinearGradient(-radius, -radius, radius, radius);
+  for (let i = 0; i <= 6; i++)
+    rim.addColorStop(i / 6, themeCssColor(currentHue(i / 6), 90, 75, 0.75));
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = Math.max(1, size * 0.0016);
+  ctx.stroke();
+  ctx.restore();
+}
+
+if (typeof module === "object" && module.exports)
+  module.exports = { prismInnerRadius, prismOuterRadius, prismBandEdge };

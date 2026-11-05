@@ -146,6 +146,9 @@ function loop(timestamp = performance.now()) {
     case "orbit":
       drawOrbit(bassLevel, midLevel, trebleLevel, dtSec);
       break;
+    case "prism":
+      drawPrism(bassLevel, midLevel, trebleLevel, dtSec);
+      break;
   }
   diagnosticCall("endRender", modeTimer);
 

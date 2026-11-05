@@ -52,6 +52,7 @@ const state = {
     aurora: "auto",
     cascade: "below",
     orbit: "bottom-left",
+    prism: "bottom-left",
   },
 };
 

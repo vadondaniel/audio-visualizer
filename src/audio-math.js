@@ -291,6 +291,23 @@
     return Math.pow(clamped, 2.5);
   }
 
+  function spectrumBandDb(data, lo, hi) {
+    let power = 0;
+    for (let bin = lo; bin < hi; bin++)
+      if (Number.isFinite(data[bin])) power += Math.pow(10, data[bin] / 10);
+    return power > 0 ? 10 * Math.log10(power / (hi - lo)) : -Infinity;
+  }
+
+  function spectrumResponseLevel(db, referenceDb, curve, sensitivity) {
+    if (!Number.isFinite(db) || db <= -100) return 0;
+    const amplitude = Math.min(1, Math.pow(10, (db - referenceDb) / 20));
+    const gain = Math.max(0.5, Math.min(2.5, sensitivity));
+    return applyValueHandling(
+      (amplitude * gain) / (1 + (gain - 1) * amplitude),
+      curve
+    );
+  }
+
   function bassSensitivityTarget(bass, amount, curve = "linear") {
     return 1 + amount * (2 * applyValueHandling(bass, curve) - 1);
   }
@@ -319,5 +336,7 @@
     bassSensitivityTarget,
     smoothBassSensitivity,
     applyBassGain,
+    spectrumBandDb,
+    spectrumResponseLevel,
   };
 });

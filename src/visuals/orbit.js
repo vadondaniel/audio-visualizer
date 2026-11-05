@@ -13,13 +13,9 @@ let orbitPeakDb = -65;
 let orbitRotation = 0;
 
 function orbitAudioLevel(db, referenceDb, curve, sensitivity) {
-  if (!Number.isFinite(db) || db <= -100) return 0;
   // Work in amplitude, not the analyser's display-scaled bytes. Apply gain
   // before the selected curve, with headroom instead of flattening at 1.
-  const amplitude = Math.min(1, Math.pow(10, (db - referenceDb) / 20));
-  const gain = Math.max(0.5, Math.min(2.5, sensitivity));
-  const adjusted = (amplitude * gain) / (1 + (gain - 1) * amplitude);
-  return applyValueHandling(adjusted, curve);
+  return spectrumResponseLevel(db, referenceDb, curve, sensitivity);
 }
 
 function updateOrbitSpectrum(dtSec) {
@@ -47,12 +43,7 @@ function updateOrbitSpectrum(dtSec) {
         )
       )
     );
-    let power = 0;
-    for (let bin = lo; bin < hi; bin++) {
-      if (Number.isFinite(orbitFftDb[bin]))
-        power += Math.pow(10, orbitFftDb[bin] / 10);
-    }
-    orbitBandDb[i] = power > 0 ? 10 * Math.log10(power / (hi - lo)) : -Infinity;
+    orbitBandDb[i] = spectrumBandDb(orbitFftDb, lo, hi);
     peak = Math.max(peak, orbitBandDb[i]);
   }
   // Fast peak tracking, slow recovery between hits. The floor prevents quiet

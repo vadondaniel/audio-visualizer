@@ -11,6 +11,8 @@ const {
   detectBeat,
   mergeSettings,
   applyValueHandling,
+  spectrumBandDb,
+  spectrumResponseLevel,
 } = AudioMath;
 
 // `colorStops` are ordered spatial stops around the visual. They are
@@ -112,6 +114,7 @@ const MODES = [
   "aurora",
   "cascade",
   "orbit",
+  "prism",
 ];
 // ---------- visual tuning ----------
 // Per-mode constants that shape how each visual responds to audio.
@@ -131,6 +134,10 @@ const VISUAL_TUNING = {
     radiusFrac: 0.23,
     spinPerSec: 0.065,
     releasePerSec: 8,
+  },
+  prism: {
+    radiusFrac: 0.215,
+    releasePerSec: 10,
   },
   kaleidoscope: {
     maxRFrac: 0.46,

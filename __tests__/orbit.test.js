@@ -45,6 +45,8 @@ function setup(energy = 0) {
     bandAverage: AudioMath.bandAverage,
     smoothTowards: AudioMath.smoothTowards,
     applyValueHandling: AudioMath.applyValueHandling,
+    spectrumBandDb: AudioMath.spectrumBandDb,
+    spectrumResponseLevel: AudioMath.spectrumResponseLevel,
     currentHue: () => 0,
     themeCssColor: () => "#fff",
     applyGlow() {},

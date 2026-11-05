@@ -1,8 +1,11 @@
-// Run with: npx electron __tests__/orbit.electron.cjs
+// Run with: npx electron __tests__/orbit.electron.cjs [--prism]
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
+
+const mode = process.argv.includes("--prism") ? "prism" : "orbit";
+const drawFunction = mode === "prism" ? "drawPrism" : "drawOrbit";
 
 app.whenReady().then(async () => {
   let failed = false;
@@ -13,7 +16,7 @@ app.whenReady().then(async () => {
     webPreferences: {
       preload: path.join(__dirname, "../src/preload.js"),
       additionalArguments: ["--app-packaged=true"],
-      partition: "orbit-check",
+      partition: `visual-${mode}-check`,
       sandbox: false,
       backgroundThrottling: false,
     },
@@ -45,7 +48,7 @@ app.whenReady().then(async () => {
         applyBackground();
         state.theme = THEMES.findIndex(t => t.name === ${JSON.stringify(theme)});
         applyThemeUiColors();
-        modeSelect.value = MODES.indexOf("orbit");
+        modeSelect.value = MODES.indexOf("${mode}");
         modeSelect.dispatchEvent(new Event("change"));
         bufferLength = 1024;
         freqData = new Uint8Array(bufferLength);
@@ -53,25 +56,27 @@ app.whenReady().then(async () => {
           const x = Math.log2(i+1);
           freqData[i] = ${silent ? "0" : "Math.min(255, 24 + 225*Math.exp(-Math.pow((x-3.3)/0.9,2)) + 170*Math.exp(-Math.pow((x-6.1)/0.6,2)) + 95*Math.exp(-Math.pow((x-7.6)/0.4,2)))"};
         }
+        if ("${mode}" === "orbit") {
         orbitSpectrum.fill(0);
         orbitDisplacement.fill(0);
         orbitVelocity.fill(0);
         orbitRotation = Math.PI / 8;
+        } else prismSpectrum.fill(0);
         // Let the connected rope respond before taking the steady-audio preview.
         for (let frame=0; frame<60; frame++) {
           ctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);
-          drawOrbit(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
+          ${drawFunction}(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
         }
         ctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);
-        drawOrbit(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
+        ${drawFunction}(${silent ? "0,0,0" : "0.5,0.4,0.3"}, 1/60);
         renderTrailHistory(performance.now());
         let lit = 0;
         const pixels = displayCtx.getImageData(0,0,canvas.width,canvas.height).data;
         for(let i=3;i<pixels.length;i+=4) if(pixels[i]) lit++;
         saveSettings();
-        return {mode:MODES[state.mode],inList:state.modeOrder.includes("orbit"), enabled:!state.disabledModes.includes("orbit"), lit, finite:[...orbitRope].every(Number.isFinite), rotation:orbitRotation};
+        return {mode:MODES[state.mode],inList:state.modeOrder.includes("${mode}"), enabled:!state.disabledModes.includes("${mode}"), lit, finite:("${mode}"==="orbit"?[...orbitRope]:[...prismOuter,...prismInner]).every(Number.isFinite), rotation:orbitRotation};
       })()`);
-      assert.equal(result.mode, "orbit");
+      assert.equal(result.mode, mode);
       assert.equal(result.inList, true);
       assert.equal(result.enabled, true);
       assert.equal(result.finite, true);
@@ -91,12 +96,15 @@ app.whenReady().then(async () => {
       fs.writeFileSync(
         path.join(
           dir,
-          `orbit-${width}-${theme}${silent ? "-silent" : ""}-canvas.png`
+          `${mode}-${width}-${theme}${silent ? "-silent" : ""}-canvas.png`
         ),
         Buffer.from(canvasPng.split(",")[1], "base64")
       );
       fs.writeFileSync(
-        path.join(dir, `orbit-${width}-${theme}${silent ? "-silent" : ""}.png`),
+        path.join(
+          dir,
+          `${mode}-${width}-${theme}${silent ? "-silent" : ""}.png`
+        ),
         (await window.webContents.capturePage()).toPNG()
       );
     }
@@ -106,11 +114,11 @@ app.whenReady().then(async () => {
     );
     assert.equal(
       await window.webContents.executeJavaScript("MODES[state.mode]"),
-      "orbit"
+      mode
     );
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: Orbit renders in White/Neon, portrait, and silence; mode selection persists; no renderer errors"
+      `PASS: ${mode} renders in White/Neon, portrait, and silence; mode selection persists; no renderer errors`
     );
   } catch (error) {
     console.error(error);

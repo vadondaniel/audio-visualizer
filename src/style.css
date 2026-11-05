@@ -1679,6 +1679,7 @@ body {
 #mediaOverlay.mode-waves[data-position="top-left"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="top-left"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="top-left"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="top-left"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="top-left"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="top-left"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="top-left"] .mediaCard {
@@ -1695,6 +1696,7 @@ body {
 #mediaOverlay.mode-waves[data-position="top"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="top"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="top"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="top"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="top"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="top"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="top"] .mediaCard {
@@ -1711,6 +1713,7 @@ body {
 #mediaOverlay.mode-waves[data-position="top-right"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="top-right"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="top-right"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="top-right"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="top-right"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="top-right"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="top-right"] .mediaCard {
@@ -1727,6 +1730,7 @@ body {
 #mediaOverlay.mode-waves[data-position="right"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="right"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="right"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="right"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="right"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="right"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="right"] .mediaCard {
@@ -1744,6 +1748,7 @@ body {
 #mediaOverlay.mode-waves[data-position="bottom-right"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="bottom-right"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="bottom-right"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="bottom-right"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="bottom-right"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="bottom-right"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="bottom-right"] .mediaCard {
@@ -1760,6 +1765,7 @@ body {
 #mediaOverlay.mode-waves[data-position="bottom"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="bottom"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="bottom"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="bottom"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="bottom"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="bottom"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="bottom"] .mediaCard {
@@ -1777,6 +1783,7 @@ body {
 #mediaOverlay.mode-waves[data-position="bottom-left"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="bottom-left"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="bottom-left"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="bottom-left"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="bottom-left"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="bottom-left"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="bottom-left"] .mediaCard {
@@ -1793,6 +1800,7 @@ body {
 #mediaOverlay.mode-waves[data-position="left"] .mediaCard,
 #mediaOverlay.mode-aurora[data-position="left"] .mediaCard,
 #mediaOverlay.mode-orbit[data-position="left"] .mediaCard,
+#mediaOverlay.mode-prism[data-position="left"] .mediaCard,
 #mediaOverlay.mode-particles[data-position="left"] .mediaCard,
 #mediaOverlay.mode-kaleidoscope[data-position="left"] .mediaCard,
 #mediaOverlay.mode-tunnel[data-position="left"] .mediaCard {

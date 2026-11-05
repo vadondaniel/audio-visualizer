@@ -64,10 +64,11 @@ drive the visuals.
 Move your mouse to bring back the control hint overlay; it fades away on
 its own after a moment.
 
-The 10 visual styles are: **bars**, **radial spectrum**, **waveform**,
+The 11 visual styles are: **bars**, **radial spectrum**, **waveform**,
 **particles** (bass-reactive bursts), **kaleidoscope**, **tunnel**, **waves**,
-**aurora**, **cascade** (NCS-style rolldown waves), and **orbit** (a rotating
-mirrored rope with outward bars).
+**aurora**, **cascade** (NCS-style rolldown waves), **orbit** (a rotating
+mirrored rope with outward bars), and **prism** (radial bands with connected peaks
+inside and outside a circle).
 
 ## Settings panel
 

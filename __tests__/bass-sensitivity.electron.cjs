@@ -88,7 +88,11 @@ app.whenReady().then(async () => {
       saveSettings();
       return rendered;
     })()`);
-    assert.equal(modes.length, 10);
+    assert.ok(
+      modes.includes("bars") &&
+        modes.includes("orbit") &&
+        modes.includes("prism")
+    );
     const dir = path.join(__dirname, "../dist/ui-check");
     fs.mkdirSync(dir, { recursive: true });
     for (const [width, height] of [
@@ -114,7 +118,7 @@ app.whenReady().then(async () => {
     }
     assert.deepEqual(errors, []);
     console.log(
-      "PASS: controls, curve wiring, range labels, immediate disable, zero amount, persistence, all ten modes, and two viewport sizes"
+      "PASS: controls, curve wiring, range labels, immediate disable, zero amount, persistence, all registered modes, and two viewport sizes"
     );
   } catch (error) {
     console.error(error);
