@@ -7,6 +7,8 @@
     root.TrailMath = factory();
   }
 })(typeof window !== "undefined" ? window : globalThis, function () {
+  const CAPTURE_TOLERANCE_MS = 0.01;
+
   function trailOpacity(ageMs, durationMs) {
     if (ageMs <= 0) return 1;
     if (ageMs >= durationMs) return 0;
@@ -20,18 +22,21 @@
     return Math.max(snapshotInterval, fpsInterval);
   }
 
-  function shouldCaptureTrail(
-    timestampMs,
-    lastCaptureMs,
-    durationMs,
-    maxSnapshots,
-    maxFps = 60
-  ) {
+  function shouldCaptureTrail(timestampMs, nextCaptureMs) {
     return (
-      lastCaptureMs === null ||
-      timestampMs - lastCaptureMs >=
-        trailCaptureIntervalMs(durationMs, maxSnapshots, maxFps)
+      nextCaptureMs === null ||
+      timestampMs + CAPTURE_TOLERANCE_MS >= nextCaptureMs
     );
+  }
+
+  function advanceTrailCaptureDeadline(timestampMs, nextCaptureMs, intervalMs) {
+    if (nextCaptureMs === null) return timestampMs + intervalMs;
+    // Preserve the schedule's phase, skipping missed slots rather than capturing
+    // them in a burst. Include the due-check tolerance when advancing a boundary.
+    const elapsedMs = Math.max(0, timestampMs - nextCaptureMs);
+    const slots =
+      Math.floor((elapsedMs + CAPTURE_TOLERANCE_MS) / intervalMs) + 1;
+    return nextCaptureMs + slots * intervalMs;
   }
 
   function isTrailFrameExpired(timestampMs, frameTimestampMs, durationMs) {
@@ -42,6 +47,7 @@
     trailOpacity,
     trailCaptureIntervalMs,
     shouldCaptureTrail,
+    advanceTrailCaptureDeadline,
     isTrailFrameExpired,
   };
 });

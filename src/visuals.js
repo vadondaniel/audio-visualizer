@@ -55,13 +55,13 @@ function applyGlow(color, blur) {
 const particles = [];
 const trailFrames = [];
 const trailCanvasPool = [];
-let lastTrailCaptureMs = null;
+let nextTrailCaptureMs = null;
 
 // ---------- draw modes ----------
 function resetTrailHistory() {
   trailFrames.length = 0;
   trailCanvasPool.length = 0;
-  lastTrailCaptureMs = null;
+  nextTrailCaptureMs = null;
 }
 
 function clearFrame() {
@@ -110,7 +110,6 @@ function captureTrailFrame(timestamp) {
   frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
   frameCtx.drawImage(renderCanvas, 0, 0);
   trailFrames.push({ canvas: frameCanvas, timestamp });
-  lastTrailCaptureMs = timestamp;
 }
 
 function renderTrailHistory(timestamp) {
@@ -130,21 +129,24 @@ function renderTrailHistory(timestamp) {
   }
 
   discardExpiredTrailFrames(timestamp);
-  const desiredSnapshots = Math.ceil(
-    (state.trailDuration * state.trailMaxFps) / 1000
-  );
-  const snapshotLimit = Math.max(1, Math.min(180, desiredSnapshots + 1));
+  const snapshotLimit = getTrailSnapshotLimit();
   const shouldCapture = TrailMath.shouldCaptureTrail(
     timestamp,
-    lastTrailCaptureMs,
-    state.trailDuration,
-    snapshotLimit,
-    state.trailMaxFps
+    nextTrailCaptureMs
   );
   if (shouldCapture) {
     const captureStart =
       typeof diagnostics !== "undefined" ? diagnostics.beginTrailCapture() : 0;
     captureTrailFrame(timestamp);
+    nextTrailCaptureMs = TrailMath.advanceTrailCaptureDeadline(
+      timestamp,
+      nextTrailCaptureMs,
+      TrailMath.trailCaptureIntervalMs(
+        state.trailDuration,
+        snapshotLimit,
+        state.trailMaxFps
+      )
+    );
     if (typeof diagnostics !== "undefined")
       diagnostics.endTrailCapture(captureStart);
   }
