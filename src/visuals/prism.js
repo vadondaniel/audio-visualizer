@@ -4,78 +4,24 @@
   else (root.VisualModes ??= {}).prism = api.createMode;
 })(globalThis, function () {
   const PRISM_BANDS = 96;
-  function prismBandEdge(
-    index,
-    binCount,
-    rangeEnd = Math.floor(binCount * 0.5)
-  ) {
-    const start = Math.floor(binCount * 0.002);
-    const end = Math.min(
-      Math.floor(binCount * 0.5),
-      Math.max(start + PRISM_BANDS, Math.round(rangeEnd))
-    );
-    // Reserve one distinct bin per band, then distribute the remaining bins
-    // logarithmically. Pure log spacing repeats bins at the bass end.
-    const extra = Math.max(0, end - start - PRISM_BANDS);
-    return Math.min(
-      binCount,
-      Math.floor(
-        start + index + (extra * (Math.pow(250, index / PRISM_BANDS) - 1)) / 249
-      )
-    );
-  }
+
   function prismOuterRadius(radius, level) {
     return radius * (1 + Math.min(1, Math.max(0, level)) * 1.1);
   }
   function prismInnerRadius(radius, level) {
     return radius * (1 - Math.min(1, Math.max(0, level)) * 0.88);
   }
-  function prismActiveEnd(data, spectrumBandDb) {
-    const start = Math.floor(data.length * 0.002);
-    const end = Math.floor(data.length * 0.5);
-    let peak = -Infinity;
-    for (let i = start; i < end; i++)
-      if (Number.isFinite(data[i])) peak = Math.max(peak, data[i]);
-    // Silence must not remap the spectrum. A relative threshold follows the
-    // recording level; the absolute floor excludes background noise.
-    if (peak <= -75) return 0;
-    const threshold = Math.max(-80, peak - 18);
-    let last = start;
-    for (let lo = start; lo < end; lo += 4) {
-      const hi = Math.min(end, lo + 4);
-      if (spectrumBandDb(data, lo, hi) >= threshold) last = hi;
-    }
-    return Math.min(
-      end,
-      Math.max(start + PRISM_BANDS, Math.ceil(last * 1.1) + 4)
-    );
-  }
-  function prismAudioLevel(
-    db,
-    referenceDb,
-    curve,
-    sensitivity,
-    applyValueHandling
-  ) {
-    if (!Number.isFinite(db) || db <= -100) return 0;
-    // A 45 dB display range preserves musical detail before the selected
-    // response curve. Applying exponential to amplitude ratios crushes it.
-    const level = Math.max(0, Math.min(1, 1 + (db - referenceDb) / 45));
-    const gain = Math.max(0.5, Math.min(2.5, sensitivity));
-    return applyValueHandling((level * gain) / (1 + (gain - 1) * level), curve);
-  }
+
   function createMode(services) {
-    const { smoothTowards, applyValueHandling, spectrumBandDb } = services.math;
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, readFloatSpectrum;
+    let signals, ctx, state, canvas;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
-      readFloatSpectrum = frame.audio.readFloatSpectrum;
+      signals = frame.signals;
+      prismSpectrum = signals.bands;
     }
     function applyGlow(color, blur) {
       ctx.shadowBlur = blur * state.glowIntensity;
@@ -83,59 +29,10 @@
     }
     // Radial bands join their neighboring peaks on both sides of the circle.
 
-    const prismSpectrum = new Float64Array(PRISM_BANDS);
-    const prismBandDb = new Float64Array(PRISM_BANDS);
+    let prismSpectrum;
+
     const prismOuter = new Float64Array(PRISM_BANDS * 2);
     const prismInner = new Float64Array(PRISM_BANDS * 2);
-    let prismFftDb = null;
-    let prismPeakDb = -65;
-    let prismRangeEnd = 0;
-    let prismRangeHold = 0;
-
-    function updatePrismSpectrum(dtSec) {
-      if (!prismFftDb || prismFftDb.length !== freqData.length) {
-        prismRangeEnd = 0;
-        prismRangeHold = 0;
-      }
-      prismFftDb = readFloatSpectrum();
-      const activeEnd = prismActiveEnd(prismFftDb, spectrumBandDb);
-      const dt = Math.max(0, dtSec);
-      if (!prismRangeEnd)
-        prismRangeEnd = activeEnd || Math.floor(freqData.length * 0.5);
-      if (activeEnd > prismRangeEnd) {
-        prismRangeEnd +=
-          (activeEnd - prismRangeEnd) * (1 - Math.exp(-dt / 0.15));
-        prismRangeHold = 0.5;
-      } else {
-        prismRangeHold = Math.max(0, prismRangeHold - dt);
-        if (activeEnd && prismRangeHold === 0)
-          prismRangeEnd +=
-            (activeEnd - prismRangeEnd) * (1 - Math.exp(-dt / 1.5));
-      }
-      let peak = -65;
-      for (let i = 0; i < PRISM_BANDS; i++) {
-        const lo = prismBandEdge(i, freqData.length, prismRangeEnd);
-        const hi = prismBandEdge(i + 1, freqData.length, prismRangeEnd);
-        prismBandDb[i] = spectrumBandDb(prismFftDb, lo, hi);
-        peak = Math.max(peak, prismBandDb[i]);
-      }
-      prismPeakDb = Math.max(peak, prismPeakDb - Math.max(0, dtSec) * 12);
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.prism.releasePerSec * dtSec)
-        : 0;
-      for (let i = 0; i < PRISM_BANDS; i++) {
-        const target = applyBassModulation(
-          prismAudioLevel(
-            prismBandDb[i],
-            prismPeakDb,
-            state.valueHandling,
-            state.sensitivity,
-            applyValueHandling
-          )
-        );
-        prismSpectrum[i] = smoothTowards(prismSpectrum[i], target, remaining);
-      }
-    }
 
     function drawPrism(bassLevel, midLevel, trebleLevel, dtSec) {
       const size = Math.min(canvas.width, canvas.height);
@@ -213,60 +110,26 @@
       ctx.restore();
     }
 
-    function updatePrism(bassLevel, midLevel, trebleLevel, dtSec) {
-      updatePrismSpectrum(dtSec);
-    }
-
-    const initial = structuredClone({
-      prismSpectrum,
-      prismBandDb,
-      prismOuter,
-      prismInner,
-      prismPeakDb,
-      prismRangeEnd,
-      prismRangeHold,
-    });
+    const initial = structuredClone({ prismOuter, prismInner });
     return {
       update(frame) {
         bind(frame);
-        updatePrism(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
-          frame.dtSec
-        );
       },
       draw(context, frame) {
         ctx = context;
         bind(frame);
         drawPrism(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
       reset() {
-        services.restore(prismSpectrum, initial.prismSpectrum);
-        services.restore(prismBandDb, initial.prismBandDb);
         services.restore(prismOuter, initial.prismOuter);
         services.restore(prismInner, initial.prismInner);
-        prismPeakDb = services.restore(prismPeakDb, initial.prismPeakDb);
-        prismRangeEnd = services.restore(prismRangeEnd, initial.prismRangeEnd);
-        prismRangeHold = services.restore(
-          prismRangeHold,
-          initial.prismRangeHold
-        );
-        prismFftDb = null;
       },
     };
   }
-  return {
-    createMode,
-    prismBandEdge,
-    prismInnerRadius,
-    prismOuterRadius,
-    prismActiveEnd,
-    prismAudioLevel,
-  };
+  return { createMode, prismInnerRadius, prismOuterRadius };
 });

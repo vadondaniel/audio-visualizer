@@ -4,26 +4,24 @@
   else (root.VisualModes ??= {}).kaleidoscope = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { bandAverage, smoothTowards, applyValueHandling } = services.math;
-    const { KALEIDO_BARS, VISUAL_TUNING, KALEIDO_BAND_EDGES } =
-      services.constants;
+    const { KALEIDO_BARS, VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, beatPulse;
+    let signals, ctx, state, canvas, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
     }
     function applyGlow(color, blur) {
       ctx.shadowBlur = blur * state.glowIntensity;
       ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
     }
-    const kaleidoSegmentValues = new Float64Array(KALEIDO_BARS * 8);
+    const kaleidoSegmentValues = new Float64Array(KALEIDO_BARS);
     let kaleidoRotation = 0;
-    const smoothedKaleido = new Array(KALEIDO_BARS).fill(0);
+
     let kaleidoFlash = 0;
 
     function drawKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
@@ -41,7 +39,7 @@
         const mirrored = s % 2 === 1;
 
         for (let i = 0; i < KALEIDO_BARS; i++) {
-          const v = kaleidoSegmentValues[s * KALEIDO_BARS + i];
+          const v = kaleidoSegmentValues[i];
           if (v < 0.03) continue;
 
           const t = i / KALEIDO_BARS;
@@ -106,61 +104,38 @@
     }
 
     function updateKaleidoscope(bassLevel, midLevel, trebleLevel, dtSec) {
-      const {
-        spinPerSec,
-        spinTreblePerSec,
-        spinBeatPerSec,
-        flashDecayPerSec,
-        releasePerSec,
-      } = VISUAL_TUNING.kaleidoscope;
+      const { spinPerSec, spinTreblePerSec, spinBeatPerSec, flashDecayPerSec } =
+        VISUAL_TUNING.kaleidoscope;
       kaleidoRotation +=
         (spinPerSec +
-          trebleLevel * spinTreblePerSec +
+          signals.motion.treble * spinTreblePerSec +
           beatPulse * spinBeatPerSec) *
         dtSec;
       kaleidoFlash = Math.max(0, kaleidoFlash - flashDecayPerSec * dtSec);
       if (beatPulse > 0.75) kaleidoFlash = 1;
 
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-releasePerSec * dtSec)
-        : 0;
-
-      for (let s = 0; s < 8; s++) {
-        for (let i = 0; i < KALEIDO_BARS; i++) {
-          const raw = bandAverage(
-            freqData,
-            KALEIDO_BAND_EDGES[i],
-            KALEIDO_BAND_EDGES[i + 1]
-          );
-          const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
-          const handled = applyBassModulation(
-            applyValueHandling(raw / 255, state.valueHandling)
-          );
-          const rawV = Math.pow(handled * tilt, 0.7);
-          const targetV = state.kaleidoClipEnabled ? Math.min(1, rawV) : rawV;
-          smoothedKaleido[i] = smoothTowards(
-            smoothedKaleido[i],
-            targetV,
-            remaining
-          );
-          kaleidoSegmentValues[s * KALEIDO_BARS + i] = smoothedKaleido[i];
-        }
+      // Visual exception: radial tilt and wedge expansion are geometry shaping.
+      for (let i = 0; i < KALEIDO_BARS; i++) {
+        const tilt = 1 + (i / KALEIDO_BARS) * 1.6;
+        const rawV = Math.pow(signals.bands[i] * tilt, 0.7);
+        kaleidoSegmentValues[i] = state.kaleidoClipEnabled
+          ? Math.min(1, rawV)
+          : rawV;
       }
     }
 
     const initial = structuredClone({
       kaleidoSegmentValues,
       kaleidoRotation,
-      smoothedKaleido,
       kaleidoFlash,
     });
     return {
       update(frame) {
         bind(frame);
         updateKaleidoscope(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -168,9 +143,9 @@
         ctx = context;
         bind(frame);
         drawKaleidoscope(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -180,7 +155,7 @@
           kaleidoRotation,
           initial.kaleidoRotation
         );
-        services.restore(smoothedKaleido, initial.smoothedKaleido);
+
         kaleidoFlash = services.restore(kaleidoFlash, initial.kaleidoFlash);
       },
     };

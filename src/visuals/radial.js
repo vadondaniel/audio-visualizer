@@ -4,17 +4,16 @@
   else (root.VisualModes ??= {}).radial = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { smoothTowards, applyValueHandling } = services.math;
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, bufferLength, beatPulse, mediaArt;
+    let signals, ctx, state, canvas, beatPulse, mediaArt;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
-      bufferLength = frame.audio.frequencyBytes.length;
+      signals = frame.signals;
+      bands = signals.bands;
+
       beatPulse = frame.beat.pulse;
       mediaArt = frame.mediaArt;
     }
@@ -22,31 +21,8 @@
       ctx.shadowBlur = blur * state.glowIntensity;
       ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
     }
-    function updateRadial(bassLevel, midLevel, trebleLevel, dtSec) {
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.radial.releasePerSec * dtSec)
-        : 0;
-      const barCount = 180,
-        halfCount = 90;
-      for (let i = 0; i < 180; i++) {
-        const normalized =
-          state.radialMode === "full"
-            ? i / barCount
-            : i < halfCount
-              ? i / halfCount
-              : (barCount - i - 1) / halfCount;
-        const idx = Math.floor(normalized * bufferLength * 0.5);
-        const targetV = applyBassModulation(
-          applyValueHandling(freqData[idx] / 255, state.valueHandling)
-        );
-        smoothedRadial[i] = smoothTowards(
-          smoothedRadial[i],
-          targetV,
-          remaining
-        );
-      }
-    }
-    const smoothedRadial = new Array(180).fill(0);
+
+    let bands;
 
     function drawRadial(bassLevel, midLevel, trebleLevel, dtSec) {
       const { baseRFrac, lengthScale } = VISUAL_TUNING.radial;
@@ -69,7 +45,7 @@
               ? i / halfCount
               : (barCount - i - 1) / halfCount;
 
-        const v = smoothedRadial[i];
+        const v = bands[i];
 
         const len =
           v *
@@ -152,30 +128,21 @@
       ctx.lineCap = "butt";
     }
 
-    const initial = structuredClone({ smoothedRadial });
     return {
       update(frame) {
         bind(frame);
-        updateRadial(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
-          frame.dtSec
-        );
       },
       draw(context, frame) {
         ctx = context;
         bind(frame);
         drawRadial(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
-      reset() {
-        services.restore(smoothedRadial, initial.smoothedRadial);
-      },
+      reset() {},
     };
   }
   return { createMode };

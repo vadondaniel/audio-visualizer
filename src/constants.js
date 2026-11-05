@@ -12,7 +12,6 @@ const {
   mergeSettings,
   applyValueHandling,
   spectrumBandDb,
-  spectrumResponseLevel,
 } = AudioMath;
 
 // `colorStops` are ordered spatial stops around the visual. They are
@@ -123,26 +122,21 @@ const VISUAL_TUNING = {
   bars: {
     baseYFrac: 0.75,
     heightScale: 0.6,
-    releasePerSec: 6.3,
   },
   radial: {
     baseRFrac: 0.16,
     lengthScale: 0.32,
-    releasePerSec: 9.75,
   },
   orbit: {
     radiusFrac: 0.23,
     spinPerSec: 0.065,
-    releasePerSec: 8,
   },
   prism: {
     radiusFrac: 0.215,
-    releasePerSec: 10,
   },
   kaleidoscope: {
     maxRFrac: 0.46,
     coreRFrac: 0.035,
-    releasePerSec: 14.9,
     spinPerSec: 0.072,
     spinTreblePerSec: 0.18,
     spinBeatPerSec: 0.36,
@@ -152,18 +146,10 @@ const VISUAL_TUNING = {
     ringCount: 30,
     speed: 1.2,
     twistPerSec: 0.35,
-    releasePerSec: 8.5,
-  },
-  waves: {
-    releasePerSec: 6.5,
-  },
-  aurora: {
-    releasePerSec: 6.5,
   },
   cascade: {
     lineCount: 26,
     rollSpeed: 0.52,
-    releasePerSec: 9.6,
   },
   particles: {
     cap: 1400,
@@ -190,8 +176,6 @@ const AUDIO_TUNING = {
   beatFloor: 38,
   beatCooldownMs: 120,
   pulseDecayPerSec: 5.6,
-  particleFloor: 20,
-  particleRange: 190,
   sustainedFloor: 140,
   sustainedIntervalMs: 300,
 };
@@ -207,20 +191,6 @@ const PARTICLE_BANDS = [
 
 // ---------- kaleidoscope constants ----------
 const KALEIDO_BARS = 28;
-
-// Logarithmically-spaced frequency band edges so bass bands are wider
-// (more FFT bins) and treble bands are narrower, matching human pitch
-// perception.
-const KALEIDO_BAND_EDGES = (() => {
-  const edges = [];
-  const minFrac = 0.006;
-  const maxFrac = 0.5;
-  for (let i = 0; i <= KALEIDO_BARS; i++) {
-    const t = i / KALEIDO_BARS;
-    edges.push(minFrac * Math.pow(maxFrac / minFrac, t));
-  }
-  return edges;
-})();
 
 // ---------- misc timing constants ----------
 const BASS_HISTORY_MS = 1000;

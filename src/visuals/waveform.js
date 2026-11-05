@@ -7,13 +7,13 @@
     const { THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, timeData, bufferLength, beatPulse;
+    let signals, ctx, state, canvas, waveformSamples, bufferLength, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      timeData = frame.audio.timeBytes;
-      bufferLength = frame.audio.frequencyBytes.length;
+      signals = frame.signals;
+      waveformSamples = signals.waveform;
+      bufferLength = signals.waveform.length;
       beatPulse = frame.beat.pulse;
     }
     function applyGlow(color, blur) {
@@ -66,7 +66,7 @@
       const buildWaveformPath = (reflected = false) => {
         ctx.beginPath();
         for (let i = 0; i < bufferLength; i++) {
-          const raw = applyBassModulation((timeData[i] - 128) / 128);
+          const raw = waveformSamples[i];
           const direction = reflected ? -1 : 1;
           const y = midY + direction * raw * amp * canvas.height * 0.32;
           const x = i * slice;
@@ -110,9 +110,9 @@
         ctx = context;
         bind(frame);
         drawWaveform(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },

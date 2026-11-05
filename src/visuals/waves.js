@@ -4,17 +4,15 @@
   else (root.VisualModes ??= {}).waves = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { bandAverage, smoothTowards, applyValueHandling } = services.math;
-    const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
     const random = services.createRandom();
-    let ctx, state, canvas, freqData, beatPulse;
+    let signals, ctx, state, canvas, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
     }
     function applyGlow(color, blur) {
@@ -25,7 +23,7 @@
     const WAVES_LAYERS = 4;
     const WAVES_POINTS = 80;
     const WAVES_BANDS = 16;
-    const wavesSmoothedBands = new Float32Array(WAVES_BANDS).fill(0);
+    const wavesEnvelope = new Float32Array(WAVES_BANDS).fill(0);
     const wavesPhase = [0, 1.4, 2.8, 4.2];
 
     // Dynamic bioluminescent spores / airborne spray particles
@@ -52,33 +50,25 @@
         );
         const idx = Math.floor(pos);
         const frac = pos - idx;
-        const v0 = wavesSmoothedBands[idx];
-        const v1 = wavesSmoothedBands[Math.min(WAVES_BANDS - 1, idx + 1)];
+        const v0 = wavesEnvelope[idx];
+        const v1 = wavesEnvelope[Math.min(WAVES_BANDS - 1, idx + 1)];
         // Smooth cosine interpolation ensures continuous fluid curvature without jagged stair-steps
         const t = (1 - Math.cos(frac * Math.PI)) * 0.5;
-        return applyBassModulation(v0 + (v1 - v0) * t);
+        return v0 + (v1 - v0) * t;
       }
 
       // Distinct musical frequency roles:
-      const subBass = wavesSmoothedBands[0] * 0.6 + wavesSmoothedBands[1] * 0.4;
-      const punchBass =
-        wavesSmoothedBands[2] * 0.5 + wavesSmoothedBands[3] * 0.5;
-      const lowMids = wavesSmoothedBands[4] * 0.4 + wavesSmoothedBands[5] * 0.6;
-      const mids =
-        (wavesSmoothedBands[6] +
-          wavesSmoothedBands[7] +
-          wavesSmoothedBands[8]) /
-        3;
+      const subBass = wavesEnvelope[0] * 0.6 + wavesEnvelope[1] * 0.4;
+      const punchBass = wavesEnvelope[2] * 0.5 + wavesEnvelope[3] * 0.5;
+      const lowMids = wavesEnvelope[4] * 0.4 + wavesEnvelope[5] * 0.6;
+      const mids = (wavesEnvelope[6] + wavesEnvelope[7] + wavesEnvelope[8]) / 3;
       const highs =
-        (wavesSmoothedBands[9] +
-          wavesSmoothedBands[10] +
-          wavesSmoothedBands[11]) /
-        3;
+        (wavesEnvelope[9] + wavesEnvelope[10] + wavesEnvelope[11]) / 3;
       const air =
-        (wavesSmoothedBands[12] +
-          wavesSmoothedBands[13] +
-          wavesSmoothedBands[14] +
-          wavesSmoothedBands[15]) /
+        (wavesEnvelope[12] +
+          wavesEnvelope[13] +
+          wavesEnvelope[14] +
+          wavesEnvelope[15]) /
         4;
 
       ctx.save();
@@ -263,34 +253,21 @@
     }
 
     function updateWaves(bassLevel, midLevel, trebleLevel, dtSec) {
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.waves.releasePerSec * dtSec)
-        : 0;
       // 1. Smooth 16 musical frequency bands (from 35 Hz sub-bass to 16 kHz brilliance)
       // This eliminates high-frequency FFT pixel noise while capturing every musical nuance
-      for (let b = 0; b < WAVES_BANDS; b++) {
-        const loFrac = Math.pow(b / WAVES_BANDS, 2.0) * 0.72 + 0.005;
-        const hiFrac = Math.pow((b + 1) / WAVES_BANDS, 2.0) * 0.72 + 0.01;
-        const rawVal = Math.pow(
-          applyValueHandling(
-            bandAverage(freqData, loFrac, hiFrac) / 255,
-            state.valueHandling
-          ),
-          0.85
-        );
-        wavesSmoothedBands[b] = smoothTowards(
-          wavesSmoothedBands[b],
-          rawVal,
-          remaining
-        );
-      }
-
-      const punchBass =
-        wavesSmoothedBands[2] * 0.5 + wavesSmoothedBands[3] * 0.5;
+      // Visual exception: broaden the fluid surface/curtain envelope after processing.
+      for (let b = 0; b < WAVES_BANDS; b++)
+        wavesEnvelope[b] = Math.pow(signals.bands[b], 0.85);
+      const punchBass = wavesEnvelope[2] * 0.5 + wavesEnvelope[3] * 0.5;
       for (let l = 0; l < WAVES_LAYERS; l++) {
         const speedDir = l % 2 === 0 ? 1 : -0.75;
         wavesPhase[l] +=
-          (0.42 + l * 0.16 + punchBass * 0.75 + beatPulse * 0.35) *
+          (0.42 +
+            l * 0.16 +
+            (Math.pow(signals.motionBands[2], 0.85) * 0.5 +
+              Math.pow(signals.motionBands[3], 0.85) * 0.5) *
+              0.75 +
+            beatPulse * 0.35) *
           speedDir *
           dtSec;
       }
@@ -325,7 +302,7 @@
 
     const initialRandomState = random.getState();
     const initial = structuredClone({
-      wavesSmoothedBands,
+      wavesEnvelope,
       wavesPhase,
       wavesSpores,
     });
@@ -333,9 +310,9 @@
       update(frame) {
         bind(frame);
         updateWaves(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -343,15 +320,15 @@
         ctx = context;
         bind(frame);
         drawWaves(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
       reset() {
         random.setState(initialRandomState);
-        services.restore(wavesSmoothedBands, initial.wavesSmoothedBands);
+        services.restore(wavesEnvelope, initial.wavesEnvelope);
         services.restore(wavesPhase, initial.wavesPhase);
         services.restore(wavesSpores, initial.wavesSpores);
       },

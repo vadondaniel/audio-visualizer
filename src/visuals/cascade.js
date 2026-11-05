@@ -4,19 +4,17 @@
   else (root.VisualModes ??= {}).cascade = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { bandAverage, smoothTowards, applyValueHandling } = services.math;
-    const { VISUAL_TUNING, THEMES } = services.constants;
+    const { THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
     const loadImage = services.loadImage;
     const random = services.createRandom();
-    let ctx, state, canvas, freqData, bufferLength, beatPulse, mediaArt;
+    let signals, ctx, state, canvas, beatPulse, mediaArt;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
-      bufferLength = frame.audio.frequencyBytes.length;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
       mediaArt = frame.mediaArt;
     }
@@ -45,23 +43,13 @@
 
     const centerLogoImg = loadImage("icon.png");
     function updateCascade(bassLevel, midLevel, trebleLevel, dtSec) {
-      const { releasePerSec } = VISUAL_TUNING.cascade || {
-        releasePerSec: 7.2,
-      };
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-releasePerSec * dtSec)
-        : 0;
-
       const W = canvas.width;
       const H = canvas.height;
       const cx = W / 2;
       const cy = H / 2;
       const minDim = Math.min(W, H);
 
-      const subBass = applyBassModulation(
-        Math.min(1, bandAverage(freqData, 0.003, 0.035) / 200) *
-          state.sensitivity
-      );
+      const subBass = signals.accents.subBass;
       const punchBass = bassLevel * 0.7 + midLevel * 0.3;
       const energy = subBass * 0.55 + punchBass * 0.35 + trebleLevel * 0.1;
 
@@ -107,8 +95,8 @@
       const maxWaveHeight = minDim * 0.22; // Full dramatic scale for hits
 
       const rawTargets = new Float32Array(CASCADE_BARS);
-      const minBin = 2; // ~43 Hz (sub-bass kick)
-      const maxBin = Math.floor(bufferLength * 0.32); // ~2800 Hz (musical presence)
+      // ~43 Hz (sub-bass kick)
+      // ~2800 Hz (musical presence)
 
       for (let i = 0; i < CASCADE_BARS; i++) {
         const u =
@@ -126,27 +114,7 @@
 
         // Map active wing range (0.12 to 0.82) across the full musical frequency spectrum
         // (sub-bass kicks at upper flank, treble at lower flank by default)
-        const uActive = Math.max(0, Math.min(1, (u - 0.12) / (0.82 - 0.12)));
-        const frequencyT =
-          state.cascadeFrequencyOrder === "treble-to-bass"
-            ? 1 - uActive
-            : uActive;
-        const binIdx = Math.round(
-          minBin * Math.pow(maxBin / minBin, frequencyT)
-        );
-        const rawVal = freqData[Math.min(bufferLength - 1, binIdx)] / 255;
-
-        // High threshold floor: below threshold is strictly 0 (barely any peaks!)
-        const threshold = 0.4;
-        let punch = 0;
-        if (rawVal > threshold) {
-          const norm = (rawVal - threshold) / (1 - threshold);
-          punch = applyBassModulation(
-            applyValueHandling(norm, state.valueHandling) * state.sensitivity
-          );
-        }
-
-        rawTargets[i] = punch * dampen;
+        rawTargets[i] = signals.bands[i] * dampen;
       }
 
       // 3. Elastic neighbor coupling: when a frequency punches, it tugs its neighbors along into a fluid wave
@@ -178,11 +146,7 @@
           )
         );
 
-        cascadeLiveBands[i] = smoothTowards(
-          cascadeLiveBands[i],
-          targetH,
-          remaining
-        );
+        cascadeLiveBands[i] = targetH;
 
         cascadeSustainedPeaks[i] = Math.max(
           cascadeLiveBands[i],
@@ -533,9 +497,9 @@
       update(frame) {
         bind(frame);
         updateCascade(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -543,9 +507,9 @@
         ctx = context;
         bind(frame);
         drawCascade(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },

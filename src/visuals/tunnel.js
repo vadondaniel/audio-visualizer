@@ -4,16 +4,14 @@
   else (root.VisualModes ??= {}).tunnel = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { bandAverage, smoothTowards, applyValueHandling } = services.math;
-    const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, beatPulse, timestampMs;
+    let signals, ctx, state, canvas, beatPulse, timestampMs;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
       timestampMs = frame.timestampMs;
     }
@@ -23,14 +21,13 @@
     }
     const prepared = {};
     // ---------- Cyber Tunnel mode (spatial, audio-dimensional tunnel) ----------
+    let tunnelMotionBassPrev = 0,
+      tunnelMotionTreblePrev = 0;
     let tunnelTravel = 0;
     let tunnelTwist = 0;
     let tunnelAngle = 0;
     let tunnelPulse = 0;
     let tunnelPulsePhase = 0;
-    let tunnelBassSmoothed = 0;
-    let tunnelMidSmoothed = 0;
-    let tunnelTrebleSmoothed = 0;
     let tunnelBassPrev = 0;
     let tunnelMidPrev = 0;
     let tunnelTreblePrev = 0;
@@ -58,26 +55,11 @@
     }
 
     function updateTunnel(bassLevel, midLevel, trebleLevel, dtSec) {
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.tunnel.releasePerSec * dtSec)
-        : 0;
       const time = timestampMs * 0.001;
 
-      tunnelBassSmoothed = smoothTowards(
-        tunnelBassSmoothed,
-        bassLevel,
-        remaining
-      );
-      tunnelMidSmoothed = smoothTowards(tunnelMidSmoothed, midLevel, remaining);
-      tunnelTrebleSmoothed = smoothTowards(
-        tunnelTrebleSmoothed,
-        trebleLevel,
-        remaining
-      );
-
-      const bass = tunnelBassSmoothed;
-      const mids = tunnelMidSmoothed;
-      const treble = tunnelTrebleSmoothed;
+      const bass = bassLevel;
+      const mids = midLevel;
+      const treble = trebleLevel;
 
       const territory = (v, lo, hi) => {
         const x = Math.max(0, Math.min(1, (v - lo) / (hi - lo)));
@@ -138,36 +120,43 @@
         }
       }
 
+      // Motion uses the unmodulated branch; geometry below uses final levels.
+      const mb = signals.motion.bass,
+        mm = signals.motion.mid,
+        mt = signals.motion.treble;
+      const ba = Math.max(0, (mb - tunnelMotionBassPrev) * 18),
+        ta = Math.max(0, (mt - tunnelMotionTreblePrev) * 18);
+      tunnelMotionBassPrev = mb;
+      tunnelMotionTreblePrev = mt;
+      const db = territory(mb, 0, 0.34),
+        ab = territory(mb, 0.24, 0.72),
+        pb = territory(mb, 0.58, 1);
+      const dt = territory(mt, 0, 0.32),
+        at = territory(mt, 0.23, 0.68),
+        pt = territory(mt, 0.56, 1),
+        am = territory(mm, 0.27, 0.7);
       const travelSpeed =
         0.02 +
-        dormantBass * 0.08 +
-        activeBass * 0.23 +
-        peakBass * 0.34 +
-        bassAttack * 0.11 +
-        mids * 0.055 +
-        treble * 0.018 +
-        beat * (0.05 + bass * 0.12);
+        db * 0.08 +
+        ab * 0.23 +
+        pb * 0.34 +
+        ba * 0.11 +
+        mm * 0.055 +
+        mt * 0.018 +
+        beat * (0.05 + mb * 0.12);
       tunnelTravel = (tunnelTravel + travelSpeed * dtSec) % 1;
-
       tunnelTwist +=
-        (0.004 +
-          dormantTreble * 0.055 +
-          activeTreble * 0.18 +
-          peakTreble * 0.34 +
-          trebleAttack * 0.2) *
-        dtSec;
+        (0.004 + dt * 0.055 + at * 0.18 + pt * 0.34 + ta * 0.2) * dtSec;
       tunnelAngle +=
         (0.0015 +
-          dormantTreble * 0.02 +
-          activeTreble * 0.055 +
-          peakTreble * 0.115 +
-          activeMids * 0.025 +
-          trebleAttack * 0.045) *
+          dt * 0.02 +
+          at * 0.055 +
+          pt * 0.115 +
+          am * 0.025 +
+          ta * 0.045) *
         dtSec;
       tunnelPulsePhase =
-        (tunnelPulsePhase +
-          (0.1 + dormantBass * 0.12 + activeBass * 0.32 + peakBass * 0.66) *
-            dtSec) %
+        (tunnelPulsePhase + (0.1 + db * 0.12 + ab * 0.32 + pb * 0.66) * dtSec) %
         1;
 
       const W = canvas.width;
@@ -215,18 +204,9 @@
 
       // Twelve broad spectral buckets are enough to maintain visible texture while
       // avoiding a fresh Float32Array allocation every frame.
-      for (let b = 0; b < TUNNEL_WALL_GROUPS; b++) {
-        const lo = 0.008 + (b / TUNNEL_WALL_GROUPS) ** 1.55 * 0.46;
-        const hi = 0.012 + ((b + 1) / TUNNEL_WALL_GROUPS) ** 1.55 * 0.46;
-        const raw = Math.pow(
-          applyValueHandling(
-            bandAverage(freqData, lo, hi) / 255,
-            state.valueHandling
-          ),
-          0.86
-        );
-        tunnelSpectral[b] = smoothTowards(tunnelSpectral[b], raw, remaining);
-      }
+      // Visual exception: broad wall texture uses a softer final envelope.
+      for (let b = 0; b < TUNNEL_WALL_GROUPS; b++)
+        tunnelSpectral[b] = Math.pow(signals.bands[b], 0.86);
 
       // Geometry pass: contiguous typed buffers, no per-point objects.
       for (let r = 0; r < TUNNEL_RINGS; r++) {
@@ -251,7 +231,7 @@
             TUNNEL_WALL_GROUPS - 1,
             Math.floor(norm * TUNNEL_WALL_GROUPS)
           );
-          const localSpectrum = applyBassModulation(tunnelSpectral[band]);
+          const localSpectrum = tunnelSpectral[band];
           const broadWave =
             Math.sin(
               seg * (0.34 + mids * 0.42) +
@@ -594,14 +574,13 @@
     }
 
     const initial = structuredClone({
+      tunnelMotionBassPrev,
+      tunnelMotionTreblePrev,
       tunnelTravel,
       tunnelTwist,
       tunnelAngle,
       tunnelPulse,
       tunnelPulsePhase,
-      tunnelBassSmoothed,
-      tunnelMidSmoothed,
-      tunnelTrebleSmoothed,
       tunnelBassPrev,
       tunnelMidPrev,
       tunnelTreblePrev,
@@ -620,9 +599,9 @@
       update(frame) {
         bind(frame);
         updateTunnel(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -630,13 +609,15 @@
         ctx = context;
         bind(frame);
         drawTunnel(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
       reset() {
+        tunnelMotionBassPrev = 0;
+        tunnelMotionTreblePrev = 0;
         tunnelTravel = services.restore(tunnelTravel, initial.tunnelTravel);
         tunnelTwist = services.restore(tunnelTwist, initial.tunnelTwist);
         tunnelAngle = services.restore(tunnelAngle, initial.tunnelAngle);
@@ -644,18 +625,6 @@
         tunnelPulsePhase = services.restore(
           tunnelPulsePhase,
           initial.tunnelPulsePhase
-        );
-        tunnelBassSmoothed = services.restore(
-          tunnelBassSmoothed,
-          initial.tunnelBassSmoothed
-        );
-        tunnelMidSmoothed = services.restore(
-          tunnelMidSmoothed,
-          initial.tunnelMidSmoothed
-        );
-        tunnelTrebleSmoothed = services.restore(
-          tunnelTrebleSmoothed,
-          initial.tunnelTrebleSmoothed
         );
         tunnelBassPrev = services.restore(
           tunnelBassPrev,

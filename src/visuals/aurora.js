@@ -4,17 +4,15 @@
   else (root.VisualModes ??= {}).aurora = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { bandAverage, smoothTowards, applyValueHandling } = services.math;
-    const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
     const random = services.createRandom();
-    let ctx, state, canvas, freqData, beatPulse;
+    let signals, ctx, state, canvas, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
     }
     function applyGlow(color, blur) {
@@ -23,11 +21,11 @@
     }
     // ---------- Aurora Borealis mode (Celestial Audiorange Curtains) ----------
     const AURORA_BANDS = 24;
-    const auroraSmoothedBands = new Array(AURORA_BANDS).fill(0);
+    const auroraEnvelope = new Array(AURORA_BANDS).fill(0);
     const AURORA_CURTAINS = 3;
     const AURORA_POINTS = 64;
     const auroraPhase = [0, 1.4, 2.9];
-    let auroraSmoothedIntensity = 0;
+    let auroraIntensity = 0;
 
     // Starfield spanning the night sky
     const auroraStars = Array.from({ length: 90 }, () => ({
@@ -61,14 +59,14 @@
         );
         const idx = Math.floor(pos);
         const frac = pos - idx;
-        const v0 = auroraSmoothedBands[idx];
-        const v1 = auroraSmoothedBands[Math.min(AURORA_BANDS - 1, idx + 1)];
+        const v0 = auroraEnvelope[idx];
+        const v1 = auroraEnvelope[Math.min(AURORA_BANDS - 1, idx + 1)];
         const t = (1 - Math.cos(frac * Math.PI)) * 0.5;
-        return applyBassModulation(v0 + (v1 - v0) * t);
+        return v0 + (v1 - v0) * t;
       }
 
       // Macroscopic intensity: drives dramatic curtain height expansion and ionization
-      const intensity = auroraSmoothedIntensity;
+      const intensity = auroraIntensity;
 
       // 2. Celestial background: Twinkling arctic starfield
       ctx.save();
@@ -333,41 +331,17 @@
     }
 
     function updateAurora(bassLevel, midLevel, trebleLevel, dtSec) {
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.aurora.releasePerSec * dtSec)
-        : 0; // 1. Smooth 24 audiorange frequency bands (from sub-bass ~30Hz to brilliance ~15kHz)
+      // 1. Smooth 24 audiorange frequency bands (from sub-bass ~30Hz to brilliance ~15kHz)
       // This maps the entire audio spectrum continuously across the visualizer width
-      for (let b = 0; b < AURORA_BANDS; b++) {
-        const loFrac = Math.pow(b / AURORA_BANDS, 2.0) * 0.72 + 0.005;
-        const hiFrac = Math.pow((b + 1) / AURORA_BANDS, 2.0) * 0.72 + 0.012;
-        const rawVal =
-          Math.pow(
-            applyValueHandling(
-              bandAverage(freqData, loFrac, hiFrac) / 255,
-              state.valueHandling
-            ),
-            0.82
-          ) * state.sensitivity;
-        auroraSmoothedBands[b] = smoothTowards(
-          auroraSmoothedBands[b],
-          Math.min(1, rawVal),
-          remaining
-        );
-      }
-
-      const rawIntensity = applyValueHandling(
-        Math.min(1, bassLevel * 0.45 + midLevel * 0.35 + trebleLevel * 0.2),
-        state.valueHandling
-      );
-      auroraSmoothedIntensity = smoothTowards(
-        auroraSmoothedIntensity,
-        rawIntensity,
-        remaining
-      );
-      const intensity = auroraSmoothedIntensity;
+      // Visual exception: broaden the fluid surface/curtain envelope after processing.
+      for (let b = 0; b < AURORA_BANDS; b++)
+        auroraEnvelope[b] = Math.pow(signals.bands[b], 0.82);
+      auroraIntensity = signals.envelopes.aurora;
+      const intensity = auroraIntensity;
       for (const s of auroraStars) s.twinkle += dtSec * s.speed;
       for (let c = 0; c < AURORA_CURTAINS; c++) {
-        const driftSpeed = 0.18 + (2 - c) * 0.12 + intensity * 0.25;
+        const driftSpeed =
+          0.18 + (2 - c) * 0.12 + signals.motionEnvelopes.aurora * 0.25;
         auroraPhase[c] += driftSpeed * dtSec;
       }
       for (const sp of auroraSparks) {
@@ -384,9 +358,9 @@
 
     const initialRandomState = random.getState();
     const initial = structuredClone({
-      auroraSmoothedBands,
+      auroraEnvelope,
       auroraPhase,
-      auroraSmoothedIntensity,
+      auroraIntensity,
       auroraStars,
       auroraSparks,
     });
@@ -394,9 +368,9 @@
       update(frame) {
         bind(frame);
         updateAurora(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -404,19 +378,19 @@
         ctx = context;
         bind(frame);
         drawAurora(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
       reset() {
         random.setState(initialRandomState);
-        services.restore(auroraSmoothedBands, initial.auroraSmoothedBands);
+        services.restore(auroraEnvelope, initial.auroraEnvelope);
         services.restore(auroraPhase, initial.auroraPhase);
-        auroraSmoothedIntensity = services.restore(
-          auroraSmoothedIntensity,
-          initial.auroraSmoothedIntensity
+        auroraIntensity = services.restore(
+          auroraIntensity,
+          initial.auroraIntensity
         );
         services.restore(auroraStars, initial.auroraStars);
         services.restore(auroraSparks, initial.auroraSparks);

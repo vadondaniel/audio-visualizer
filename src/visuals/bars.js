@@ -4,36 +4,24 @@
   else (root.VisualModes ??= {}).bars = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { smoothTowards, applyValueHandling } = services.math;
     const { VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, bufferLength, beatPulse;
+    let signals, ctx, state, canvas, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
-      bufferLength = frame.audio.frequencyBytes.length;
+      signals = frame.signals;
+      bands = signals.bands;
+
       beatPulse = frame.beat.pulse;
     }
     function applyGlow(color, blur) {
       ctx.shadowBlur = blur * state.glowIntensity;
       ctx.shadowColor = ctx.shadowBlur > 0 ? color : "transparent";
     }
-    function updateBars(bassLevel, midLevel, trebleLevel, dtSec) {
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.bars.releasePerSec * dtSec)
-        : 0;
-      const step = Math.max(1, Math.floor((bufferLength * 0.69) / 96));
-      for (let i = 0; i < 96; i++) {
-        const targetV = applyBassModulation(
-          applyValueHandling(freqData[i * step] / 255, state.valueHandling)
-        );
-        smoothedBars[i] = smoothTowards(smoothedBars[i], targetV, remaining);
-      }
-    }
-    const smoothedBars = new Array(96).fill(0);
+
+    let bands;
 
     function drawBars(bassLevel, midLevel, trebleLevel, dtSec) {
       const { baseYFrac, heightScale } = VISUAL_TUNING.bars;
@@ -46,7 +34,7 @@
       const centerY = canvas.height / 2;
 
       for (let i = 0; i < barCount; i++) {
-        const v = smoothedBars[i];
+        const v = bands[i];
 
         const h =
           v *
@@ -71,30 +59,21 @@
       ctx.shadowBlur = 0;
     }
 
-    const initial = structuredClone({ smoothedBars });
     return {
       update(frame) {
         bind(frame);
-        updateBars(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
-          frame.dtSec
-        );
       },
       draw(context, frame) {
         ctx = context;
         bind(frame);
         drawBars(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
-      reset() {
-        services.restore(smoothedBars, initial.smoothedBars);
-      },
+      reset() {},
     };
   }
   return { createMode };

@@ -34,17 +34,16 @@ app.whenReady().then(async () => {
       detector.fftSize=2048;detector.smoothingTimeConstant=0;
       gain.gain.value=0.2;mute.gain.value=0;
       oscillator.connect(gain).connect(detector).connect(mute).connect(context.destination);
-      const previous = [audioCtx,bassAnalyser,bassFrequencyDb];
+      const checkPipe=AudioPipeline.create();const db=new Float32Array(1024);
+      const measure=()=>{detector.getFloatFrequencyData(db);return checkPipe.update({spectrumDb:db,frequencyBytes:new Uint8Array(1024),timeBytes:new Uint8Array(1024).fill(128),sampleRate:context.sampleRate},state,{dtSec:.1}).bassDriverLevel;};
       try {
-        audioCtx=context;bassAnalyser=detector;bassFrequencyDb=new Float32Array(detector.frequencyBinCount);
         oscillator.frequency.value=100;oscillator.start();await context.resume();
         await new Promise(resolve=>setTimeout(resolve,150));
-        const bass=readBassSensitivityLevel();
+        const bass=measure();
         oscillator.frequency.value=1000;
         await new Promise(resolve=>setTimeout(resolve,150));
-        return {bass,mid:readBassSensitivityLevel()};
+        return {bass,mid:measure()};
       } finally {
-        [audioCtx,bassAnalyser,bassFrequencyDb]=previous;
         oscillator.stop();await context.close();
       }
     })()`);
@@ -65,14 +64,16 @@ app.whenReady().then(async () => {
       check(bassSensitivityRange.textContent.includes("0.25×") && bassSensitivityRange.textContent.includes("1.75×"),"Range label");
       valueHandlingSelect.value="logarithmic";
       valueHandlingSelect.dispatchEvent(new Event("change"));
-      updateBassSensitivity(0.5,10);
-      check(Math.abs(bassSensitivityGain-AudioMath.bassSensitivityTarget(0.5,0.75,"logarithmic"))<0.0001,"Curve is used by actual controls");
+      const controlPipe=AudioPipeline.create();const controlInput={spectrumDb:new Float32Array(1024).fill(-45),frequencyBytes:new Uint8Array(1024),timeBytes:new Uint8Array(1024).fill(128),sampleRate:48000};
+      const process=()=>controlPipe.update(controlInput,state,{dtSec:.1});
+      let processed;for(let i=0;i<30;i++)processed=process();
+      check(Math.abs(processed.bassMultiplier-AudioMath.bassSensitivityTarget(0.5,0.75,"logarithmic"))<0.0001,"Curve is used by actual controls");
       bassSensitivityCheckbox.click();
-      check(bassSensitivityGain===1 && applyBassModulation(0.6)===0.6,"Disabling resets immediately");
+      check(process().bassMultiplier===1,"Disabling resets immediately");
       bassSensitivityCheckbox.click();
       bassSensitivityAmountSlider.value=0;bassSensitivityAmountSlider.dispatchEvent(new Event("input"));
-      updateBassSensitivity(0,1);
-      check(applyBassModulation(0.6)===0.6 && bassSensitivityGain===1,"Zero amount preserves response");
+      processed=process();
+      check(processed.bassMultiplier===1,"Zero amount preserves response");
       bassSensitivityAmountSlider.value=75;bassSensitivityAmountSlider.dispatchEvent(new Event("input"));
       return {amount:state.bassSensitivityAmount,curve:state.valueHandling};
     })()`);
@@ -96,7 +97,6 @@ app.whenReady().then(async () => {
       analyser={getByteFrequencyData:data=>{data.fill(100);data.fill(inputBass,0,15);},getByteTimeDomainData:data=>{for(let i=0;i<data.length;i++)data[i]=Math.round(128+35*Math.sin(i/16));},getFloatFrequencyData:data=>{for(let i=0;i<data.length;i++)data[i]=-65+35*Math.exp(-Math.pow((Math.log2(i+1)-4)/0.8,2));}};
       audioCtx={state:"running",sampleRate:48000};
       bassAnalyser={fftSize:2048,getFloatFrequencyData:data=>data.fill(inputBass===0?-Infinity:-25)};
-      bassFrequencyDb=new Float32Array(1024);
       const originalRaf=window.requestAnimationFrame;
       window.requestAnimationFrame=()=>0;
       let timestamp=1000;
@@ -104,14 +104,14 @@ app.whenReady().then(async () => {
       for(let mode=0;mode<MODES.length;mode++){
         state.mode=mode;syncSelectsToState();
         for(const bass of [0,255]){
-          inputBass=bass;updateBassSensitivity(bass===0?0:1,10);
+          inputBass=bass;
           for(let frame=0;frame<5;frame++){timestamp+=1000/60;loop(timestamp);}
-          if(!Number.isFinite(bassSensitivityGain))throw Error("Nonfinite modulation in "+MODES[mode]);
+          if(!Number.isFinite(visualFrame.signals.bassMultiplier))throw Error("Nonfinite modulation in "+MODES[mode]);
         }
         rendered.push(MODES[mode]);
       }
       // Keep settings ready for the visual control check; no live capture is used.
-      analyser=null;audioCtx=null;bassAnalyser=null;bassFrequencyDb=null;window.requestAnimationFrame=originalRaf;
+      analyser=null;audioCtx=null;bassAnalyser=null;window.requestAnimationFrame=originalRaf;
       state.mode=MODES.indexOf("bars");syncSelectsToState();
       settingsBtn.click();
       [...settingsPanel.querySelectorAll(".settingsSectionTitle")].find(el=>el.textContent.trim()==="Audio").click();

@@ -6,6 +6,7 @@ const {
   advanceOrbitRope,
 } = require("../src/visuals/orbit");
 const AudioMath = require("../src/audio-math");
+const Pipeline = require("../src/audio-pipeline");
 
 function setup(energy = 0) {
   const fixture = makeFixture("orbit");
@@ -57,6 +58,9 @@ function setup(energy = 0) {
       fixture.frame.dtSec = dt;
       fixture.frame.elapsedMs = dt * 1000;
       fixture.canvas.clear();
+      fixture.process();
+      Object.assign(fixture.frame.signals.levels, { bass, mid, treble });
+      Object.assign(fixture.frame.signals.motion, { bass, mid, treble });
       fixture.mode.update(fixture.frame);
       fixture.mode.draw(ctx, fixture.frame);
     },
@@ -230,8 +234,14 @@ test("loud audio retains band detail at logarithmic handling and maximum sensiti
 
 test("input headroom preserves gain control without amplifying silence or quiet noise", () => {
   const app = setup();
-  const low = AudioMath.spectrumResponseLevel(-50, -35, "logarithmic", 1);
-  const high = AudioMath.spectrumResponseLevel(-50, -35, "logarithmic", 2.5);
+  const low = Pipeline.controlled(Pipeline.normalize(-50, -35, "amplitude"), {
+    sensitivity: 1,
+    valueHandling: "logarithmic",
+  });
+  const high = Pipeline.controlled(Pipeline.normalize(-50, -35, "amplitude"), {
+    sensitivity: 2.5,
+    valueHandling: "logarithmic",
+  });
   expect(high).toBeGreaterThan(low);
   expect(high).toBeLessThan(1);
   app.settings.sensitivity = 2.5;

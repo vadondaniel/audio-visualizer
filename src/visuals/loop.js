@@ -44,42 +44,16 @@ function loop(timestamp = performance.now()) {
   // device change that Chromium didn't report via track/stream events.
   checkSilence();
 
-  const bass = bandAverage(freqData, 0, 0.015); // ~0-300Hz (True Bass)
-  const mid = bandAverage(freqData, 0.015, 0.1); // ~300-2000Hz (Mids)
-  const treble = bandAverage(freqData, 0.1, 0.5); // ~2000-10000Hz (Highs)
-  const rawBass = normalizeEnergy(
-    bass,
-    AUDIO_TUNING.particleFloor,
-    AUDIO_TUNING.particleRange
-  );
-  const rawMid = normalizeEnergy(mid, 15, 165);
-  const rawTreble = normalizeEnergy(treble, 12, 155);
-  updateBassSensitivity(
-    state.bassSensitivityEnabled && state.bassSensitivityAmount > 0
-      ? readBassSensitivityLevel()
-      : 0,
-    dtSec
-  );
-
-  const bassLevel = Math.min(
-    1,
-    applyValueHandling(rawBass, state.valueHandling) * state.sensitivity
-  );
-  const midLevel = Math.min(
-    1,
-    applyValueHandling(rawMid, state.valueHandling) * state.sensitivity
-  );
-  const trebleLevel = Math.min(
-    1,
-    applyValueHandling(rawTreble, state.valueHandling) * state.sensitivity
-  );
-  updateBeat(bass, elapsedMs, dtSec);
+  updateBeat(AudioPipeline.legacyBass(freqData), elapsedMs, dtSec);
+  const frame = prepareVisualFrame(timestamp, elapsedMs);
+  const { levels, motion, features, beatIntensity } = frame.signals;
   diagnosticCall("endAudio", audioTimer);
 
   if (THEMES[state.theme].colorCycle || THEMES[state.theme].cycle) {
     const { baseDegPerSec, midDegPerSecPerUnit } = VISUAL_TUNING.hueCycle;
     state.hueShift =
-      (state.hueShift + (baseDegPerSec + mid * midDegPerSecPerUnit) * dtSec) %
+      (state.hueShift +
+        (baseDegPerSec + features.legacyMid * midDegPerSecPerUnit) * dtSec) %
       360;
   }
 
@@ -97,11 +71,11 @@ function loop(timestamp = performance.now()) {
   if (typeof renderProceduralBackground === "function") {
     renderProceduralBackground(
       dtSec,
-      applyBassModulation(bassLevel),
-      applyBassModulation(midLevel),
-      applyBassModulation(trebleLevel),
-      applyBassModulation(beatPulse),
-      bassLevel,
+      levels.bass,
+      levels.mid,
+      levels.treble,
+      beatIntensity,
+      motion.bass,
       beatPulse
     );
   }
@@ -109,25 +83,12 @@ function loop(timestamp = performance.now()) {
 
   const fxTimer = diagnosticCall("beginFx");
   if (typeof updateFxLive === "function") {
-    updateFxLive(
-      applyBassModulation(bassLevel),
-      applyBassModulation(midLevel),
-      applyBassModulation(trebleLevel),
-      applyBassModulation(beatPulse)
-    );
+    updateFxLive(levels.bass, levels.mid, levels.treble, beatIntensity);
   }
   diagnosticCall("endFx", fxTimer);
 
   const modeTimer = diagnosticCall("beginRender");
 
-  const frame = prepareVisualFrame(
-    timestamp,
-    elapsedMs,
-    bass,
-    bassLevel,
-    midLevel,
-    trebleLevel
-  );
   visualModeController.render(MODES[state.mode], ctx, frame);
   diagnosticCall("endRender", modeTimer);
 

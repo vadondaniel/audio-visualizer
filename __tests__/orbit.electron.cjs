@@ -50,7 +50,7 @@ app.whenReady().then(async () => {
         modeSelect.value = MODES.indexOf("${mode}");
         modeSelect.dispatchEvent(new Event("change"));
         bufferLength = 1024;
-        freqData = new Uint8Array(bufferLength);
+        freqData = new Uint8Array(bufferLength);timeData=new Uint8Array(bufferLength).fill(128);
         for (let i=0;i<bufferLength;i++) {
           const x = Math.log2(i+1);
           freqData[i] = ${silent ? "0" : "Math.min(255, 24 + 225*Math.exp(-Math.pow((x-3.3)/0.9,2)) + 170*Math.exp(-Math.pow((x-6.1)/0.6,2)) + 95*Math.exp(-Math.pow((x-7.6)/0.4,2)))"};

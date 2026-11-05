@@ -4,7 +4,6 @@
   else (root.VisualModes ??= {}).particles = api.createMode;
 })(globalThis, function () {
   function createMode(services) {
-    const { applyValueHandling } = services.math;
     const {
       PARTICLE_BANDS,
       VISUAL_TUNING,
@@ -14,26 +13,16 @@
     } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
     const random = services.createRandom();
-    let ctx,
-      state,
-      canvas,
-      freqData,
-      bufferLength,
-      beatPulse,
-      beatJustHit,
-      audioClockMs,
-      audioCtx;
+    let signals, ctx, state, canvas, beatPulse, beatJustHit, audioClockMs;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
-      bufferLength = frame.audio.frequencyBytes.length;
+      signals = frame.signals;
+
       beatPulse = frame.beat.pulse;
       beatJustHit = frame.beat.justHit;
       audioClockMs = frame.audioClockMs;
-      audioCtx = frame.audio;
     }
     function applyGlow(color, blur) {
       ctx.shadowBlur = blur * state.glowIntensity;
@@ -75,98 +64,6 @@
     }
 
     const particleShockwaves = [];
-    // Additional spectral descriptors for particle-mode dimensionality. These are
-    // deliberately low-cost: one linear scan of the analyser buffer per frame.
-    const particleAudio = {
-      subBass: 0,
-      bass: 0,
-      mids: 0,
-      presence: 0,
-      air: 0,
-      centroid: 0.5,
-      flux: 0,
-      contrast: 0,
-      prevSpectrum: null,
-    };
-
-    function updateParticleAudioFeatures() {
-      if (!freqData || !bufferLength) return particleAudio;
-
-      // Approximate spectral regions without assuming a particular sample rate.
-      // fftSize is 2048 in the audio engine, so these map closely to musical bands.
-      const nyquist = audioCtx?.sampleRate ? audioCtx.sampleRate * 0.5 : 24000;
-      const hzPerBin = nyquist / bufferLength;
-      const bands = [
-        [28, 90],
-        [90, 250],
-        [250, 2000],
-        [2000, 6000],
-        [6000, 16000],
-      ];
-      const sums = [0, 0, 0, 0, 0];
-      const counts = [0, 0, 0, 0, 0];
-      let weighted = 0;
-      let total = 0;
-      let flux = 0;
-      let peak = 0;
-
-      if (
-        !particleAudio.prevSpectrum ||
-        particleAudio.prevSpectrum.length !== bufferLength
-      ) {
-        particleAudio.prevSpectrum = new Uint8Array(bufferLength);
-      }
-
-      for (let i = 1; i < bufferLength; i++) {
-        const v = freqData[i] / 255;
-        if (v <= 0) {
-          particleAudio.prevSpectrum[i] = 0;
-          continue;
-        }
-
-        const hz = i * hzPerBin;
-        for (let b = 0; b < bands.length; b++) {
-          if (hz >= bands[b][0] && hz < bands[b][1]) {
-            sums[b] += v;
-            counts[b]++;
-            break;
-          }
-        }
-
-        weighted += hz * v;
-        total += v;
-        peak = Math.max(peak, v);
-        const previous = particleAudio.prevSpectrum[i] / 255;
-        if (v > previous) flux += v - previous;
-        particleAudio.prevSpectrum[i] = freqData[i];
-      }
-
-      const raw = sums.map((sum, i) =>
-        applyBassModulation(counts[i] ? sum / counts[i] : 0)
-      );
-      const rawCentroid =
-        total > 0 ? weighted / total / nyquist : particleAudio.centroid;
-      const rawFlux = Math.min(1, flux / Math.max(12, bufferLength * 0.045));
-      const mean = total / Math.max(1, bufferLength - 1);
-      const rawContrast = Math.min(
-        1,
-        Math.max(0, (peak - mean) / Math.max(0.08, peak))
-      );
-      const smooth = 0.12;
-      const attack = 0.28;
-
-      particleAudio.subBass += (raw[0] - particleAudio.subBass) * smooth;
-      particleAudio.bass += (raw[1] - particleAudio.bass) * smooth;
-      particleAudio.mids += (raw[2] - particleAudio.mids) * smooth;
-      particleAudio.presence += (raw[3] - particleAudio.presence) * smooth;
-      particleAudio.air += (raw[4] - particleAudio.air) * smooth;
-      particleAudio.centroid += (rawCentroid - particleAudio.centroid) * smooth;
-      particleAudio.flux += (rawFlux - particleAudio.flux) * attack;
-      particleAudio.contrast += (rawContrast - particleAudio.contrast) * smooth;
-
-      return particleAudio;
-    }
-
     let energyNow = 0;
     let energyTrend = 0;
     let particlePhase = 0;
@@ -297,13 +194,7 @@
 
       for (let i = 0; i < dots; i++) {
         const t = i / dots;
-        const sample = Math.min(
-          bufferLength - 1,
-          Math.floor(t * bufferLength * 0.42)
-        );
-        const v = applyBassModulation(
-          applyValueHandling(freqData[sample] / 255, state.valueHandling)
-        );
+        const v = signals.bands[i];
         const angle = t * Math.PI * 2 + particlePhase * (0.025 + energy * 0.02);
         const wobble = 1 + Math.sin(particlePhase * 1.4 + i * 1.73) * 0.055;
         const dist = radius * (1.05 + v * (0.75 + energy * 1.3)) * wobble;
@@ -414,10 +305,7 @@
     ) {
       const dt = elapsedMs / FRAME_MS;
 
-      const rawEnergy = applyValueHandling(
-        bassLevel * 0.48 + midLevel * 0.3 + trebleLevel * 0.22,
-        state.valueHandling
-      );
+      const rawEnergy = bassLevel * 0.48 + midLevel * 0.3 + trebleLevel * 0.22;
 
       // Keep the history bounded without shifting the whole array every frame.
       const historyNow = { value: rawEnergy, t: audioClockMs };
@@ -442,25 +330,33 @@
       energyNow += (normalized - energyNow) * Math.min(1, fastFactor * dt);
       energyTrend += (normalized - energyTrend) * Math.min(1, 0.06 * dt);
 
-      const audio = updateParticleAudioFeatures();
+      const audio = signals.features;
       const dimensionalBass = Math.min(
         1,
-        bassLevel * 0.58 + audio.subBass * 0.82
+        bassLevel * 0.58 + signals.accents.subBass * 0.82
       );
       const dimensionalMid = Math.min(
         1,
-        midLevel * 0.48 + audio.mids * 0.88 + audio.presence * 0.22
+        midLevel * 0.48 +
+          signals.accents.mids * 0.88 +
+          signals.accents.presence * 0.22
       );
       const dimensionalTreble = Math.min(
         1,
-        trebleLevel * 0.46 + audio.presence * 0.56 + audio.air * 0.78
+        trebleLevel * 0.46 +
+          signals.accents.presence * 0.56 +
+          signals.accents.air * 0.78
       );
       const brightness = Math.min(1, audio.centroid * 1.5);
       const transient = Math.min(1, audio.flux * 1.55 + beatPulse * 0.72);
       const contrast = Math.min(1, audio.contrast * 1.25);
 
       particlePhase +=
-        dt * (0.48 + trebleLevel * 1.25 + brightness * 1.05 + beatPulse * 1.4);
+        dt *
+        (0.48 +
+          signals.motion.treble * 1.25 +
+          brightness * 1.05 +
+          beatPulse * 1.4);
 
       const levels = [bassLevel, midLevel, trebleLevel];
       const SPAWN_RATE = 88 * Math.pow(state.particleDensity, 1.15);
@@ -811,7 +707,6 @@
       bandSpawnAccum,
       energyHistory,
       particleShockwaves,
-      particleAudio,
       energyNow,
       energyTrend,
       particlePhase,
@@ -821,10 +716,10 @@
       update(frame) {
         bind(frame);
         updateParticles(
-          frame.levels.rawBass,
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.features.rawBass,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.elapsedMs
         );
       },
@@ -832,10 +727,10 @@
         ctx = context;
         bind(frame);
         drawParticles(
-          frame.levels.rawBass,
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.features.rawBass,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.elapsedMs
         );
       },
@@ -845,7 +740,7 @@
         services.restore(bandSpawnAccum, initial.bandSpawnAccum);
         services.restore(energyHistory, initial.energyHistory);
         services.restore(particleShockwaves, initial.particleShockwaves);
-        services.restore(particleAudio, initial.particleAudio);
+
         energyNow = services.restore(energyNow, initial.energyNow);
         energyTrend = services.restore(energyTrend, initial.energyTrend);
         particlePhase = services.restore(particlePhase, initial.particlePhase);

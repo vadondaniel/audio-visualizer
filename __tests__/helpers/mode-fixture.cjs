@@ -3,6 +3,7 @@ const fs = require("node:fs"),
   vm = require("node:vm");
 const math = require("../../src/audio-math");
 const runtime = require("../../src/mode-runtime");
+const Pipeline = require("../../src/audio-pipeline");
 const names = [
   "bars",
   "radial",
@@ -133,7 +134,7 @@ function setup(name, { seed = 12345 } = {}) {
     vm.runInContext(source, context);
   }
   const constants = vm.runInContext(
-    "({VISUAL_TUNING,THEMES,PARTICLE_BANDS,KALEIDO_BARS,KALEIDO_BAND_EDGES,FRAME_MS,ENERGY_HISTORY_MS})",
+    "({VISUAL_TUNING,THEMES,PARTICLE_BANDS,KALEIDO_BARS,FRAME_MS,ENERGY_HISTORY_MS})",
     context
   );
   const settings = vm.runInContext("state", context);
@@ -169,7 +170,7 @@ function setup(name, { seed = 12345 } = {}) {
     math,
     constants,
     restore: runtime.restore,
-    createRandom: () => rng,
+    createRandom: () => runtime.createRandom(seed),
     loadImage: () => ({ complete: false, width: 0 }),
     palette: {
       currentHue: context.currentHue,
@@ -180,9 +181,34 @@ function setup(name, { seed = 12345 } = {}) {
   const mode = require(path.join(root, "src/visuals", name + ".js")).createMode(
     services
   );
+  const pipeline = Pipeline.create();
+  function process() {
+    pipeline.update(
+      { ...frame.audio, beatPulse: frame.beat.pulse },
+      settings,
+      frame
+    );
+    frame.signals = pipeline.forMode(name);
+    if (gain !== 1) {
+      for (let i = 0; i < frame.signals.bands.length; i++)
+        frame.signals.bands[i] = math.applyBassGain(
+          frame.signals.bands[i],
+          gain
+        );
+      for (let i = 0; i < frame.signals.waveform.length; i++)
+        frame.signals.waveform[i] = math.applyBassGain(
+          frame.signals.waveform[i],
+          gain
+        );
+    }
+    return frame.signals;
+  }
+
   return {
     mode,
     frame,
+    pipeline,
+    process,
     services,
     canvas,
     spectrum,
@@ -196,6 +222,7 @@ function setup(name, { seed = 12345 } = {}) {
     },
     render() {
       canvas.clear();
+      process();
       mode.update(frame);
       mode.draw(canvas.ctx, frame);
       return canvas.events;

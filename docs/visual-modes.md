@@ -23,11 +23,10 @@ do not retain their values as history without copying the data needed.
 - `width`, `height`: canvas pixels; `settings`: current application settings.
 - `timestampMs`: renderer timestamp; `elapsedMs`: clamped frame duration;
   `dtSec`: the same duration in seconds; `audioClockMs`: existing beat/history clock.
-- `audio.frequencyBytes`, `audio.timeBytes`: borrowed original analyser buffers.
-- `audio.sampleRate`: Hz; `audio.readFloatSpectrum()`: borrowed decibel spectrum,
-  acquired lazily and cached for that frame. Byte-only sources retain their fallback.
-- `levels.rawBass`: original bass-band byte average, used by Particles;
-  `levels.bass`, `mid`, `treble`: existing shaped levels, before mode-specific modulation.
+- `signals`: finished, borrowed audio outputs from the [audio pipeline](audio-pipeline.md).
+  Modes receive final levels, unmodulated motion levels, their own spectral bands,
+  signed waveform samples, and raw descriptors. They do not receive analyser buffers
+  or audio-control helpers and must not reapply Sensitivity, curves, or bass gain.
 - `beat.pulse`, `beat.justHit`: existing beat state. The host clears a pending beat
   after Particles updates; modes never mutate shared beat state.
 - `mediaArt`: a loaded, valid cover image when the current display enables it;
@@ -35,13 +34,18 @@ do not retain their values as history without copying the data needed.
 
 ## Injected services
 
-Factories receive `math`, `constants`, `palette.currentHue`,
-`palette.themeCssColor`, `modulate(value)`, `loadImage(src)`, `restore(storage, initial)`,
+Factories receive `constants`, `palette.currentHue`,
+`palette.themeCssColor`, `loadImage(src)`, `restore(storage, initial)`,
 and `createRandom()`. Random streams are instance-owned callable generators with
 `getState()` and `setState()` for reset. The controller also accepts the host's
 `consumeBeat()` callback. Modes do not access DOM globals, devices, or clocks.
 
-Keep a mode's response formulas and tuning separate from this lifecycle contract.
-The checked-in rendering fingerprints cover synthetic, seeded landscape and
-portrait scenes from before the migration; they should not be regenerated merely
-to accept an unexplained rendering change. No music files are test fixtures.
+Keep geometry, animation, and visual physics in modes. Sampling, normalization,
+controls, and audio smoothing belong to the pipeline's named profiles.
+
+`mode-geometry-baseline.json` supplies synthetic finished signals and drawing
+fingerprints captured from the pre-pipeline implementations. The tests therefore
+check geometry independently of intentional audio changes. The older
+`mode-render-baseline.json` remains a historical raw-input reference; neither
+fixture should be regenerated to conceal an unexplained rendering change.
+No music files are test fixtures.

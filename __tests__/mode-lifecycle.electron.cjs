@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
       };
       installInput();
       const render=id=>{
-        clearFrame();
+        state.mode=MODES.indexOf(id);clearFrame();
         visualModeController.render(id,ctx,prepareVisualFrame(1000,1000/60,130,.5,.4,.3));
       };
       const originalRotate=ctx.rotate.bind(ctx);const rotations=[];

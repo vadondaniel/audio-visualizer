@@ -1,15 +1,13 @@
 const AudioMath = require("../src/audio-math");
 const { setup: makeFixture, spyCanvas } = require("./helpers/mode-fixture.cjs");
-const {
-  prismInnerRadius,
-  prismOuterRadius,
-  prismBandEdge,
-  prismAudioLevel: audioLevel,
-  prismActiveEnd: activeEnd,
-} = require("../src/visuals/prism");
-const prismActiveEnd = (data) => activeEnd(data, AudioMath.spectrumBandDb);
-const prismAudioLevel = (...args) =>
-  audioLevel(...args, AudioMath.applyValueHandling);
+const { prismInnerRadius, prismOuterRadius } = require("../src/visuals/prism");
+const Pipeline = require("../src/audio-pipeline");
+const { prismBandEdge, prismActiveEnd } = Pipeline;
+const prismAudioLevel = (db, ref, curve, sensitivity) =>
+  Pipeline.controlled(Pipeline.normalize(db, ref), {
+    valueHandling: curve,
+    sensitivity,
+  });
 test("active range trims quiet treble, follows recording level, and retains real high frequencies", () => {
   const data = new Float32Array(1024).fill(-110);
   data.fill(-30, 2, 80);
@@ -135,6 +133,12 @@ function setup(bass = 0.5) {
       ),
     draw() {
       ctx.clearMocks();
+      fixture.process();
+      Object.assign(fixture.frame.signals.levels, {
+        bass: 0,
+        mid: 0,
+        treble: 0,
+      });
       fixture.mode.update(fixture.frame);
       fixture.mode.draw(ctx, fixture.frame);
     },

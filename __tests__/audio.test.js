@@ -2,7 +2,6 @@ const {
   initAudio,
   cleanupAudioCapture,
   recoverAudioCapture,
-  readBassSensitivityLevel,
 } = require("../src/audio");
 
 describe("initAudio", () => {
@@ -122,15 +121,6 @@ describe("initAudio", () => {
     expect(bassAnalyser.fftSize).toBe(2048);
     expect(bassAnalyser.smoothingTimeConstant).toBe(0);
     expect(source.connect).toHaveBeenCalledWith(bassAnalyser);
-    const previousMath = global.AudioMath;
-    global.AudioMath = require("../src/audio-math");
-    try {
-      expect(readBassSensitivityLevel()).toBeCloseTo(0.5);
-      expect(bassAnalyser.getFloatFrequencyData).toHaveBeenCalledTimes(1);
-    } finally {
-      global.AudioMath = previousMath;
-    }
-
     expect(analyser.fftSize).toBe(2048);
     expect(analyser.smoothingTimeConstant).toBe(0.82);
     expect(source.connect).toHaveBeenCalledWith(analyser);

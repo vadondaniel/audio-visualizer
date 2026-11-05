@@ -50,19 +50,17 @@
     return radius * (0.025 + Math.min(1, Math.max(0, level)) * 0.7);
   }
   function createMode(services) {
-    const { smoothTowards, spectrumBandDb, spectrumResponseLevel } =
-      services.math;
     const { VISUAL_TUNING, THEMES } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
-    const applyBassModulation = services.modulate;
-    let ctx, state, canvas, freqData, beatPulse, readFloatSpectrum;
+    let signals, ctx, state, canvas, beatPulse;
     function bind(frame) {
       state = frame.settings;
       canvas = frame;
-      freqData = frame.audio.frequencyBytes;
+      signals = frame.signals;
+      orbitSpectrum = signals.bands;
+
       beatPulse = frame.beat.pulse;
-      readFloatSpectrum = frame.audio.readFloatSpectrum;
     }
     function applyGlow(color, blur) {
       ctx.shadowBlur = blur * state.glowIntensity;
@@ -72,61 +70,13 @@
     // shares one rotation; audio pulls the rope inward and pushes bars outward.
     const ORBIT_BANDS = 40;
     const ORBIT_ROPE_POINTS = 192;
-    const orbitSpectrum = new Float64Array(ORBIT_BANDS + 1);
+    let orbitSpectrum;
     const orbitRope = new Float64Array(ORBIT_ROPE_POINTS * 2);
     const orbitDisplacement = new Float64Array(ORBIT_BANDS + 1);
     const orbitVelocity = new Float64Array(ORBIT_BANDS + 1);
     const orbitAcceleration = new Float64Array(ORBIT_BANDS + 1);
-    const orbitBandDb = new Float64Array(ORBIT_BANDS + 1);
-    let orbitFftDb = null;
-    let orbitPeakDb = -65;
+
     let orbitRotation = 0;
-
-    function orbitAudioLevel(db, referenceDb, curve, sensitivity) {
-      // Work in amplitude, not the analyser's display-scaled bytes. Apply gain
-      // before the selected curve, with headroom instead of flattening at 1.
-      return spectrumResponseLevel(db, referenceDb, curve, sensitivity);
-    }
-
-    function updateOrbitSpectrum(dtSec) {
-      orbitFftDb = readFloatSpectrum();
-      let peak = -65;
-      for (let i = 0; i <= ORBIT_BANDS; i++) {
-        const lo = Math.floor(
-          0.002 * Math.pow(180, i / (ORBIT_BANDS + 1)) * freqData.length
-        );
-        const hi = Math.min(
-          freqData.length,
-          Math.max(
-            lo + 1,
-            Math.floor(
-              0.002 *
-                Math.pow(180, (i + 1) / (ORBIT_BANDS + 1)) *
-                freqData.length
-            )
-          )
-        );
-        orbitBandDb[i] = spectrumBandDb(orbitFftDb, lo, hi);
-        peak = Math.max(peak, orbitBandDb[i]);
-      }
-      // Fast peak tracking, slow recovery between hits. The floor prevents quiet
-      // noise from being boosted into a full-strength spectrum.
-      orbitPeakDb = Math.max(peak, orbitPeakDb - Math.max(0, dtSec) * 12);
-      const remaining = state.smoothingEnabled
-        ? Math.exp(-VISUAL_TUNING.orbit.releasePerSec * dtSec)
-        : 0;
-      for (let i = 0; i <= ORBIT_BANDS; i++) {
-        const target = applyBassModulation(
-          orbitAudioLevel(
-            orbitBandDb[i],
-            orbitPeakDb,
-            state.valueHandling,
-            state.sensitivity
-          )
-        );
-        orbitSpectrum[i] = smoothTowards(orbitSpectrum[i], target, remaining);
-      }
-    }
 
     function orbitRopeEnvelope(position) {
       const at = position * ORBIT_BANDS;
@@ -248,7 +198,7 @@
 
     function updateOrbit(bassLevel, midLevel, trebleLevel, dtSec) {
       const tuning = VISUAL_TUNING.orbit;
-      updateOrbitSpectrum(dtSec);
+
       advanceOrbitRope(
         orbitDisplacement,
         orbitVelocity,
@@ -261,22 +211,19 @@
     }
 
     const initial = structuredClone({
-      orbitSpectrum,
       orbitRope,
       orbitDisplacement,
       orbitVelocity,
       orbitAcceleration,
-      orbitBandDb,
-      orbitPeakDb,
       orbitRotation,
     });
     return {
       update(frame) {
         bind(frame);
         updateOrbit(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
@@ -284,22 +231,19 @@
         ctx = context;
         bind(frame);
         drawOrbit(
-          frame.levels.bass,
-          frame.levels.mid,
-          frame.levels.treble,
+          frame.signals.levels.bass,
+          frame.signals.levels.mid,
+          frame.signals.levels.treble,
           frame.dtSec
         );
       },
       reset() {
-        services.restore(orbitSpectrum, initial.orbitSpectrum);
         services.restore(orbitRope, initial.orbitRope);
         services.restore(orbitDisplacement, initial.orbitDisplacement);
         services.restore(orbitVelocity, initial.orbitVelocity);
         services.restore(orbitAcceleration, initial.orbitAcceleration);
-        services.restore(orbitBandDb, initial.orbitBandDb);
-        orbitPeakDb = services.restore(orbitPeakDb, initial.orbitPeakDb);
+
         orbitRotation = services.restore(orbitRotation, initial.orbitRotation);
-        orbitFftDb = null;
       },
     };
   }

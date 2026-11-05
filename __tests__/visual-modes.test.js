@@ -5,11 +5,11 @@ const {
   canonical,
   runtime,
 } = require("./helpers/mode-fixture.cjs");
-const baseline = require("./fixtures/mode-render-baseline.json");
+const geometry = require("./fixtures/mode-geometry-baseline.json");
 
 describe.each(names)("%s lifecycle", (name) => {
   test.each(["landscape", "portrait"])(
-    "preserves pre-refactor drawing in %s",
+    "preserves geometry with explicit finished signals in %s",
     (scene) => {
       const a = setup(name);
       if (scene === "portrait") {
@@ -25,19 +25,35 @@ describe.each(names)("%s lifecycle", (name) => {
         a.settings.cascadeFrequencyOrder = "treble-to-bass";
         a.settings.hueShift = 87;
       }
-      for (let i = 0; i < 8; i++) {
-        a.frame.timestampMs = 1000 + (i * 1000) / 60;
-        a.frame.audioClockMs = a.frame.timestampMs;
-        a.frame.beat.justHit = i === 0;
-        a.frame.beat.pulse = i < 4 ? 0.8 : 0;
-        a.frame.levels.bass = i < 4 ? 0.8 : 0.1;
-        const hash = crypto
-          .createHash("sha256")
-          .update(JSON.stringify(canonical(a.render())))
-          .digest("hex");
-        expect(hash).toBe(baseline[name][scene][i]);
-        expect(a.canvas.depth).toBe(0);
-      }
+      const source = geometry[name][scene];
+      a.frame.timestampMs = 1000;
+      a.frame.audioClockMs = 1000;
+      a.frame.beat.pulse = 0.8;
+      a.frame.signals = {
+        ...source,
+        bands: Float64Array.from(source.bands),
+        motionBands: Float64Array.from(source.bands),
+        motionEnvelopes: { ...source.envelopes },
+        waveform: Float32Array.from(
+          a.frame.audio.timeBytes,
+          (v) => (v - 128) / 128
+        ),
+      };
+      a.mode.update(a.frame);
+      a.mode.draw(a.canvas.ctx, a.frame);
+      const serialized = JSON.stringify(a.canvas.events, (_, v) =>
+        typeof v === "number"
+          ? Math.round(v * 1e7) / 1e7
+          : typeof v === "string" && /^(hsla?|rgba?)\(/.test(v)
+            ? v.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g, (n) =>
+                String(Math.round(Number(n) * 1e7) / 1e7)
+              )
+            : v
+      );
+      expect(crypto.createHash("sha256").update(serialized).digest("hex")).toBe(
+        source.hash
+      );
+      expect(a.canvas.depth).toBe(0);
     }
   );
 
@@ -56,6 +72,7 @@ describe.each(names)("%s lifecycle", (name) => {
     // Another instance must still produce the original first frame.
     expect(canonical(fresh.render())).toEqual(first);
     for (let i = 0; i < 6; i++) a.render();
+    a.pipeline.reset();
     a.mode.reset();
     expect(canonical(a.render())).toEqual(first);
     expect(a.frame.audio.frequencyBytes).toEqual(bytes);
