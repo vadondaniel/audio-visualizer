@@ -2,6 +2,7 @@ const {
   initAudio,
   cleanupAudioCapture,
   recoverAudioCapture,
+  readBassSensitivityLevel,
 } = require("../src/audio");
 
 describe("initAudio", () => {
@@ -64,10 +65,19 @@ describe("initAudio", () => {
       smoothingTimeConstant: 0,
       frequencyBinCount: 1024,
     };
+    const bassAnalyser = {
+      frequencyBinCount: 1024,
+      getFloatFrequencyData: jest.fn((data) => data.fill(-45)),
+    };
     const context = {
+      sampleRate: 48000,
       state: "running",
       createMediaStreamSource: jest.fn(() => source),
-      createAnalyser: jest.fn(() => analyser),
+      createAnalyser: jest
+        .fn()
+        .mockImplementation(() =>
+          context.createAnalyser.mock.calls.length % 2 ? analyser : bassAnalyser
+        ),
       addEventListener: jest.fn(),
       removeEventListener: jest.fn(),
       resume: jest.fn().mockImplementation(async () => {
@@ -108,7 +118,19 @@ describe("initAudio", () => {
     });
     expect(videoTrack.stop).toHaveBeenCalledTimes(1);
     expect(global.MediaStream).toHaveBeenCalledWith([audioTrack]);
-    expect(context.createAnalyser).toHaveBeenCalledTimes(1);
+    expect(context.createAnalyser).toHaveBeenCalledTimes(2);
+    expect(bassAnalyser.fftSize).toBe(2048);
+    expect(bassAnalyser.smoothingTimeConstant).toBe(0);
+    expect(source.connect).toHaveBeenCalledWith(bassAnalyser);
+    const previousMath = global.AudioMath;
+    global.AudioMath = require("../src/audio-math");
+    try {
+      expect(readBassSensitivityLevel()).toBeCloseTo(0.5);
+      expect(bassAnalyser.getFloatFrequencyData).toHaveBeenCalledTimes(1);
+    } finally {
+      global.AudioMath = previousMath;
+    }
+
     expect(analyser.fftSize).toBe(2048);
     expect(analyser.smoothingTimeConstant).toBe(0.82);
     expect(source.connect).toHaveBeenCalledWith(analyser);

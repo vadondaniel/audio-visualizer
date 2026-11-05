@@ -54,7 +54,12 @@ function loop(timestamp = performance.now()) {
   );
   const rawMid = normalizeEnergy(mid, 15, 165);
   const rawTreble = normalizeEnergy(treble, 12, 155);
-  updateBassSensitivity(rawBass, dtSec);
+  updateBassSensitivity(
+    state.bassSensitivityEnabled && state.bassSensitivityAmount > 0
+      ? readBassSensitivityLevel()
+      : 0,
+    dtSec
+  );
 
   const bassLevel = Math.min(
     1,

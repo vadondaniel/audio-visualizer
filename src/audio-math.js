@@ -312,8 +312,31 @@
     return 1 + amount * (2 * applyValueHandling(bass, curve) - 1);
   }
 
+  function bassPowerLevel(data, sampleRate, fftSize) {
+    const binHz = sampleRate / fftSize;
+    if (!(binHz > 0)) return 0;
+    let power = 0,
+      weight = 0;
+    // Weight edge bins by their overlap with 30–180 Hz. Average linear
+    // power first; dB averaging would overemphasize quiet/empty bins.
+    for (let i = 1; i < data.length; i++) {
+      const overlap = Math.max(
+        0,
+        Math.min(180, (i + 0.5) * binHz) - Math.max(30, (i - 0.5) * binHz)
+      );
+      if (overlap === 0) continue;
+      weight += overlap;
+      if (Number.isFinite(data[i]))
+        power += Math.pow(10, data[i] / 10) * overlap;
+    }
+    if (power <= 0 || weight === 0) return 0;
+    // Fixed calibration: -65 dB is quiet, -45 dB is neutral under the
+    // linear curve, and -25 dB reaches full strength. No peak feedback.
+    return normalizeEnergy(10 * Math.log10(power / weight), -65, 40);
+  }
+
   function smoothBassSensitivity(current, target, dtSec) {
-    const timeConstant = target > current ? 0.04 : 0.2;
+    const timeConstant = target > current ? 0.04 : 0.12;
     return (
       target + (current - target) * Math.exp(-Math.max(0, dtSec) / timeConstant)
     );
@@ -334,6 +357,7 @@
     mergeSettings,
     applyValueHandling,
     bassSensitivityTarget,
+    bassPowerLevel,
     smoothBassSensitivity,
     applyBassGain,
     spectrumBandDb,

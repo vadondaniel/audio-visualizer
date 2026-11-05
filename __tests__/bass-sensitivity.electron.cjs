@@ -25,6 +25,34 @@ app.whenReady().then(async () => {
   });
   try {
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    const measured = await window.webContents.executeJavaScript(`(async () => {
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      const detector = context.createAnalyser();
+      const mute = context.createGain();
+      detector.fftSize=2048;detector.smoothingTimeConstant=0;
+      gain.gain.value=0.2;mute.gain.value=0;
+      oscillator.connect(gain).connect(detector).connect(mute).connect(context.destination);
+      const previous = [audioCtx,bassAnalyser,bassFrequencyDb];
+      try {
+        audioCtx=context;bassAnalyser=detector;bassFrequencyDb=new Float32Array(detector.frequencyBinCount);
+        oscillator.frequency.value=100;oscillator.start();await context.resume();
+        await new Promise(resolve=>setTimeout(resolve,150));
+        const bass=readBassSensitivityLevel();
+        oscillator.frequency.value=1000;
+        await new Promise(resolve=>setTimeout(resolve,150));
+        return {bass,mid:readBassSensitivityLevel()};
+      } finally {
+        [audioCtx,bassAnalyser,bassFrequencyDb]=previous;
+        oscillator.stop();await context.close();
+      }
+    })()`);
+    assert.ok(measured.bass > 0.5, JSON.stringify(measured));
+    assert.ok(measured.mid < 0.05, JSON.stringify(measured));
+    console.log(
+      "PASS: real Web Audio 100 Hz tone drives bass; equal-level 1 kHz tone is rejected"
+    );
     const result = await window.webContents.executeJavaScript(`(() => {
       const check=(value,message)=>{if(!value)throw Error(message);};
       check(!state.bassSensitivityEnabled && state.bassSensitivityAmount===0.5,"Default is off with 50% amount");
@@ -67,6 +95,8 @@ app.whenReady().then(async () => {
       let inputBass=0;
       analyser={getByteFrequencyData:data=>{data.fill(100);data.fill(inputBass,0,15);},getByteTimeDomainData:data=>{for(let i=0;i<data.length;i++)data[i]=Math.round(128+35*Math.sin(i/16));},getFloatFrequencyData:data=>{for(let i=0;i<data.length;i++)data[i]=-65+35*Math.exp(-Math.pow((Math.log2(i+1)-4)/0.8,2));}};
       audioCtx={state:"running",sampleRate:48000};
+      bassAnalyser={fftSize:2048,getFloatFrequencyData:data=>data.fill(inputBass===0?-Infinity:-25)};
+      bassFrequencyDb=new Float32Array(1024);
       const originalRaf=window.requestAnimationFrame;
       window.requestAnimationFrame=()=>0;
       let timestamp=1000;
@@ -81,7 +111,7 @@ app.whenReady().then(async () => {
         rendered.push(MODES[mode]);
       }
       // Keep settings ready for the visual control check; no live capture is used.
-      analyser=null;audioCtx=null;window.requestAnimationFrame=originalRaf;
+      analyser=null;audioCtx=null;bassAnalyser=null;bassFrequencyDb=null;window.requestAnimationFrame=originalRaf;
       state.mode=MODES.indexOf("bars");syncSelectsToState();
       settingsBtn.click();
       [...settingsPanel.querySelectorAll(".settingsSectionTitle")].find(el=>el.textContent.trim()==="Audio").click();
@@ -106,9 +136,9 @@ app.whenReady().then(async () => {
         "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
       );
       const layout = await window.webContents.executeJavaScript(
-        `({visible:getComputedStyle(bassSensitivityAmountRow).display!=="none" && settingsPanel.classList.contains("visible"), fits:bassSensitivityAmountRow.scrollWidth<=bassSensitivityAmountRow.clientWidth, base:sensitivitySlider.value, range:bassSensitivityRange.textContent})`
+        `(flashHud(), {visible:getComputedStyle(bassSensitivityAmountRow).display!=="none" && settingsPanel.classList.contains("visible"), fits:bassSensitivityAmountRow.scrollWidth<=bassSensitivityAmountRow.clientWidth, base:sensitivitySlider.value, range:bassSensitivityRange.textContent})`
       );
-      assert.equal(layout.visible, true);
+      assert.equal(layout.visible, true, JSON.stringify(layout));
       assert.equal(layout.fits, true);
       assert.equal(layout.base, "1");
       fs.writeFileSync(

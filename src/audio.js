@@ -3,6 +3,7 @@ let audioCtx;
 let audioStream;
 let audioTrack;
 let analyser, freqData, timeData, bufferLength;
+let bassAnalyser, bassFrequencyDb;
 let audioRecoveryPromise = null;
 let audioRecoveryTimer = null;
 let audioRecoveryAttempt = 0;
@@ -62,6 +63,12 @@ async function initAudio() {
     analyser.fftSize = 2048;
     analyser.smoothingTimeConstant = 0.82;
     source.connect(analyser);
+
+    bassAnalyser = audioCtx.createAnalyser();
+    bassAnalyser.fftSize = 2048;
+    bassAnalyser.smoothingTimeConstant = 0;
+    source.connect(bassAnalyser);
+    bassFrequencyDb = new Float32Array(bassAnalyser.frequencyBinCount);
 
     bufferLength = analyser.frequencyBinCount;
     freqData = new Uint8Array(bufferLength);
@@ -145,6 +152,7 @@ if (typeof module === "object" && module.exports) {
     cleanupAudioCapture,
     recoverAudioCapture,
     checkSilence,
+    readBassSensitivityLevel,
   };
 }
 
@@ -160,10 +168,22 @@ function cleanupAudioCapture() {
   audioTrack = null;
   audioCtx = null;
   analyser = null;
+  bassAnalyser = null;
+  bassFrequencyDb = null;
   freqData = null;
   timeData = null;
   bufferLength = 0;
   consecutiveSilentFrames = 0;
+}
+
+function readBassSensitivityLevel() {
+  if (!bassAnalyser || !audioCtx || !bassFrequencyDb) return 0;
+  bassAnalyser.getFloatFrequencyData(bassFrequencyDb);
+  return AudioMath.bassPowerLevel(
+    bassFrequencyDb,
+    audioCtx.sampleRate,
+    bassAnalyser.fftSize
+  );
 }
 
 // Called every frame from the render loop. Detects "zombie" streams

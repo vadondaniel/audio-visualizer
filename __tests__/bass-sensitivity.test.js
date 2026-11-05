@@ -76,11 +76,11 @@ test.each([
   expect(AudioMath.bassSensitivityTarget(bass, amount)).toBe(expected);
 });
 
-test("gain uses 40 ms attack and 200 ms release, independently of frame rate", () => {
+test("gain uses 40 ms attack and 120 ms release, independently of frame rate", () => {
   expect(AudioMath.smoothBassSensitivity(1, 2, 0.04)).toBeCloseTo(
     2 - Math.exp(-1)
   );
-  expect(AudioMath.smoothBassSensitivity(1, 0, 0.2)).toBeCloseTo(Math.exp(-1));
+  expect(AudioMath.smoothBassSensitivity(1, 0, 0.12)).toBeCloseTo(Math.exp(-1));
   for (const hz of [60, 144, 240]) {
     let gain = 1;
     for (let frame = 0; frame < hz; frame++)
@@ -232,6 +232,7 @@ test.each([0, 255])(
       audioCtx: { state: "running" },
       requestAnimationFrame: jest.fn(),
       performance: { now: () => 1000 },
+      readBassSensitivityLevel: () => (byteBass === 0 ? 0 : 1),
       checkSilence: jest.fn(),
       updateBeat: jest.fn(),
       clearFrame: jest.fn(),
@@ -265,3 +266,39 @@ test.each([0, 255])(
     expect(background[6]).toBe(0);
   }
 );
+
+test.each([44100, 48000, 96000])(
+  "bass power calibration uses 30-180 Hz at %s Hz",
+  (sampleRate) => {
+    const fftSize = 2048;
+    const binHz = sampleRate / fftSize;
+    const data = new Float32Array(fftSize / 2);
+    for (const [db, expected] of [
+      [-Infinity, 0],
+      [-80, 0],
+      [-65, 0],
+      [-45, 0.5],
+      [-25, 1],
+      [-10, 1],
+    ]) {
+      data.fill(db);
+      expect(AudioMath.bassPowerLevel(data, sampleRate, fftSize)).toBeCloseTo(
+        expected
+      );
+    }
+    data.fill(-Infinity);
+    data[Math.round(1000 / binHz)] = 0;
+    expect(AudioMath.bassPowerLevel(data, sampleRate, fftSize)).toBe(0);
+    data[Math.round(100 / binHz)] = -30;
+    expect(AudioMath.bassPowerLevel(data, sampleRate, fftSize)).toBeGreaterThan(
+      0.5
+    );
+  }
+);
+test("bass combines linear power rather than averaging decibels", () => {
+  const data = new Float32Array(1024).fill(-Infinity);
+  // 10 Hz bins: 15 bins' worth of overlap, one strong 100 Hz bin.
+  data[10] = -25;
+  const expected = (10 * Math.log10(10 ** (-25 / 10) / 15) + 65) / 40;
+  expect(AudioMath.bassPowerLevel(data, 20480, 2048)).toBeCloseTo(expected);
+});
