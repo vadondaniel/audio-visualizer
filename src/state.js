@@ -49,6 +49,7 @@ const state = {
     waves: "auto",
     aurora: "auto",
     cascade: "below",
+    orbit: "bottom-left",
   },
 };
 

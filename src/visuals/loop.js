@@ -135,6 +135,9 @@ function loop(timestamp = performance.now()) {
     case "cascade":
       drawCascade(bassLevel, midLevel, trebleLevel, dtSec);
       break;
+    case "orbit":
+      drawOrbit(bassLevel, midLevel, trebleLevel, dtSec);
+      break;
   }
   diagnosticCall("endRender", modeTimer);
 

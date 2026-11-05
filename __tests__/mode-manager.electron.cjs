@@ -66,7 +66,7 @@ app.whenReady().then(async () => {
         control("radial", "reorder").dispatchEvent(new KeyboardEvent("keydown", {key:"ArrowDown", bubbles:true, cancelable:true}));
         control("bars", "enable").click();
         check(MODES[state.mode] === "cascade", "Disabling current mode selects first enabled mode");
-        check(modeSelect.options[0].textContent === "Cascade" && modeSelect.options.length === 8, "Dropdown order and filtering");
+        check(modeSelect.options[0].textContent === "Cascade" && modeSelect.options.length === MODES.length - 1, "Dropdown order and filtering");
         check(![...modeSelect.options].some(o => MODES[o.value] === "bars"), "Disabled mode excluded");
         setModeManagerOpen(false);
         window.dispatchEvent(new KeyboardEvent("keydown", { key: "2" }));
@@ -115,6 +115,7 @@ app.whenReady().then(async () => {
       assert.equal(restored.mode, result.mode);
       assert.deepEqual(restored.options, ["Cascade", "Radial"]);
       await window.webContents.executeJavaScript(`(() => {
+        const originalModeCount = MODES.length;
         MODES.push("new-mode", "another-mode");
         loadSettings();
         if (!state.modeOrder.includes("new-mode") || state.disabledModes.includes("new-mode")) throw Error("New modes must be appended and enabled");
@@ -122,7 +123,7 @@ app.whenReady().then(async () => {
         applyModePreferences();
         window.dispatchEvent(new KeyboardEvent("keydown", {key:"9"}));
         if (MODES[state.mode] !== state.modeOrder[8]) throw Error("Number keys must still work with more than nine modes");
-        MODES.splice(9);
+        MODES.splice(originalModeCount);
         state.mode = MODES.indexOf("cascade");
         state.disabledModes = ["bars"];
         applyModePreferences();

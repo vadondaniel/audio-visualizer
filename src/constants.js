@@ -111,6 +111,7 @@ const MODES = [
   "waves",
   "aurora",
   "cascade",
+  "orbit",
 ];
 // ---------- visual tuning ----------
 // Per-mode constants that shape how each visual responds to audio.
@@ -125,6 +126,11 @@ const VISUAL_TUNING = {
     baseRFrac: 0.16,
     lengthScale: 0.32,
     releasePerSec: 9.75,
+  },
+  orbit: {
+    radiusFrac: 0.23,
+    spinPerSec: 0.065,
+    releasePerSec: 8,
   },
   kaleidoscope: {
     maxRFrac: 0.46,
