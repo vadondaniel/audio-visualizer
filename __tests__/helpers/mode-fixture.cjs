@@ -4,19 +4,8 @@ const fs = require("node:fs"),
 const math = require("../../src/audio-math");
 const runtime = require("../../src/mode-runtime");
 const Pipeline = require("../../src/audio-pipeline");
-const names = [
-  "bars",
-  "radial",
-  "waveform",
-  "particles",
-  "kaleidoscope",
-  "tunnel",
-  "waves",
-  "aurora",
-  "cascade",
-  "orbit",
-  "prism",
-];
+const Registry = require("../../src/mode-registry");
+const names = Registry.ids;
 const root = path.resolve(__dirname, "../..");
 function makeCanvas() {
   const events = [],
@@ -112,6 +101,7 @@ function setup(name, { seed = 12345 } = {}) {
   const rng = runtime.createRandom(seed);
   const context = {
     AudioMath: math,
+    ModeRegistry: Registry,
     ctx: canvas.ctx,
     Math: Object.assign(Object.create(Math), { random: rng }),
     structuredClone,

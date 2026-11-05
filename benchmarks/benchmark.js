@@ -617,6 +617,7 @@ function createWindow() {
     };
 
     try {
+      await mainWindow.webContents.executeJavaScript("window.rendererReady");
       if (lastProgressLine) process.stdout.write("\n");
       console.log(
         `Parsed benchmark args: repeats=${repeats}, scenarios=${scenarios.join(",")}, modes=${requestedModes.join(",")}, ops=${operationCounts ? "true" : "false"}, trace=${renderTracing ? "true" : "false"}, waveform=${waveformStyle}, seed=${seed}`

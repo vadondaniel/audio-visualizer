@@ -54,7 +54,7 @@
 
     <div id="startOverlay">
       <h1>A U D I O &nbsp; V I S U A L I Z E R</h1>
-      <button id="startBtn">▶ START</button>
+      <button id="startBtn" disabled>▶ START</button>
       <div id="startHint">
         <svg
           width="15"
@@ -733,6 +733,7 @@
       </div>
     </div>
 
+    <script src="mode-registry.js"></script>
     <script src="audio-math.js"></script>
     <script src="audio-pipeline.js"></script>
     <script src="trail-math.js"></script>
@@ -746,21 +747,6 @@
     <script src="wake-lock.js"></script>
     <script src="visuals.js"></script>
     <script src="mode-runtime.js"></script>
-    <script src="visuals/bars.js"></script>
-    <script src="visuals/radial.js"></script>
-    <script src="visuals/waveform.js"></script>
-    <script src="visuals/particles.js"></script>
-    <script src="visuals/kaleidoscope.js"></script>
-    <script src="visuals/tunnel.js"></script>
-    <script src="visuals/waves.js"></script>
-    <script src="visuals/aurora.js"></script>
-    <script src="visuals/cascade.js"></script>
-    <script src="visuals/orbit.js"></script>
-    <script src="visuals/prism.js"></script>
-    <script src="visual-mode-host.js"></script>
-    <script src="visuals/loop.js"></script>
-    <script src="media.js"></script>
-    <script src="mode-controls.js"></script>
-    <script src="ui.js"></script>
+    <script src="renderer-entry.js"></script>
   </body>
 </html>

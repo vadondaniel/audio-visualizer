@@ -270,6 +270,7 @@ test.each([0, 255])(
       },
       beatPulse: 0,
     });
+    context.ModeRegistry = require("../src/mode-registry");
     vm.createContext(context);
     vm.runInContext(source("constants.js"), context);
     vm.runInContext(source("visuals/loop.js"), context);

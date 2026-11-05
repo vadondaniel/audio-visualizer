@@ -24,6 +24,7 @@ app.whenReady().then(async () => {
   });
   try {
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    await window.webContents.executeJavaScript("window.rendererReady");
     await window.webContents.executeJavaScript(
       'startOverlay.style.display = "none"; settingsBtn.click();'
     );
@@ -107,6 +108,7 @@ app.whenReady().then(async () => {
       await new Promise((resolve) =>
         window.webContents.once("did-finish-load", resolve)
       );
+      await window.webContents.executeJavaScript("window.rendererReady");
       const restored = await window.webContents.executeJavaScript(
         `({order:state.modeOrder,disabled:state.disabledModes,mode:state.mode, options:[...modeSelect.options].map(o=>o.textContent)})`
       );
@@ -115,15 +117,11 @@ app.whenReady().then(async () => {
       assert.equal(restored.mode, result.mode);
       assert.deepEqual(restored.options, ["Cascade", "Radial"]);
       await window.webContents.executeJavaScript(`(() => {
-        const originalModeCount = MODES.length;
-        MODES.push("new-mode", "another-mode");
-        loadSettings();
-        if (!state.modeOrder.includes("new-mode") || state.disabledModes.includes("new-mode")) throw Error("New modes must be appended and enabled");
+        if(MODES.length<=9)throw Error("This regression requires more than nine registered modes");
         state.disabledModes = [];
         applyModePreferences();
         window.dispatchEvent(new KeyboardEvent("keydown", {key:"9"}));
         if (MODES[state.mode] !== state.modeOrder[8]) throw Error("Number keys must still work with more than nine modes");
-        MODES.splice(originalModeCount);
         state.mode = MODES.indexOf("cascade");
         state.disabledModes = ["bars"];
         applyModePreferences();

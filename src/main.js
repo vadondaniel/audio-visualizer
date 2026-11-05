@@ -14,6 +14,8 @@ const { spawn } = require("child_process");
 const { acquireSingleInstance } = require("./single-instance");
 
 let mainWindow;
+let rendererReady = false;
+let rendererLoadGeneration = 0;
 let mediaWatcher = null;
 let mediaWatcherBuffer = "";
 let pendingMediaMetadata = [];
@@ -75,6 +77,7 @@ function startMediaWatcher() {
       try {
         const metadata = JSON.parse(text);
         if (
+          !rendererReady ||
           !mainWindow ||
           mainWindow.isDestroyed() ||
           mainWindow.webContents.isLoading()
@@ -103,6 +106,25 @@ function startMediaWatcher() {
   mediaWatcher.on("exit", () => {
     mediaWatcher = null;
   });
+}
+
+async function finishRendererStartup(window) {
+  const generation = rendererLoadGeneration;
+  try {
+    await window.webContents.executeJavaScript("window.rendererReady");
+    if (
+      mainWindow !== window ||
+      window.isDestroyed() ||
+      generation !== rendererLoadGeneration
+    )
+      return;
+    rendererReady = true;
+    for (const metadata of pendingMediaMetadata)
+      window.webContents.send(IPC.MEDIA_METADATA, metadata);
+    pendingMediaMetadata = [];
+  } catch (error) {
+    console.error("Renderer initialization failed:", error.message);
+  }
 }
 
 function createWindow() {
@@ -138,13 +160,17 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "index.html"));
 
-  mainWindow.webContents.once("did-finish-load", () => {
-    if (!pendingMediaMetadata.length) return;
-    for (const metadata of pendingMediaMetadata) {
-      mainWindow.webContents.send(IPC.MEDIA_METADATA, metadata);
+  const loadingWindow = mainWindow;
+  rendererReady = false;
+  mainWindow.webContents.on("did-start-loading", () => {
+    if (mainWindow === loadingWindow) {
+      rendererReady = false;
+      rendererLoadGeneration++;
     }
-    pendingMediaMetadata = [];
   });
+  mainWindow.webContents.on("did-finish-load", () =>
+    finishRendererStartup(loadingWindow)
+  );
 
   // This is what lets us grab system-wide desktop audio (WASAPI loopback on
   // Windows) without any virtual-cable software. The renderer calls

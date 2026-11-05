@@ -3,7 +3,7 @@ const modeManager = document.getElementById("modeManager");
 const modeManagerList = document.getElementById("modeManagerList");
 
 function modeLabel(id) {
-  return id.charAt(0).toUpperCase() + id.slice(1);
+  return ModeRegistry.get(id).label;
 }
 
 function rebuildModeOptions() {

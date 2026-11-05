@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).tunnel = api.createMode;
+  else root.ModeRegistry.registerFactory("tunnel", api.createMode);
 })(globalThis, function () {
   function createMode(services) {
     const currentHue = services.palette.currentHue;

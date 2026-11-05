@@ -25,6 +25,7 @@ app.whenReady().then(async () => {
   });
   try {
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    await window.webContents.executeJavaScript("window.rendererReady");
     const measured = await window.webContents.executeJavaScript(`(async () => {
       const context = new AudioContext();
       const oscillator = context.createOscillator();
@@ -83,6 +84,7 @@ app.whenReady().then(async () => {
     await new Promise((resolve) =>
       window.webContents.once("did-finish-load", resolve)
     );
+    await window.webContents.executeJavaScript("window.rendererReady");
     assert.equal(
       await window.webContents.executeJavaScript(
         "state.bassSensitivityEnabled && state.bassSensitivityAmount===0.75 && state.valueHandling==='logarithmic'"

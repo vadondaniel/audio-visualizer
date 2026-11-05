@@ -27,6 +27,7 @@ app.whenReady().then(async () => {
   });
   try {
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    await window.webContents.executeJavaScript("window.rendererReady");
     const dir = path.join(__dirname, "../dist/ui-check");
     fs.mkdirSync(dir, { recursive: true });
     for (const [width, height, theme, silent] of [
@@ -107,6 +108,7 @@ app.whenReady().then(async () => {
     await new Promise((resolve) =>
       window.webContents.once("did-finish-load", resolve)
     );
+    await window.webContents.executeJavaScript("window.rendererReady");
     assert.equal(
       await window.webContents.executeJavaScript("MODES[state.mode]"),
       mode

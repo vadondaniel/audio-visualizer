@@ -52,8 +52,10 @@ fall. Its input never includes Sensitivity or processed output.
 - `referenceDb`, `bassDriverLevel`, `bassMultiplier`, and `rangeEndHz`: inspection
   values for diagnostics and calibration, not extra gain stages.
 
-`PROFILES` in the pipeline is the source of truth for band counts, release rates,
-and audio exceptions. Orbit keeps amplitude-ratio contrast. Prism keeps distinct
+Registry definitions' `audio` records are the source of truth for band counts,
+release rates, and sampling behavior; `AudioPipeline.PROFILES` is a derived view.
+The explicit `sampler` selects the algorithm independently of a mode's ID.
+Orbit keeps amplitude-ratio contrast. Prism keeps distinct
 bins and its adaptive upper cutoff (fast reopening, hold, slow contraction, no
 remapping during silence). Cascade keeps its 0.4 threshold before controls; spatial
 exclusion, coupling, ripples, and peak dots remain geometry/physics in the mode.

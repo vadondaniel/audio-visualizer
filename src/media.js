@@ -119,7 +119,7 @@ const MEDIA_POSITION_GROUPS = {
 };
 
 function isFocusMediaMode(mode) {
-  return mode === "cascade" || mode === "radial";
+  return ModeRegistry.get(mode)?.media.group === "focus";
 }
 
 const MEDIA_POSITION_VALUES = new Set([
@@ -139,7 +139,7 @@ const MEDIA_POSITION_VALUES = new Set([
 function getMediaPosition(mode = MODES[state.mode] || "bars") {
   return (
     state.mediaTextPositions?.[mode] ||
-    (isFocusMediaMode(mode) ? "below" : "auto")
+    ModeRegistry.get(mode).media.defaultPosition
   );
 }
 
@@ -167,7 +167,7 @@ function syncMediaPositionOptions() {
 
   const allowed = new Set(options.map((option) => option.value));
   if (!allowed.has(current)) {
-    setMediaPosition(mode, isFocusMediaMode(mode) ? "below" : "auto");
+    setMediaPosition(mode, ModeRegistry.get(mode).media.defaultPosition);
   }
   mediaTextPositionSelect.value = getMediaPosition(mode);
 }
@@ -203,7 +203,10 @@ function setMediaMetadataEnabled(enabled) {
 function updateMediaLayout() {
   syncMediaThemeColors();
   const mode = MODES[state.mode] || "bars";
+  const media = ModeRegistry.get(mode).media;
   mediaOverlay.className = `mode-${mode}`;
+  mediaOverlay.dataset.mediaLayout = media.group;
+  mediaOverlay.dataset.autoPlacement = media.autoPlacement;
   syncMediaPositionOptions();
 
   const display =
@@ -216,7 +219,7 @@ function updateMediaLayout() {
   // Cascade owns the visual focus itself. Album art is drawn into the canvas
   // there, while this DOM layer is reserved for the typographic lockup.
   const coverInOverlay =
-    display.cover && mode !== "cascade" && Boolean(mediaState.thumbnailImage);
+    display.cover && media.overlayCover && Boolean(mediaState.thumbnailImage);
   mediaArtWrap.hidden = !coverInOverlay;
   mediaCopy.hidden = !display.title && !display.artist;
   mediaTitle.hidden = !display.title || !metadata?.title;

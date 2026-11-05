@@ -1,9 +1,9 @@
 // Audio measurements and control processing live here, never in drawing modes.
 (function (root, build) {
   if (typeof module === "object" && module.exports)
-    module.exports = build(require("./audio-math"));
-  else root.AudioPipeline = build(root.AudioMath);
-})(globalThis, function (math) {
+    module.exports = build(require("./audio-math"), require("./mode-registry"));
+  else root.AudioPipeline = build(root.AudioMath, root.ModeRegistry);
+})(globalThis, function (math, registry) {
   const clamp = (value) => Math.max(0, Math.min(1, value));
   const BANDS = [
     [30, 250],
@@ -20,19 +20,7 @@
   const NAMES = ["bass", "mid", "treble"];
   const ACCENT_NAMES = ["subBass", "bass", "mids", "presence", "air"];
   // Profiles describe audio exceptions and sampling, not drawing behavior.
-  const PROFILES = Object.freeze({
-    bars: { count: 96, release: 6.3 },
-    radial: { count: 180, release: 9.75 },
-    waveform: { count: 0, release: 10 },
-    particles: { count: 110, release: 10 },
-    kaleidoscope: { count: 28, release: 14.9 },
-    tunnel: { count: 12, release: 8.5 },
-    waves: { count: 16, release: 6.5 },
-    aurora: { count: 24, release: 6.5 },
-    cascade: { count: 128, release: 9.6, threshold: 0.4 },
-    orbit: { count: 41, release: 8, domain: "amplitude" },
-    prism: { count: 96, release: 10 },
-  });
+  const PROFILES = registry.audioProfiles;
 
   function legacyBass(bytes) {
     return math.bandAverage(bytes, 0, 0.015);
@@ -75,20 +63,21 @@
   function prismBandEdge(
     index,
     binCount,
-    rangeEnd = Math.floor(binCount * 0.5)
+    rangeEnd = Math.floor(binCount * 0.5),
+    count = 96
   ) {
     const start = Math.floor(binCount * 0.002);
     const end = Math.min(
       Math.floor(binCount * 0.5),
-      Math.max(start + 96, Math.round(rangeEnd))
+      Math.max(start + count, Math.round(rangeEnd))
     );
-    const extra = Math.max(0, end - start - 96);
+    const extra = Math.max(0, end - start - count);
     return Math.min(
       binCount,
-      Math.floor(start + index + (extra * (250 ** (index / 96) - 1)) / 249)
+      Math.floor(start + index + (extra * (250 ** (index / count) - 1)) / 249)
     );
   }
-  function prismActiveEnd(data, powers) {
+  function prismActiveEnd(data, powers, count = 96) {
     const start = Math.floor(data.length * 0.002),
       end = Math.floor(data.length * 0.5);
     let peak = -Infinity;
@@ -107,10 +96,11 @@
       } else db = math.spectrumBandDb(data, lo, hi);
       if (db >= threshold) last = hi;
     }
-    return Math.min(end, Math.max(start + 96, Math.ceil(last * 1.1) + 4));
+    return Math.min(end, Math.max(start + count, Math.ceil(last * 1.1) + 4));
   }
 
-  function create() {
+  function create({ registry: sourceRegistry = registry } = {}) {
+    const definitions = sourceRegistry.audioProfiles;
     let input = null,
       settings = null,
       spectrum = null,
@@ -148,7 +138,7 @@
       commonFinal = new Float64Array(8);
     const normalizedLevels = new Float64Array(3);
     const profiles = Object.fromEntries(
-      Object.entries(PROFILES).map(([id, profile]) => [
+      Object.entries(definitions).map(([id, profile]) => [
         id,
         {
           neutral: new Float64Array(profile.count),
@@ -255,8 +245,12 @@
       );
       if (powers.length !== spectrum.length) {
         powers = new Float64Array(spectrum.length);
-        profiles.prism.rangeEnd = 0;
-        profiles.prism.rangeHold = 0;
+        for (const [id, definition] of Object.entries(definitions)) {
+          if (definition.sampler === "prism") {
+            profiles[id].rangeEnd = 0;
+            profiles[id].rangeHold = 0;
+          }
+        }
       }
       for (let i = 0; i < spectrum.length; i++) {
         const finite = Number.isFinite(spectrum[i]);
@@ -355,13 +349,14 @@
     }
 
     function forMode(id) {
-      const spec = PROFILES[id],
+      const spec = definitions[id],
         profile = profiles[id];
       if (!spec) throw Error(`Unknown audio profile: ${id}`);
       if (!input) throw Error("Audio pipeline requires update before forMode");
       if (profile.generation === generation) return profile.output;
       profile.generation = generation;
-      if (id === "aurora") {
+      const sampler = spec.sampler;
+      if (sampler === "aurora") {
         const neutral = controlled(
           normalizedLevels[0] * 0.45 +
             normalizedLevels[1] * 0.35 +
@@ -388,8 +383,8 @@
       const n = spectrum.length,
         sampleRate = input.sampleRate || 48000,
         nyquist = sampleRate / 2;
-      if (id === "prism") {
-        const activeEnd = prismActiveEnd(spectrum, powers);
+      if (sampler === "prism") {
+        const activeEnd = prismActiveEnd(spectrum, powers, spec.count);
         if (!profile.rangeEnd)
           profile.rangeEnd = activeEnd || Math.floor(n * 0.5);
         if (activeEnd > profile.rangeEnd) {
@@ -406,46 +401,51 @@
       for (let i = 0; i < spec.count; i++) {
         let low = 0,
           high = 0;
-        if (id === "bars") low = i * Math.max(1, Math.floor((n * 0.69) / 96));
-        if (id === "radial")
+        if (sampler === "bars")
+          low = i * Math.max(1, Math.floor((n * 0.69) / spec.count));
+        if (sampler === "radial")
           low = Math.floor(
             (settings.radialMode === "full"
-              ? i / 180
-              : i < 90
-                ? i / 90
-                : (179 - i) / 90) *
+              ? i / spec.count
+              : i < spec.count / 2
+                ? i / (spec.count / 2)
+                : (spec.count - 1 - i) / (spec.count / 2)) *
               n *
               0.5
           );
-        if (id === "particles") low = Math.floor((i / 110) * n * 0.42);
-        if (id === "kaleidoscope") {
-          low = n * 0.006 * (0.5 / 0.006) ** (i / 28);
-          high = n * 0.006 * (0.5 / 0.006) ** ((i + 1) / 28);
+        if (sampler === "particles")
+          low = Math.floor((i / spec.count) * n * 0.42);
+        if (sampler === "kaleidoscope") {
+          low = n * 0.006 * (0.5 / 0.006) ** (i / spec.count);
+          high = n * 0.006 * (0.5 / 0.006) ** ((i + 1) / spec.count);
         }
-        if (id === "tunnel") {
-          low = n * (0.008 + (i / 12) ** 1.55 * 0.46);
-          high = n * (0.012 + ((i + 1) / 12) ** 1.55 * 0.46);
+        if (sampler === "tunnel") {
+          low = n * (0.008 + (i / spec.count) ** 1.55 * 0.46);
+          high = n * (0.012 + ((i + 1) / spec.count) ** 1.55 * 0.46);
         }
-        if (id === "waves" || id === "aurora") {
+        if (sampler === "waves" || sampler === "aurora") {
           low = n * ((i / spec.count) ** 2 * 0.72 + 0.005);
           high =
             n *
             (((i + 1) / spec.count) ** 2 * 0.72 +
-              (id === "waves" ? 0.01 : 0.012));
+              (sampler === "waves" ? 0.01 : 0.012));
         }
-        if (id === "orbit") {
-          low = Math.floor(0.002 * 180 ** (i / 41) * n);
+        if (sampler === "orbit") {
+          low = Math.floor(0.002 * 180 ** (i / spec.count) * n);
           high = Math.max(
             low + 1,
-            Math.floor(0.002 * 180 ** ((i + 1) / 41) * n)
+            Math.floor(0.002 * 180 ** ((i + 1) / spec.count) * n)
           );
         }
-        if (id === "prism") {
-          low = prismBandEdge(i, n, profile.rangeEnd);
-          high = prismBandEdge(i + 1, n, profile.rangeEnd);
+        if (sampler === "prism") {
+          low = prismBandEdge(i, n, profile.rangeEnd, spec.count);
+          high = prismBandEdge(i + 1, n, profile.rangeEnd, spec.count);
         }
-        if (id === "cascade") {
-          const u = i < 64 ? i / 64 : (127 - i) / 64;
+        if (sampler === "cascade") {
+          const u =
+            i < spec.count / 2
+              ? i / (spec.count / 2)
+              : (spec.count - 1 - i) / (spec.count / 2);
           const active = clamp((u - 0.12) / 0.7),
             t =
               settings.cascadeFrequencyOrder === "treble-to-bass"

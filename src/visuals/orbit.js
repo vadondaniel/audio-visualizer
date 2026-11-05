@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).orbit = api.createMode;
+  else root.ModeRegistry.registerFactory("orbit", api.createMode);
 })(globalThis, function () {
   function advanceOrbitRope(
     displacement,

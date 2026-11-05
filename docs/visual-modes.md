@@ -1,8 +1,37 @@
 # Visual mode lifecycle
 
-Each mode module exports `createMode(services)` in CommonJS and registers its
-factory under `VisualModes[id]` in the browser. Loading a factory does not create
+Each mode module exports `createMode(services)` in CommonJS and calls
+`ModeRegistry.registerFactory(id, createMode)` in the browser. Loading a factory does not create
 its simulation or load its assets. The application creates one instance per mode.
+
+## Registry and startup
+
+`src/mode-registry.js` owns canonical IDs, labels, module paths, audio profiles,
+and media capabilities. Definitions and their nested records are immutable.
+`MODES` and `AudioPipeline.PROFILES` are derived compatibility views; numeric saved
+selections still refer to canonical order, independently of user ordering.
+`mediaDefaults()` returns fresh preferences rather than exposing definition objects.
+
+To add a mode using existing behavior, add its module and one registry entry:
+
+- `id`, `label`, and `modulePath`: append the ID to preserve existing numeric selections.
+- `audio`: select an existing `sampler`, band `count`, `release`, and any sampler-specific
+  parameters. Sampling dispatch follows `sampler`, not the new mode's ID.
+- `media`: select `group` (`free` compass positions or `focus` above/below),
+  `defaultPosition`, `autoPlacement`, and `overlayCover`. Placement presets are
+  `default`, `upper-center`, `left-below-center`, `left-mid`, `high-center`,
+  `right-upper`, `left-bottom`, `right-bottom`, and `focus`.
+
+Selectors, the manager, settings defaults, renderer instances, and benchmarks discover
+the entry automatically. New sampling algorithms or controls still need implementation.
+Unknown or duplicate factory registrations fail; created instances must implement
+all three lifecycle methods.
+
+`renderer-entry.js` loads modules sequentially in registry order, then initializes
+the host, render loop, media UI, mode manager, and settings handlers. Await
+`window.rendererReady` in Electron checks and benchmarks. Start remains disabled
+until readiness; loading or registration failures reject readiness and show the
+existing error area without removing the start overlay.
 
 Instances expose:
 

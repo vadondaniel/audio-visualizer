@@ -426,6 +426,10 @@ body {
   text-align: left;
 }
 
+#errorMsg.startupError {
+  display: block;
+}
+
 #errorMsg::before {
   content: "!";
   display: inline-flex;
@@ -1571,8 +1575,7 @@ body {
 
 /* Cascade and radial share a focal composition: their metadata belongs
    outside the circular focus, while the artwork itself lives in the focus. */
-#mediaOverlay.mode-cascade .mediaCard,
-#mediaOverlay.mode-radial .mediaCard {
+#mediaOverlay[data-media-layout="focus"] .mediaCard {
   left: 50%;
   width: min(78rem, calc(100vw - (var(--edge-gap) * 2)));
   transform: translateX(-50%);
@@ -1580,13 +1583,11 @@ body {
   text-align: center;
 }
 
-#mediaOverlay.mode-cascade .mediaArtWrap,
-#mediaOverlay.mode-radial .mediaArtWrap {
+#mediaOverlay[data-media-layout="focus"] .mediaArtWrap {
   display: none !important;
 }
 
-#mediaOverlay.mode-cascade .mediaCopy,
-#mediaOverlay.mode-radial .mediaCopy {
+#mediaOverlay[data-media-layout="focus"] .mediaCopy {
   align-items: center;
   width: min(100%, 78rem);
   max-width: min(100%, 78rem);
@@ -1594,32 +1595,29 @@ body {
   overflow: visible;
 }
 
-#mediaOverlay.mode-cascade .mediaTitle,
-#mediaOverlay.mode-radial .mediaTitle {
+#mediaOverlay[data-media-layout="focus"] .mediaTitle {
   font-size: clamp(28px, 4.05vw, 62px);
   line-height: 1.16;
   letter-spacing: -0.036em;
 }
 
-#mediaOverlay.mode-cascade .mediaArtist,
-#mediaOverlay.mode-radial .mediaArtist {
+#mediaOverlay[data-media-layout="focus"] .mediaArtist {
   font-size: clamp(18px, 1.5vw, 24px);
 }
 
-#mediaOverlay.mode-cascade[data-position="below"] .mediaCard,
-#mediaOverlay.mode-radial[data-position="below"] .mediaCard {
+#mediaOverlay[data-media-layout="focus"][data-position="below"] .mediaCard {
   top: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
 }
 
-#mediaOverlay.mode-cascade[data-position="above"] .mediaCard,
-#mediaOverlay.mode-radial[data-position="above"] .mediaCard {
+#mediaOverlay[data-media-layout="focus"][data-position="above"] .mediaCard {
   bottom: calc(50% + 19vmin + clamp(4.5rem, 7.5vmin, 8rem));
 }
 
 /* Free-mode "Best fit" is intentionally mode-aware. It is not an alias for
    one of the compass positions; each visual gets an anchor chosen around its
    own quiet space / geometry. */
-#mediaOverlay.mode-bars[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="upper-center"][data-position="auto"]
+  .mediaCard {
   left: 50%;
   top: clamp(3.75rem, 10vh, 7rem);
   bottom: auto;
@@ -1628,18 +1626,21 @@ body {
   text-align: center;
 }
 
-#mediaOverlay.mode-waveform[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="left-below-center"][data-position="auto"]
+  .mediaCard {
   left: clamp(1.25rem, 4vw, 5rem);
   top: 63%;
   bottom: auto;
 }
 
-#mediaOverlay.mode-waves[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="left-bottom"][data-position="auto"]
+  .mediaCard {
   left: clamp(1.25rem, 4vw, 5rem);
   bottom: clamp(1rem, 5vh, 3.5rem);
 }
 
-#mediaOverlay.mode-aurora[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="right-bottom"][data-position="auto"]
+  .mediaCard {
   right: clamp(1.25rem, 4vw, 5rem);
   bottom: clamp(1.25rem, 6vh, 4.5rem);
   top: auto;
@@ -1647,13 +1648,14 @@ body {
   text-align: right;
 }
 
-#mediaOverlay.mode-particles[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="left-mid"][data-position="auto"] .mediaCard {
   left: clamp(1.25rem, 4vw, 5rem);
   top: 62%;
   bottom: auto;
 }
 
-#mediaOverlay.mode-tunnel[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="right-upper"][data-position="auto"]
+  .mediaCard {
   right: clamp(1.25rem, 4vw, 5rem);
   top: 18%;
   bottom: auto;
@@ -1661,7 +1663,8 @@ body {
   text-align: right;
 }
 
-#mediaOverlay.mode-kaleidoscope[data-position="auto"] .mediaCard {
+#mediaOverlay[data-auto-placement="high-center"][data-position="auto"]
+  .mediaCard {
   left: 50%;
   top: 8%;
   bottom: auto;
@@ -1670,19 +1673,11 @@ body {
   text-align: center;
 }
 
-#mediaOverlay.mode-free .mediaCard {
+#mediaOverlay[data-media-layout="free"] .mediaCard {
   width: min(46rem, calc(100vw - (var(--edge-gap) * 2)));
 }
 
-#mediaOverlay.mode-bars[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="top-left"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="top-left"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="top-left"] .mediaCard {
   left: var(--edge-gap);
   top: var(--edge-gap);
   bottom: auto;
@@ -1691,15 +1686,7 @@ body {
   flex-direction: row;
 }
 
-#mediaOverlay.mode-bars[data-position="top"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="top"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="top"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="top"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="top"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="top"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="top"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="top"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="top"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="top"] .mediaCard {
   left: 50%;
   top: var(--edge-gap);
   bottom: auto;
@@ -1708,15 +1695,7 @@ body {
   justify-content: center;
 }
 
-#mediaOverlay.mode-bars[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="top-right"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="top-right"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="top-right"] .mediaCard {
   right: var(--edge-gap);
   top: var(--edge-gap);
   bottom: auto;
@@ -1725,15 +1704,7 @@ body {
   flex-direction: row-reverse;
 }
 
-#mediaOverlay.mode-bars[data-position="right"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="right"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="right"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="right"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="right"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="right"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="right"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="right"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="right"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="right"] .mediaCard {
   right: var(--edge-gap);
   top: 50%;
   bottom: auto;
@@ -1743,15 +1714,8 @@ body {
   flex-direction: row-reverse;
 }
 
-#mediaOverlay.mode-bars[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="bottom-right"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="bottom-right"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="bottom-right"]
+  .mediaCard {
   right: var(--edge-gap);
   bottom: var(--edge-gap);
   top: auto;
@@ -1760,15 +1724,7 @@ body {
   flex-direction: row-reverse;
 }
 
-#mediaOverlay.mode-bars[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="bottom"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="bottom"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="bottom"] .mediaCard {
   left: 50%;
   bottom: var(--edge-gap);
   top: auto;
@@ -1778,15 +1734,8 @@ body {
   text-align: center;
 }
 
-#mediaOverlay.mode-bars[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="bottom-left"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="bottom-left"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="bottom-left"]
+  .mediaCard {
   left: var(--edge-gap);
   bottom: var(--edge-gap);
   top: auto;
@@ -1795,15 +1744,7 @@ body {
   flex-direction: row;
 }
 
-#mediaOverlay.mode-bars[data-position="left"] .mediaCard,
-#mediaOverlay.mode-waveform[data-position="left"] .mediaCard,
-#mediaOverlay.mode-waves[data-position="left"] .mediaCard,
-#mediaOverlay.mode-aurora[data-position="left"] .mediaCard,
-#mediaOverlay.mode-orbit[data-position="left"] .mediaCard,
-#mediaOverlay.mode-prism[data-position="left"] .mediaCard,
-#mediaOverlay.mode-particles[data-position="left"] .mediaCard,
-#mediaOverlay.mode-kaleidoscope[data-position="left"] .mediaCard,
-#mediaOverlay.mode-tunnel[data-position="left"] .mediaCard {
+#mediaOverlay[data-media-layout="free"][data-position="left"] .mediaCard {
   left: var(--edge-gap);
   top: 50%;
   bottom: auto;
@@ -1846,16 +1787,13 @@ body {
     width: var(--media-art-width, clamp(88px, 22vw, 124px));
     height: var(--media-art-height, clamp(88px, 22vw, 124px));
   }
-  #mediaOverlay.mode-cascade .mediaCard,
-  #mediaOverlay.mode-radial .mediaCard {
+  #mediaOverlay[data-media-layout="focus"] .mediaCard {
     width: calc(100vw - (var(--edge-gap) * 2));
   }
-  #mediaOverlay.mode-cascade[data-position="below"] .mediaCard,
-  #mediaOverlay.mode-radial[data-position="below"] .mediaCard {
+  #mediaOverlay[data-media-layout="focus"][data-position="below"] .mediaCard {
     top: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
   }
-  #mediaOverlay.mode-cascade[data-position="above"] .mediaCard,
-  #mediaOverlay.mode-radial[data-position="above"] .mediaCard {
+  #mediaOverlay[data-media-layout="focus"][data-position="above"] .mediaCard {
     bottom: calc(50% + 19vmin + clamp(3rem, 6.5vmin, 5rem));
   }
 }

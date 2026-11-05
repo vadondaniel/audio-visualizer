@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).prism = api.createMode;
+  else root.ModeRegistry.registerFactory("prism", api.createMode);
 })(globalThis, function () {
   const PRISM_BANDS = 96;
 

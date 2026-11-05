@@ -22,6 +22,7 @@ app.whenReady().then(async () => {
   });
   try {
     await window.loadFile(path.join(__dirname, "../src/index.html"));
+    await window.webContents.executeJavaScript("window.rendererReady");
     await window.webContents.executeJavaScript(`(async () => {
       const check=(value,message)=>{if(!value)throw Error(message);};
       state.trailsEnabled=false;state.mediaMetadataEnabled=false;

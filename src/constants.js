@@ -102,19 +102,7 @@ const THEMES = [
   { name: "Rainbow Cycle", rainbow: true, cycle: true },
 ];
 
-const MODES = [
-  "bars",
-  "radial",
-  "waveform",
-  "particles",
-  "kaleidoscope",
-  "tunnel",
-  "waves",
-  "aurora",
-  "cascade",
-  "orbit",
-  "prism",
-];
+const MODES = ModeRegistry.ids;
 // ---------- visual tuning ----------
 // Per-mode constants that shape how each visual responds to audio.
 // Grouped here so tweaking a feel doesn't require hunting through draw code.

@@ -35,7 +35,14 @@ function loadMain({ primary = true, packaged = false } = {}) {
   };
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), context);
   context.createWindow = jest.fn();
-  return { app, build, spawn, electron, context };
+  return {
+    app,
+    build,
+    spawn,
+    electron,
+    context,
+    evaluate: (code) => vm.runInContext(code, context),
+  };
 }
 
 test("duplicate startup cannot create caches/windows, register IPC, or rebuild the helper", async () => {
@@ -84,3 +91,47 @@ test.each(["nonzero exit", "spawn error"])(
     expect(app.exit).toHaveBeenCalledWith(1);
   }
 );
+
+test("media metadata stays queued until the asynchronous renderer is ready", async () => {
+  const { context, evaluate } = loadMain({ primary: false });
+  let ready;
+  const window = {
+    isDestroyed: () => false,
+    webContents: {
+      executeJavaScript: jest.fn(
+        () =>
+          new Promise((resolve) => {
+            ready = resolve;
+          })
+      ),
+      send: jest.fn(),
+    },
+  };
+  context.testWindow = window;
+  evaluate('mainWindow=testWindow;pendingMediaMetadata=[{title:"queued"}];');
+  const pending = context.finishRendererStartup(window);
+  expect(window.webContents.send).not.toHaveBeenCalled();
+  evaluate('pendingMediaMetadata.push({title:"later"});');
+  ready();
+  await pending;
+  expect(
+    window.webContents.send.mock.calls.map((call) => call[1].title)
+  ).toEqual(["queued", "later"]);
+  expect(evaluate("rendererReady")).toBe(true);
+});
+test("a failed renderer does not flush queued metadata", async () => {
+  const { context, evaluate } = loadMain({ primary: false });
+  const window = {
+    isDestroyed: () => false,
+    webContents: {
+      executeJavaScript: jest.fn().mockRejectedValue(Error("load failed")),
+      send: jest.fn(),
+    },
+  };
+  context.testWindow = window;
+  evaluate('mainWindow=testWindow;pendingMediaMetadata=[{title:"queued"}];');
+  await context.finishRendererStartup(window);
+  expect(window.webContents.send).not.toHaveBeenCalled();
+  expect(evaluate("rendererReady")).toBe(false);
+  expect(context.console.error).toHaveBeenCalled();
+});

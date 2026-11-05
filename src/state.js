@@ -41,19 +41,7 @@ const state = {
   particleStyle: "flow", // "flow" | "burst" | "vortex"
   mediaMetadataEnabled: false,
   mediaDisplay: "cover-title-artist", // "title" | "title-artist" | "cover" | "cover-title" | "cover-title-artist"
-  mediaTextPositions: {
-    bars: "top",
-    radial: "below",
-    waveform: "auto",
-    particles: "auto",
-    kaleidoscope: "auto",
-    tunnel: "auto",
-    waves: "auto",
-    aurora: "auto",
-    cascade: "below",
-    orbit: "bottom-left",
-    prism: "bottom-left",
-  },
+  mediaTextPositions: ModeRegistry.mediaDefaults(),
 };
 
 // ---------- settings persistence ----------

@@ -26,6 +26,7 @@ app.whenReady().then(async () => {
       windows.push(window);
       try {
         await window.loadFile(path.join(__dirname, "../src/index.html"));
+        await window.webContents.executeJavaScript("window.rendererReady");
         const result = await window.webContents.executeJavaScript(`(() => {
           const section = document.getElementById("diagnosticsStatus").closest(".settingsSection");
           document.getElementById("settingsBtn").click();

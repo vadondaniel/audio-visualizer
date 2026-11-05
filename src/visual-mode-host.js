@@ -12,28 +12,31 @@ const visualFrame = {
   signals: null,
   beat: { pulse: 0, justHit: false },
 };
-const visualModeController = ModeRuntime.createController(VisualModes, {
-  constants: {
-    VISUAL_TUNING,
-    THEMES,
-    PARTICLE_BANDS,
-    KALEIDO_BARS,
-    FRAME_MS,
-    ENERGY_HISTORY_MS,
-  },
-  palette: { currentHue, themeCssColor },
-  createRandom: () =>
-    ModeRuntime.createRandom(Math.floor(Math.random() * 4294967296)),
-  restore: ModeRuntime.restore,
-  loadImage(src) {
-    const image = new Image();
-    image.src = src;
-    return image;
-  },
-  consumeBeat() {
-    beatJustHit = false;
-  },
-});
+const visualModeController = ModeRuntime.createController(
+  ModeRegistry.getFactories(),
+  {
+    constants: {
+      VISUAL_TUNING,
+      THEMES,
+      PARTICLE_BANDS,
+      KALEIDO_BARS,
+      FRAME_MS,
+      ENERGY_HISTORY_MS,
+    },
+    palette: { currentHue, themeCssColor },
+    createRandom: () =>
+      ModeRuntime.createRandom(Math.floor(Math.random() * 4294967296)),
+    restore: ModeRuntime.restore,
+    loadImage(src) {
+      const image = new Image();
+      image.src = src;
+      return image;
+    },
+    consumeBeat() {
+      beatJustHit = false;
+    },
+  }
+);
 
 const audioPipeline = AudioPipeline.create();
 const visualAudioInput = {

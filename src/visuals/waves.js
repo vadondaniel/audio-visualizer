@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).waves = api.createMode;
+  else root.ModeRegistry.registerFactory("waves", api.createMode);
 })(globalThis, function () {
   function createMode(services) {
     const currentHue = services.palette.currentHue;

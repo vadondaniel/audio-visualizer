@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).kaleidoscope = api.createMode;
+  else root.ModeRegistry.registerFactory("kaleidoscope", api.createMode);
 })(globalThis, function () {
   function createMode(services) {
     const { KALEIDO_BARS, VISUAL_TUNING } = services.constants;

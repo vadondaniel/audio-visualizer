@@ -1,7 +1,7 @@
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else (root.VisualModes ??= {}).bars = api.createMode;
+  else root.ModeRegistry.registerFactory("bars", api.createMode);
 })(globalThis, function () {
   function createMode(services) {
     const { VISUAL_TUNING } = services.constants;

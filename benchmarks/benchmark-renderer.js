@@ -1,26 +1,6 @@
 (() => {
   const params = window.__audioVisualizerBenchmark || {};
-  // `MODES` is declared as a top-level `const` by constants.js. Electron's
-  // executeJavaScript path can expose page globals slightly differently across
-  // versions/worlds, so do not let mode discovery silently produce an empty
-  // benchmark. Keep the same canonical ordering as constants.js as a fallback.
-  const FALLBACK_MODE_NAMES = [
-    "bars",
-    "radial",
-    "waveform",
-    "particles",
-    "kaleidoscope",
-    "tunnel",
-    "waves",
-    "aurora",
-    "cascade",
-    "orbit",
-    "prism",
-  ];
-  const MODE_NAMES =
-    Array.isArray(MODES) && MODES.length
-      ? MODES.slice()
-      : FALLBACK_MODE_NAMES.slice();
+  const MODE_NAMES = ModeRegistry.ids;
   const SCENARIO_NAMES = ["mixed", "drop", "bass", "highs", "full", "silence"];
   const scenarios = (
     Array.isArray(params.scenarios) && params.scenarios.length
