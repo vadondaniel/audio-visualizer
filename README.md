@@ -7,13 +7,19 @@ visualizer.
 It works with your system audio directly, so there's nothing extra to
 install or set up beyond the app itself.
 
+## Download
+
+[Download the latest Windows release](https://github.com/vadondaniel/audio-visualizer/releases/latest).
+Run the portable `.exe`, or extract the `.zip` and run `Audio Visualizer.exe`.
+No installation or Node.js required.
+
 ## Screenshots
 
 | Kaleidoscope | Bars | Cascade |
 | --- | --- | --- |
 | ![Kaleidoscope visualization with track information](screenshots/kaleidoscope.png) | ![Bars visualization with track information](screenshots/bars.png) | ![Cascade visualization with track information](screenshots/cascade.png) |
 
-## Getting started
+## Running from source
 
 ### 1. Install Node.js (one-time setup)
 
@@ -85,8 +91,8 @@ automatically and will still be there next time you open the app.
 
 ## Turning it into a double-clickable app (optional)
 
-By default you run the app from a terminal with `npm start`. If you'd
-rather have a regular `.exe` you can just double-click, run:
+If you're running from source and want to build your own `.exe` you can
+double-click, run:
 
 ```bash
 npm run dist
