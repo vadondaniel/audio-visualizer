@@ -328,6 +328,72 @@
     const PARTICLE_HUE_BINS = 12;
     const PARTICLE_ALPHA_BINS = 4;
 
+    /** @param {number} count */
+    function createBuckets(count) {
+      return {
+        head: new Int32Array(count).fill(-1),
+        tail: new Int32Array(count).fill(-1),
+        next: new Int32Array(PARTICLE_RENDER_CAP).fill(-1),
+      };
+    }
+    const particleBatches = {
+      trails: createBuckets(PARTICLE_HUE_BINS),
+      bodies: createBuckets(PARTICLE_ALPHA_BINS * PARTICLE_HUE_BINS),
+      glow: createBuckets(PARTICLE_HUE_BINS),
+      highlights: createBuckets(PARTICLE_HUE_BINS),
+      glowMaxR: new Float32Array(PARTICLE_HUE_BINS),
+    };
+    const batchGroups = [
+      particleBatches.trails,
+      particleBatches.bodies,
+      particleBatches.glow,
+      particleBatches.highlights,
+    ];
+
+    function clearParticleBatches() {
+      for (const group of batchGroups) {
+        group.head.fill(-1);
+        group.tail.fill(-1);
+      }
+      particleBatches.glowMaxR.fill(0);
+    }
+
+    /** @param {ReturnType<typeof createBuckets>} group
+     * @param {number} bucket
+     * @param {number} index */
+    function appendParticleIndex(group, bucket, index) {
+      const tail = group.tail[bucket];
+      if (tail === -1) group.head[bucket] = index;
+      else group.next[tail] = index;
+      group.tail[bucket] = index;
+      group.next[index] = -1;
+    }
+
+    /** Classify the stored Float32 values, matching the original drawing thresholds.
+     * @param {number} index
+     * @param {number} trailWidthScale
+     * @param {boolean} rainbow */
+    function bucketParticle(index, trailWidthScale, rainbow) {
+      const rr = particleRender;
+      const hue = rr.bin[index];
+      const r = rr.r[index];
+      const alpha = rr.alpha[index];
+      appendParticleIndex(
+        particleBatches.bodies,
+        rr.alphaBin[index] * PARTICLE_HUE_BINS + hue,
+        index
+      );
+      if (r > 2.2 && Math.min(0.28, alpha * trailWidthScale) > 0.02)
+        appendParticleIndex(particleBatches.trails, hue, index);
+      if (r > 3.0 && alpha > 0.18) {
+        appendParticleIndex(particleBatches.glow, hue, index);
+        if (r > particleBatches.glowMaxR[hue])
+          particleBatches.glowMaxR[hue] = r;
+      }
+      if (rainbow && r > 5.4 && alpha > 0.45)
+        appendParticleIndex(particleBatches.highlights, hue, index);
+    }
+
     /**
      * @param {CanvasRenderingContext2D} ctx
      */
@@ -459,12 +525,14 @@
       }
 
       // Simulate once, store compact render data, then batch the expensive canvas work.
-      // This is intentionally two-pass: extra JS comparisons are substantially cheaper
-      // than thousands of beginPath()/fill()/stroke() calls on Canvas2D.
+      // Link accepted indices once so drawing never rescans the full render buffer.
       const theme = THEMES[state.theme];
       const count = Math.min(particles.length, PARTICLE_RENDER_CAP);
       const rr = particleRender;
       rr.count = 0;
+      clearParticleBatches();
+      const rainbow = !!theme.rainbow;
+      const trailWidthScale = rainbow ? 0.78 : 0.55;
 
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
@@ -591,6 +659,7 @@
             Math.floor(Math.min(0.999, rr.alpha[idx]) * PARTICLE_ALPHA_BINS)
           )
         );
+        bucketParticle(idx, trailWidthScale, rainbow);
       }
 
       prepared.cx = cx;
@@ -653,14 +722,14 @@
       // Batched trails: 12 hue groups, one stroke per group. Only sufficiently large
       // particles get trails, which preserves motion readability without spending work
       // on subpixel streaks.
-      const trailWidthScale = theme.rainbow ? 0.78 : 0.55;
       for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
         beginParticleBatch(ctx);
         let hasPath = false;
-        for (let i = 0; i < rr.count; i++) {
-          if (rr.bin[i] !== hb || rr.r[i] <= 2.2) continue;
-          const a = Math.min(0.28, rr.alpha[i] * trailWidthScale);
-          if (a <= 0.02) continue;
+        for (
+          let i = particleBatches.trails.head[hb];
+          i !== -1;
+          i = particleBatches.trails.next[i]
+        ) {
           ctx.moveTo(rr.px[i], rr.py[i]);
           ctx.lineTo(rr.x[i], rr.y[i]);
           hasPath = true;
@@ -683,8 +752,12 @@
         for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
           beginParticleBatch(ctx);
           let hasPath = false;
-          for (let i = 0; i < rr.count; i++) {
-            if (rr.bin[i] !== hb || rr.alphaBin[i] !== ab) continue;
+          const bucket = ab * PARTICLE_HUE_BINS + hb;
+          for (
+            let i = particleBatches.bodies.head[bucket];
+            i !== -1;
+            i = particleBatches.bodies.next[i]
+          ) {
             ctx.moveTo(rr.x[i] + rr.r[i], rr.y[i]);
             ctx.arc(rr.x[i], rr.y[i], rr.r[i], 0, Math.PI * 2);
             hasPath = true;
@@ -708,14 +781,16 @@
       // per hue bucket, and only large luminous particles participate.
       for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
         beginParticleBatch(ctx);
-        let maxR = 0;
+        const maxR = particleBatches.glowMaxR[hb];
         let hasGlow = false;
-        for (let i = 0; i < rr.count; i++) {
+        for (
+          let i = particleBatches.glow.head[hb];
+          i !== -1;
+          i = particleBatches.glow.next[i]
+        ) {
           const r = rr.r[i];
-          if (rr.bin[i] !== hb || r <= 3.0 || rr.alpha[i] <= 0.18) continue;
           ctx.moveTo(rr.x[i] + r, rr.y[i]);
           ctx.arc(rr.x[i], rr.y[i], r, 0, Math.PI * 2);
-          if (r > maxR) maxR = r;
           hasGlow = true;
         }
         if (!hasGlow) continue;
@@ -734,9 +809,12 @@
         for (let hb = 0; hb < PARTICLE_HUE_BINS; hb++) {
           beginParticleBatch(ctx);
           let hasPath = false;
-          for (let i = 0; i < rr.count; i++) {
+          for (
+            let i = particleBatches.highlights.head[hb];
+            i !== -1;
+            i = particleBatches.highlights.next[i]
+          ) {
             const r = rr.r[i];
-            if (rr.bin[i] !== hb || r <= 5.4 || rr.alpha[i] <= 0.45) continue;
             ctx.moveTo(rr.x[i] - r * 1.8, rr.y[i]);
             ctx.lineTo(rr.x[i] + r * 1.8, rr.y[i]);
             ctx.moveTo(rr.x[i], rr.y[i] - r * 1.8);
@@ -786,6 +864,8 @@
         energyTrend = services.restore(energyTrend, initial.energyTrend);
         particlePhase = services.restore(particlePhase, initial.particlePhase);
         services.restore(particleRender, initial.particleRender);
+        clearParticleBatches();
+        for (const group of batchGroups) group.next.fill(-1);
         for (const key of Object.keys(prepared)) delete prepared[key];
       },
     };

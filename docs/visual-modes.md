@@ -119,6 +119,14 @@ Helpers take explicit frame/context dependencies plus meaningful geometry or
 prepared visual values. Instance closures retain simulation state and reusable
 render buffers, not the current frame or canvas context.
 
+Particles prepares stable index buckets during update for trails, bodies, glow,
+and Rainbow highlights. Membership uses the stored Float32 render values, and
+links retain ascending render-index order within each batch. Drawing traverses
+these reusable lists without rescanning the render buffer; reset clears bucket
+state while retaining its typed storage. Canvas pass order and batching remain
+unchanged. Focused tests compare membership with the original scan rules and
+count membership reads rather than infer GPU or frame-rate gains.
+
 Keep geometry, animation, and visual physics in modes. Sampling, normalization,
 controls, and audio smoothing belong to the pipeline's named profiles.
 
