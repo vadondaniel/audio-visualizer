@@ -13,6 +13,7 @@
  * @property {boolean} smoothingEnabled
  * @property {'mirrored'|'full'} radialMode
  * @property {'bass-to-treble'|'treble-to-bass'} cascadeFrequencyOrder
+ * @property {'line'|'filled'|'prism'} [waveformStyle] Selects spectral sampling for Prism; omitted uses waveform samples.
  */
 /**
  * @typedef {object} VisualSettings
@@ -21,7 +22,7 @@
  * @property {number} glowIntensity
  * @property {'bottom'|'center'} barsAlignment
  * @property {'mirrored'|'full'} radialMode
- * @property {'line'|'filled'} waveformStyle
+ * @property {'line'|'filled'|'prism'} waveformStyle
  * @property {boolean} kaleidoClipEnabled
  * @property {'dark'|'light'|'theme'} cascadeFillStyle
  * @property {number} particleDensity

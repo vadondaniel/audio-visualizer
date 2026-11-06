@@ -427,6 +427,9 @@ describe("mergeSettings", () => {
     expect(merged.waveformStyle).toBe("filled");
     expect(merged.sensitivity).toBe(1.5);
     expect(merged.glowIntensity).toBe(0.8);
+    expect(
+      mergeSettings(defaults, { waveformStyle: "prism" }, 8, 7).waveformStyle
+    ).toBe("prism");
   });
 
   test("accepts new procedural bgTypes: nebula, stars, grid", () => {

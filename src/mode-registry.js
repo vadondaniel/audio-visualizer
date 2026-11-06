@@ -38,7 +38,7 @@
       id: "waveform",
       label: "Waveform",
       modulePath: "visuals/waveform.js",
-      audio: { sampler: "waveform", count: 0, release: 10 },
+      audio: { sampler: "waveform", count: 96, release: 10 },
       media: {
         group: "free",
         defaultPosition: "auto",

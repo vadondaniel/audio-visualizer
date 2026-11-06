@@ -16,11 +16,65 @@
     const themeCssColor = services.palette.themeCssColor;
 
     const { applyGlow } = services;
+    /** Connected spectral peaks above and below a straight baseline.
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {import("../visual-contracts").Frame} frame */
+    function drawPrismLine(ctx, frame) {
+      const bands = frame.signals.bands;
+      if (bands.length < 2) return;
+      const midY = frame.height / 2;
+      const span = frame.height * 0.38;
+      const step = frame.width / (bands.length - 1);
+      const size = Math.min(frame.width, frame.height);
+      ctx.lineWidth = Math.max(1, size * 0.0018);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      for (let i = 0; i < bands.length; i++) {
+        const level = Math.min(1, Math.max(0, bands[i]));
+        const x = i * step;
+        const top = midY - level * span;
+        const bottom = midY + level * span;
+        const hue = currentHue(i / (bands.length - 1));
+        ctx.strokeStyle = themeCssColor(hue, 95, 70, 0.4 + level * 0.6);
+        applyGlow(
+          ctx,
+          themeCssColor(hue, 95, 65, 1),
+          8 + level * 7,
+          frame.settings.glowIntensity
+        );
+        if (i + 1 < bands.length) {
+          const next = Math.min(1, Math.max(0, bands[i + 1])) * span;
+          ctx.beginPath();
+          ctx.moveTo(x, top);
+          ctx.lineTo(x + step, midY - next);
+          ctx.moveTo(x, bottom);
+          ctx.lineTo(x + step, midY + next);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(x, bottom);
+        ctx.lineTo(x, top);
+        ctx.globalAlpha = 0.25 + level * 0.45;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = themeCssColor(hue, 85, 85, 0.65 + level * 0.35);
+        for (const y of [top, bottom]) {
+          ctx.beginPath();
+          ctx.arc(x, y, Math.max(0.7, size * 0.0015), 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.shadowBlur = 0;
+    }
     /**
      * @param {CanvasRenderingContext2D} ctx
      * @param {import("../visual-contracts").Frame} frame
      */
     function drawWaveform(ctx, frame) {
+      if (frame.settings.waveformStyle === "prism") {
+        drawPrismLine(ctx, frame);
+        return;
+      }
       const {
         bass: bassLevel,
         mid: midLevel,

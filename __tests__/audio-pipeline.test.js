@@ -29,6 +29,20 @@ function fixture(overrides = {}) {
   };
   return { input, settings, pipeline, step };
 }
+
+test("Waveform Prism shares Prism's finished bands and adaptive range", () => {
+  const f = fixture({ waveformStyle: "prism" });
+  const line = f.step("waveform");
+  const circle = f.pipeline.forMode("prism");
+  expect(line.bands).toHaveLength(96);
+  expect([...line.bands]).toEqual([...circle.bands]);
+  expect(line.rangeEndHz).toBe(circle.rangeEndHz);
+  expect(f.pipeline.forMode("waveform")).toBe(line);
+  f.settings.sensitivity = 0;
+  expect([...f.step("waveform").bands].every((value) => value === 0)).toBe(
+    true
+  );
+});
 test.each([44100, 48000, 96000])(
   "power aggregation clips Hz edges and averages linear power at %s Hz",
   (sampleRate) => {

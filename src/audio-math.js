@@ -211,7 +211,7 @@
       state.kaleidoClipEnabled = saved.kaleidoClipEnabled;
     if (saved.barsAlignment === "bottom" || saved.barsAlignment === "center")
       state.barsAlignment = saved.barsAlignment;
-    if (saved.waveformStyle === "line" || saved.waveformStyle === "filled")
+    if (["line", "filled", "prism"].includes(saved.waveformStyle))
       state.waveformStyle = saved.waveformStyle;
     if (
       saved.cascadeFrequencyOrder === "bass-to-treble" ||

@@ -28,7 +28,7 @@ const state = {
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
   barsAlignment: "bottom", // "bottom" | "center"
-  waveformStyle: "line", // "line" | "filled"
+  waveformStyle: "line", // "line" | "filled" | "prism"
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   cascadeFillStyle: "dark", // "dark" | "light" | "theme"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)

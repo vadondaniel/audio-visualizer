@@ -395,7 +395,10 @@
         throw Error("Audio pipeline requires update before forMode");
       if (profile.generation === generation) return profile.output;
       profile.generation = generation;
-      const sampler = spec.sampler;
+      const sampler =
+        spec.sampler === "waveform" && settings.waveformStyle === "prism"
+          ? "prism"
+          : spec.sampler;
       if (sampler === "aurora") {
         const neutral = controlled(
           normalizedLevels[0] * 0.45 +
@@ -438,7 +441,7 @@
               (activeEnd - profile.rangeEnd) * (1 - Math.exp(-dt / 1.5));
         }
       }
-      for (let i = 0; i < spec.count; i++) {
+      for (let i = 0; i < (sampler === "waveform" ? 0 : spec.count); i++) {
         let low = 0,
           high = 0;
         if (sampler === "bars")

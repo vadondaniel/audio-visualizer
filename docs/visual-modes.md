@@ -57,6 +57,9 @@ do not retain their values as history without copying the data needed.
   Modes receive final levels, unmodulated motion levels, their own spectral bands,
   signed waveform samples, and raw descriptors. They do not receive analyser buffers
   or audio-control helpers and must not reapply Sensitivity, curves, or bass gain.
+  Waveform's Prism style uses Prism's spectral sampling and adaptive range,
+  drawing connected peaks above and below a horizontal baseline. Its other
+  styles continue to use signed waveform samples.
 - `beat.pulse`, `beat.justHit`: existing beat state. The host clears a pending beat
   after Particles updates; modes never mutate shared beat state.
 - `mediaArt`: a loaded, valid cover image when the current display enables it;
