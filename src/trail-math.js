@@ -43,7 +43,39 @@
     return timestampMs - frameTimestampMs >= durationMs;
   }
 
+  // Reuse the caller's output record; malformed or empty bounds retain the full frame.
+  /** @param {import('./visual-contracts').RenderBounds|null|undefined} bounds
+   * @param {number} width
+   * @param {number} height
+   * @param {{x:number,y:number,width:number,height:number}} result */
+  function resolveTrailBounds(bounds, width, height, result) {
+    result.x = result.y = 0;
+    result.width = width;
+    result.height = height;
+    if (
+      !bounds ||
+      !Number.isFinite(bounds.x) ||
+      !Number.isFinite(bounds.y) ||
+      !Number.isFinite(bounds.width) ||
+      !Number.isFinite(bounds.height) ||
+      bounds.width <= 0 ||
+      bounds.height <= 0
+    )
+      return result;
+    const x = Math.max(0, Math.floor(bounds.x));
+    const y = Math.max(0, Math.floor(bounds.y));
+    const right = Math.min(width, Math.ceil(bounds.x + bounds.width));
+    const bottom = Math.min(height, Math.ceil(bounds.y + bounds.height));
+    if (right <= x || bottom <= y) return result;
+    result.x = x;
+    result.y = y;
+    result.width = right - x;
+    result.height = bottom - y;
+    return result;
+  }
+
   return {
+    resolveTrailBounds,
     trailOpacity,
     trailCaptureIntervalMs,
     shouldCaptureTrail,

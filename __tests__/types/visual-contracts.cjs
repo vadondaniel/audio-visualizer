@@ -17,6 +17,28 @@ function checkContracts(frame, services, ctx, input, settings) {
   mode.update(frame);
   mode.draw(ctx, frame);
   mode.reset();
+  /** @type {import('../../src/visual-contracts').Mode} */
+  const bounded = {
+    ...mode,
+    getRenderBounds: () => ({
+      x: 0,
+      y: 0,
+      width: frame.width,
+      height: frame.height,
+    }),
+  };
+  const bounds = bounded.getRenderBounds?.(frame);
+  if (bounds) {
+    // @ts-expect-error Bounds records are borrowed and read only to consumers.
+    bounds.x = 4;
+  }
+  /** @type {import('../../src/visual-contracts').Mode} */
+  const invalidBounds = {
+    ...mode,
+    // @ts-expect-error Bounds must be a rectangle or null, not a scalar.
+    getRenderBounds: () => 1,
+  };
+
   const pipeline = Pipeline.create();
   /** @type {import('../../src/visual-contracts').AudioProfile} */
   const resolved = Registry.resolveAudioProfile("waveform", settings);

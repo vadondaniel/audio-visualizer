@@ -38,6 +38,8 @@ Instances expose:
 - `update(frame)`: advance simulation once, prepare render data, consume randomness.
 - `draw(ctx, frame)`: draw the prepared state without advancing simulation or events.
 - `reset()`: restore initial state and random-stream position, retaining reusable storage.
+- Optional `getRenderBounds(frame)`: return a borrowed canvas-space rectangle
+  containing all painted pixels, including glow, or `null` for full canvas.
 
 The host calls update then draw only for the active mode. Switching, resizing, and
 settings changes do not reset modes. Capture teardown/recovery resets all modes.
@@ -53,6 +55,14 @@ prepared state; Starfield projections are reused and respawns remain in update.
 The compatibility `renderProceduralBackground` calls both. Overlay presentation
 skips hidden background drawing and all live FX style updates without pausing
 simulation or accumulating a catch-up step.
+
+Trail snapshots retain native-resolution rectangles for Orbit, Prism, and Radial.
+Their reusable bounds use maximum geometry extents and conservative glow padding,
+so audio peaks do not resize snapshot storage. Other modes use full-canvas history.
+Each snapshot owns its origin; compositing preserves mixed-mode history and the
+existing capture schedule and opacity. The pool prefers matching dimensions,
+retains at most one unused spare, and zeroes discarded canvas dimensions on
+release/reset. No production pixel readback is used.
 
 External media text caches its character nodes and painted palette inputs.
 Static frames do no repeated character writes; cycling themes use the renderer's

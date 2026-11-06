@@ -55,9 +55,20 @@ function applyGlow(color, blur) {
 const trailFrames = [];
 const trailCanvasPool = [];
 let nextTrailCaptureMs = null;
+const trailCaptureBounds = { x: 0, y: 0, width: 0, height: 0 };
 
 // ---------- draw modes ----------
+function releaseTrailCanvas(frameCanvas) {
+  frameCanvas.width = frameCanvas.height = 0;
+}
+
+function trimTrailCanvasPool() {
+  while (trailCanvasPool.length > 1) releaseTrailCanvas(trailCanvasPool.pop());
+}
+
 function resetTrailHistory() {
+  for (const frame of trailFrames) releaseTrailCanvas(frame.canvas);
+  for (const frameCanvas of trailCanvasPool) releaseTrailCanvas(frameCanvas);
   trailFrames.length = 0;
   trailCanvasPool.length = 0;
   nextTrailCaptureMs = null;
@@ -70,14 +81,17 @@ function clearFrame() {
   ctx.restore();
 }
 
-function takeTrailCanvas() {
-  const frameCanvas = trailCanvasPool.pop() || document.createElement("canvas");
-  if (
-    frameCanvas.width !== renderCanvas.width ||
-    frameCanvas.height !== renderCanvas.height
-  ) {
-    frameCanvas.width = renderCanvas.width;
-    frameCanvas.height = renderCanvas.height;
+function takeTrailCanvas(width, height) {
+  const matching = trailCanvasPool.findIndex(
+    (surface) => surface.width === width && surface.height === height
+  );
+  const frameCanvas =
+    matching >= 0
+      ? trailCanvasPool.splice(matching, 1)[0]
+      : trailCanvasPool.pop() || document.createElement("canvas");
+  if (frameCanvas.width !== width || frameCanvas.height !== height) {
+    frameCanvas.width = width;
+    frameCanvas.height = height;
   }
   return frameCanvas;
 }
@@ -100,18 +114,24 @@ function getTrailSnapshotLimit() {
   return Math.max(1, Math.min(180, desired + 1));
 }
 
-function captureTrailFrame(timestamp) {
+function captureTrailFrame(timestamp, bounds) {
   if (trailFrames.length >= getTrailSnapshotLimit()) {
     trailCanvasPool.push(trailFrames.shift().canvas);
   }
-  const frameCanvas = takeTrailCanvas();
+  const { x, y, width, height } = TrailMath.resolveTrailBounds(
+    bounds,
+    renderCanvas.width,
+    renderCanvas.height,
+    trailCaptureBounds
+  );
+  const frameCanvas = takeTrailCanvas(width, height);
   const frameCtx = frameCanvas.getContext("2d");
   frameCtx.clearRect(0, 0, frameCanvas.width, frameCanvas.height);
-  frameCtx.drawImage(renderCanvas, 0, 0);
-  trailFrames.push({ canvas: frameCanvas, timestamp });
+  frameCtx.drawImage(renderCanvas, -x, -y);
+  trailFrames.push({ canvas: frameCanvas, timestamp, x, y });
 }
 
-function renderTrailHistory(timestamp) {
+function renderTrailHistory(timestamp, bounds = null) {
   if (!state.trailsEnabled) {
     resetTrailHistory();
     const presentStart =
@@ -136,7 +156,7 @@ function renderTrailHistory(timestamp) {
   if (shouldCapture) {
     const captureStart =
       typeof diagnostics !== "undefined" ? diagnostics.beginTrailCapture() : 0;
-    captureTrailFrame(timestamp);
+    captureTrailFrame(timestamp, bounds);
     nextTrailCaptureMs = TrailMath.advanceTrailCaptureDeadline(
       timestamp,
       nextTrailCaptureMs,
@@ -162,7 +182,7 @@ function renderTrailHistory(timestamp) {
       timestamp - frame.timestamp,
       state.trailDuration
     );
-    displayCtx.drawImage(frame.canvas, 0, 0);
+    displayCtx.drawImage(frame.canvas, frame.x, frame.y);
   }
   if (!shouldCapture) {
     displayCtx.globalAlpha = 1;
@@ -171,6 +191,7 @@ function renderTrailHistory(timestamp) {
   displayCtx.restore();
   if (typeof diagnostics !== "undefined")
     diagnostics.endTrailComposite(compositeStart);
+  trimTrailCanvasPool();
   const presentStart =
     typeof diagnostics !== "undefined" ? diagnostics.beginPresent() : 0;
   // The final display canvas is presented by Chromium after this function returns.

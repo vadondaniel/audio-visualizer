@@ -106,15 +106,17 @@
  * @property {Restore} restore
  * @property {(ctx:CanvasRenderingContext2D,color:CanvasColor,blur:number,intensity:number)=>void} applyGlow
  */
+/** @typedef {Readonly<{x:number,y:number,width:number,height:number}>} RenderBounds Conservative canvas-space pixel bounds; borrowed until the next call. */
 /**
  * @typedef {object} Mode
  * @property {(frame:Frame)=>void} update Advances only the active simulation.
  * @property {(ctx:CanvasRenderingContext2D,frame:Frame)=>void} draw Requires update; never consumes events or randomness.
  * @property {()=>void} reset Restores initial state, retaining reusable allocations.
+ * @property {(frame:Frame)=>RenderBounds|null} [getRenderBounds] Optional conservative painted bounds, including glow; null means full canvas.
  */
 /** @typedef {(services:Services)=>Mode} ModeFactory */
 /** @typedef {Services & {consumeBeat?:()=>void}} HostServices Only the controller may consume shared beat state. */
-/** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,reset:()=>void}} ModeController */
+/** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,getRenderBounds:(id:string,frame:Frame)=>RenderBounds|null,reset:()=>void}} ModeController */
 /** @typedef {Readonly<{sampler:string,count:number,release:number,threshold?:number,domain?:'db'|'amplitude'}>} AudioProfile */
 /** @typedef {Readonly<{setting:'waveformStyle',profiles:Readonly<Record<string,AudioProfile>>}>} AudioVariants */
 /** @typedef {AudioProfile & Readonly<{variants?:AudioVariants}>} AudioDefinition */

@@ -262,7 +262,9 @@
           !mode ||
           ["update", "draw", "reset"].some(
             (method) => typeof mode[method] !== "function"
-          )
+          ) ||
+          (mode.getRenderBounds !== undefined &&
+            typeof mode.getRenderBounds !== "function")
         )
           throw Error(`Invalid lifecycle for mode: ${id}`);
         return mode;

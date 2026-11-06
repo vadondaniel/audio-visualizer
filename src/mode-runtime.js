@@ -152,6 +152,11 @@
     return {
       update,
       draw,
+      getRenderBounds(id, frame) {
+        const mode = modes[id];
+        if (!mode) throw new Error(`Unknown visual mode: ${id}`);
+        return mode.getRenderBounds?.(frame) ?? null;
+      },
       render(id, ctx, frame) {
         update(id, frame);
         draw(id, ctx, frame);

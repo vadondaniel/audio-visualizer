@@ -16,6 +16,7 @@
     const themeCssColor = services.palette.themeCssColor;
 
     const { applyGlow } = services;
+    const renderBounds = { x: 0, y: 0, width: 0, height: 0 };
 
     /**
      * @param {CanvasRenderingContext2D} ctx
@@ -136,7 +137,27 @@
       ctx.lineCap = "butt";
     }
 
+    /** Stable maximum extents avoid resizing history with each audio peak.
+     * @param {import('../visual-contracts').Frame} frame
+     * @returns {import('../visual-contracts').RenderBounds} */
+    function getRenderBounds(frame) {
+      const size = Math.min(frame.width, frame.height);
+      const tuning = VISUAL_TUNING.radial;
+      const extent =
+        size *
+        (tuning.baseRFrac * (1 + 0.2 + 0.25) +
+          tuning.lengthScale * (0.8 + 0.25 + 0.2));
+      // Includes round bar caps, the clipped focus artwork, and the focus outline.
+      const padding = 4 * 10 * frame.settings.glowIntensity + 2.4 / 2 + 2;
+      const halfSize = extent + padding;
+      renderBounds.x = frame.width / 2 - halfSize;
+      renderBounds.y = frame.height / 2 - halfSize;
+      renderBounds.width = renderBounds.height = halfSize * 2;
+      return renderBounds;
+    }
+
     return {
+      getRenderBounds,
       update() {},
       draw: drawRadial,
       reset() {},

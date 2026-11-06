@@ -110,6 +110,11 @@ function loop(timestamp = performance.now()) {
   diagnosticCall("endRender", modeTimer);
 
   const trailTimer = diagnosticCall("beginTrail");
-  renderTrailHistory(timestamp);
+  renderTrailHistory(
+    timestamp,
+    state.trailsEnabled
+      ? visualModeController.getRenderBounds(modeId, frame)
+      : null
+  );
   diagnosticCall("endTrail", trailTimer);
 }

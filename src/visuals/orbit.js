@@ -67,6 +67,7 @@
     const themeCssColor = services.palette.themeCssColor;
 
     const { applyGlow } = services;
+    const renderBounds = { x: 0, y: 0, width: 0, height: 0 };
     // One spectrum quarter reflected across both local axes. The entire assembly
     // shares one rotation; audio pulls the rope inward and pushes bars outward.
     const ORBIT_BANDS = 40;
@@ -241,6 +242,27 @@
         (orbitRotation + tuning.spinPerSec * dtSec) % (Math.PI * 2);
     }
 
+    /** Stable maximum extents avoid resizing history with each audio peak.
+     * @param {import('../visual-contracts').Frame} frame
+     * @returns {import('../visual-contracts').RenderBounds} */
+    function getRenderBounds(frame) {
+      const size = Math.min(frame.width, frame.height);
+      const radius = size * VISUAL_TUNING.orbit.radiusFrac * (1 + 0.035 + 0.02);
+      const gap = Math.max(4, size * 0.009);
+      const barWidth = ((Math.PI * 2 * (radius + gap)) / 128) * 0.73;
+      // The maximum outer bars also contain every rotated rope Bezier control point.
+      const extent = radius + gap + orbitOuterLength(radius, 1);
+      const padding =
+        4 * 12 * frame.settings.glowIntensity +
+        Math.max(barWidth, Math.max(2.5, size * 0.006)) / 2 +
+        2;
+      const halfSize = extent + padding;
+      renderBounds.x = frame.width / 2 - halfSize;
+      renderBounds.y = frame.height / 2 - halfSize;
+      renderBounds.width = renderBounds.height = halfSize * 2;
+      return renderBounds;
+    }
+
     const initial = structuredClone({
       orbitRope,
       orbitDisplacement,
@@ -249,6 +271,7 @@
       orbitRotation,
     });
     return {
+      getRenderBounds,
       update: updateOrbit,
       draw: drawOrbit,
       reset() {

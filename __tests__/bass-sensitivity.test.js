@@ -264,7 +264,11 @@ test.each([0, 255])(
       drawProceduralBackground: background,
       updateFxLive: fx,
       syncMediaThemeColors: () => {},
-      visualModeController: { update: jest.fn(), draw: render },
+      visualModeController: {
+        getRenderBounds: () => null,
+        update: jest.fn(),
+        draw: render,
+      },
       effectiveVisualMode: () => "bars",
       isMiniOverlayActive: () => false,
       overlayDrawSchedule:

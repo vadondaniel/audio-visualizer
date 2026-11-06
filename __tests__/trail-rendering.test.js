@@ -10,15 +10,20 @@ function setup(fps = 60, duration = 220) {
   let captures = 0;
   let canvases = 0;
   const compositeAlphas = [];
+  const compositeCalls = [];
+  const captureCalls = [];
+  const surfaces = [];
   const displayCtx = {
     save() {},
     restore() {},
     setTransform() {},
     clearRect() {
       compositeAlphas.length = 0;
+      compositeCalls.length = 0;
     },
-    drawImage() {
+    drawImage(...args) {
       compositeAlphas.push(this.globalAlpha);
+      compositeCalls.push(args);
     },
   };
   const context = {
@@ -32,16 +37,23 @@ function setup(fps = 60, duration = 220) {
     document: {
       createElement() {
         canvases++;
-        return {
+        const surface = {
           width: 0,
           height: 0,
           getContext: () => ({
             clearRect() {},
-            drawImage() {
+            drawImage(...args) {
               captures++;
+              captureCalls.push({
+                args,
+                width: surface.width,
+                height: surface.height,
+              });
             },
           }),
         };
+        surfaces.push(surface);
+        return surface;
       },
     },
     updateSliderLabels: jest.fn(),
@@ -59,6 +71,9 @@ function setup(fps = 60, duration = 220) {
     captures: () => captures,
     canvases: () => canvases,
     compositeAlphas,
+    compositeCalls,
+    captureCalls,
+    surfaces,
   };
 }
 
@@ -219,4 +234,69 @@ test("long trails at the maximum capture rate retain a bounded canvas pool", () 
   expect(app.evaluate("trailFrames.length + trailCanvasPool.length")).toBe(
     app.canvases()
   );
+});
+
+test("cropped snapshots keep independent integer origins and present uncaptured frames at full size", () => {
+  const app = setup();
+  const bounds = { x: 2.2, y: 3.8, width: 6.1, height: 4.5 };
+  app.render(0, bounds);
+  expect(app.captureCalls[0]).toMatchObject({ width: 7, height: 6 });
+  expect(app.captureCalls[0].args).toEqual([app.context.renderCanvas, -2, -3]);
+  expect(app.frames[0]).toMatchObject({ x: 2, y: 3 });
+  bounds.x = 9;
+  bounds.y = 10;
+  bounds.width = 4;
+  bounds.height = 4;
+  app.render(20, bounds);
+  expect(app.compositeCalls.map((args) => args.slice(1))).toEqual([
+    [2, 3],
+    [9, 10],
+  ]);
+  app.render(25, null);
+  expect(app.compositeCalls.at(-1)).toEqual([app.context.renderCanvas, 0, 0]);
+  expect(app.frames[0]).toMatchObject({ x: 2, y: 3 });
+});
+
+test("pool prefers an exact size, retains one spare after expiration, and releases backing stores on reset", () => {
+  const app = setup();
+  for (let i = 0; i < 5; i++) app.render(i * 20);
+  app.render(1000);
+  expect(app.pool).toHaveLength(1);
+  expect(app.frames).toHaveLength(1);
+  expect(
+    app.surfaces.filter(
+      (surface) => surface.width === 0 && surface.height === 0
+    )
+  ).toHaveLength(3);
+  const spare = app.pool[0];
+  app.render(1020);
+  expect(app.frames.at(-1).canvas).toBe(spare);
+  app.context.exact = { width: 7, height: 8 };
+  app.context.other = { width: 12, height: 13 };
+  app.evaluate("trailCanvasPool.push(exact,other)");
+  expect(app.evaluate("takeTrailCanvas(7,8)")).toBe(app.context.exact);
+  expect(app.pool).toEqual([app.context.other]);
+  app.evaluate("resetTrailHistory()");
+  expect(app.context.other).toMatchObject({ width: 0, height: 0 });
+  expect(
+    app.surfaces.every((surface) => surface.width === 0 && surface.height === 0)
+  ).toBe(true);
+  expect(app.frames).toHaveLength(0);
+  expect(app.pool).toHaveLength(0);
+});
+
+test("disabling releases cropped canvases and ordinary full-size captures remain compatible", () => {
+  const app = setup();
+  app.render(0, { x: 3, y: 4, width: 5, height: 6 });
+  const cropped = app.frames[0].canvas;
+  app.context.state.trailsEnabled = false;
+  app.render(1);
+  expect(cropped).toMatchObject({ width: 0, height: 0 });
+  app.context.state.trailsEnabled = true;
+  app.render(2);
+  expect(app.frames[0]).toMatchObject({
+    x: 0,
+    y: 0,
+    canvas: { width: 16, height: 16 },
+  });
 });

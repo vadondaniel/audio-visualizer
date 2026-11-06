@@ -124,3 +124,9 @@ and media text invalidation, including return without capture. Its operation
 counters report eliminated canvas calls and character-style writes, not GPU or
 FPS gains. Seeded background unit tests compare visible and hidden/resumed
 simulation, random consumption, and drawing after respawns and resize.
+
+`trail-cropping` compares full-canvas and cropped histories byte for byte and
+checks that excluded regions are transparent. It uses a dedicated readback
+surface and the same output context for both paths, avoiding readback-triggered
+GPU/CPU blend-rounding differences. Rectangle areas and `pixels × 4` estimates
+describe retained storage/work, not measured GPU memory or frame-rate gains.

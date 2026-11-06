@@ -124,7 +124,11 @@ function loopFixture({
     drawProceduralBackground: jest.fn(),
     updateFxLive: jest.fn(),
     recoverAudioCapture: jest.fn(),
-    visualModeController: { update: jest.fn(), draw: jest.fn() },
+    visualModeController: {
+      getRenderBounds: () => null,
+      update: jest.fn(),
+      draw: jest.fn(),
+    },
     effectiveVisualMode: () =>
       effectiveMode(settings, ctx.overlayActive, Registry.ids),
     prepareVisualFrame: (timestampMs, elapsedMs, id) => {
