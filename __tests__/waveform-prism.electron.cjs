@@ -15,7 +15,7 @@ runCheck(async ({ createWindow, loadRenderer }) => {
     const input={sampleRate:48000,frequencyBytes:new Uint8Array(1024).fill(100),timeBytes:new Uint8Array(1024).fill(128),spectrumDb:Float32Array.from({length:1024},(_,i)=>-90+50*Math.exp(-(((i-40)/25)**2)))};
     pipeline.update(input,state,{dtSec:1/60});
     const signals=pipeline.forMode('waveform');
-    check(signals.bands.length===96&&signals.bands.some(x=>x>0),'Spectral input');
+    check(signals.bands.length===ModeRegistry.resolveAudioProfile('waveform',state).count&&signals.bands.some(x=>x>0),'Spectral input');
     const target=document.createElement('canvas');target.width=800;target.height=400;
     const context=target.getContext('2d');
     visualModeController.render('waveform',context,{width:800,height:400,settings:state,signals,beat:{pulse:0,justHit:false},timestampMs:1000,elapsedMs:16,dtSec:.016,audioClockMs:1000,mediaArt:null});

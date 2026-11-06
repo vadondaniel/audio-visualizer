@@ -3,20 +3,28 @@ const fs = require("node:fs");
 const path = require("node:path");
 // Run with: npm run test:electron -- settings-actions
 
-runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
-  const window = createWindow({
-    show: false,
-    width: 1280,
-    height: 720,
-    webPreferences: {
-      partition: "settings-actions-check",
+runCheck(
+  async ({
+    createWindow,
+    loadRenderer,
+    waitForPaint,
+    setViewport,
+    errors,
+    artifactDir,
+  }) => {
+    const window = createWindow({
+      show: false,
+      width: 1280,
+      height: 720,
+      webPreferences: {
+        partition: "settings-actions-check",
 
-      backgroundThrottling: false,
-    },
-  });
+        backgroundThrottling: false,
+      },
+    });
 
-  await loadRenderer(window);
-  await window.webContents.executeJavaScript(`(async()=>{
+    await loadRenderer(window);
+    await window.webContents.executeJavaScript(`(async()=>{
       const check=(condition,message)=>{if(!condition)throw Error(message);};
       let writes=0,mediaRefreshes=0;
       const originalSave=Storage.prototype.setItem,originalMedia=updateMediaLayout;
@@ -30,13 +38,15 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
         originalSave.call(localStorage,SETTINGS_KEY,JSON.stringify({mode:9,modeOrder:[...MODES].reverse(),disabledModes:['bars'],mediaArtistPosition:'above',theme:0}));
         loadSettings();
         check(writes===0,'Restoration must not write settings');
-        check(state.mode===9&&state.modeOrder[0]==='prism'&&state.disabledModes.includes('bars'),'Legacy selection and mode preferences');
+        check(state.mode===9&&state.modeOrder[0]===MODES.at(-1)&&state.disabledModes.includes('bars'),'Legacy selection and mode preferences');
         check(state.mediaTextPositions.radial==='above'&&state.mediaTextPositions.cascade==='above','Legacy media migration');
 
-        writes=0;mediaRefreshes=0;event(themeSelect,'1');
+        const enabledThemes=ModeList.enabled(state.themeOrder,state.disabledThemes);
+        const firstTheme=themeIds.indexOf(enabledThemes[0]),secondTheme=themeIds.indexOf(enabledThemes[1]);
+        writes=0;mediaRefreshes=0;event(themeSelect,String(secondTheme));
         check(writes===1&&mediaRefreshes===1,'Theme dropdown saves and refreshes media once');
         const selected={theme:state.theme,select:themeSelect.value,accent:document.documentElement.style.getPropertyValue('--accent-rgb'),gradient:colorGradientRow.style.display};
-        event(themeSelect,'0');writes=0;mediaRefreshes=0;key('c');
+        event(themeSelect,String(firstTheme));writes=0;mediaRefreshes=0;key('c');
         check(JSON.stringify(selected)===JSON.stringify({theme:state.theme,select:themeSelect.value,accent:document.documentElement.style.getPropertyValue('--accent-rgb'),gradient:colorGradientRow.style.display}),'Theme shortcut matches dropdown');
         check(writes===1&&mediaRefreshes===1,'Theme shortcut saves and refreshes media once');
 
@@ -68,8 +78,7 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
         const imageBytes=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aNXYAAAAASUVORK5CYII='),c=>c.charCodeAt(0));
         const transfer=new DataTransfer();transfer.items.add(new File([imageBytes],'settings-test.png',{type:'image/png'}));
         bgImageInput.files=transfer.files;writes=0;bgImageInput.dispatchEvent(new Event('change',{bubbles:true}));
-        const deadline=performance.now()+2000;
-        while(state.bgImageName!=='settings-test.png'&&performance.now()<deadline)await new Promise(resolve=>setTimeout(resolve,10));
+        await window.verificationWaitFor('background image decode and commit',()=>state.bgImageName,value=>value==='settings-test.png');
         check(state.bgType==='image'&&state.bgImageName==='settings-test.png'&&bgLayer.style.backgroundImage.includes('data:image/png')&&writes===1,'File input commits image once');
         event(brightnessSlider,'0.8','input');event(blurSlider,'4','input');
         check(bgLayer.style.filter.includes('brightness(0.8)')&&bgLayer.style.filter.includes('blur(4px)'),'Image controls apply');
@@ -83,18 +92,18 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
         Storage.prototype.setItem=originalSave;updateMediaLayout=originalMedia;settingsActions.dispose();
       }
     })()`);
-  for (const width of [1280, 360]) {
-    window.setContentSize(width, 720);
-    await window.webContents.executeJavaScript(
-      `(()=>{settingsActions.selectMode('radial');settingsActions.setMediaPosition('radial','above');if(mediaOverlay.dataset.mediaLayout!=='focus'||mediaTextPositionSelect.value!=='above')throw Error('Focus layout');settingsActions.selectMode('orbit');settingsActions.setMediaPosition('orbit','bottom-right');if(mediaOverlay.dataset.mediaLayout!=='free'||mediaTextPositionSelect.value!=='bottom-right')throw Error('Free layout');})()`
-    );
-    const slider = await window.webContents.executeJavaScript(`(async()=>{
+    for (const width of [1280, 360]) {
+      await setViewport(window, width, 720);
+      await window.webContents.executeJavaScript(
+        `(()=>{settingsActions.selectMode('radial');settingsActions.setMediaPosition('radial','above');if(mediaOverlay.dataset.mediaLayout!=='focus'||mediaTextPositionSelect.value!=='above')throw Error('Focus layout');settingsActions.selectMode('orbit');settingsActions.setMediaPosition('orbit','bottom-right');if(mediaOverlay.dataset.mediaLayout!=='free'||mediaTextPositionSelect.value!=='bottom-right')throw Error('Free layout');})()`
+      );
+      const slider = await window.webContents.executeJavaScript(`(async()=>{
       document.getElementById('startOverlay').style.display='none';
       panelOpen=true;flashHud();
       bassSensitivityAmountSlider.closest('.settingsSection').classList.remove('collapsed');
       settingsActions.set('bassSensitivityEnabled',true);
       settingsActions.set('bassSensitivityAmount',1);
-      await new Promise(resolve=>setTimeout(resolve,350));
+      await window.verificationWaitForPaint(['#settingsPanel']);
       bassSensitivityAmountSlider.scrollIntoView({block:'center'});
       const bounds=bassSensitivityAmountSlider.getBoundingClientRect();
       const clip=bassSensitivityAmountSlider.closest('.sectionContent').getBoundingClientRect();
@@ -105,25 +114,25 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       const previousScroll=settingsPanel.scrollTop;
       settingsPanel.scrollTop=0;
       settingsPanel.scrollTop=title.getBoundingClientRect().top-header.getBoundingClientRect().top-8;
-      await new Promise(resolve=>setTimeout(resolve,350));
+      await window.verificationWaitForPaint(['#settingsPanel']);
       const titleBounds=title.getBoundingClientRect();
       const topElement=document.elementFromPoint(titleBounds.right-4,titleBounds.top+titleBounds.height/2);
       if(!header.contains(topElement))throw Error('Scrolled section chevron paints over sticky header');
       settingsPanel.scrollTop=previousScroll;
       return {x:bounds.right-8,y:bounds.top+bounds.height/2};
     })()`);
-    window.webContents.sendInputEvent({ type: "mouseMove", ...slider });
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    fs.writeFileSync(
-      path.join(artifactDir, `slider-glow-${width}.png`),
-      (await window.webContents.capturePage()).toPNG()
-    );
-  }
-  if (errors.length) throw Error(errors.join("\n"));
-  // Check overlay toolbar layout without creating or focusing a native overlay.
-  for (const size of [320, 180]) {
-    window.setContentSize(size, size);
-    await window.webContents.executeJavaScript(`(()=>{
+      window.webContents.sendInputEvent({ type: "mouseMove", ...slider });
+      await waitForPaint(window, ["#settingsPanel"]);
+      fs.writeFileSync(
+        path.join(artifactDir, `slider-glow-${width}.png`),
+        (await window.webContents.capturePage()).toPNG()
+      );
+    }
+    if (errors.length) throw Error(errors.join("\n"));
+    // Check overlay toolbar layout without creating or focusing a native overlay.
+    for (const size of [320, 180]) {
+      await setViewport(window, size, size);
+      await window.webContents.executeJavaScript(`(()=>{
       document.body.classList.add('mini-overlay','overlay-controls-visible');
       const controls=document.getElementById('miniOverlayControls');controls.hidden=false;
       const box=controls.getBoundingClientRect();
@@ -137,13 +146,17 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       const size=document.getElementById('miniOverlaySize');size.hidden=false;size.textContent=innerWidth+' × '+innerHeight+' px';
       document.body.classList.add('overlay-resizing');
     })()`);
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    fs.writeFileSync(
-      path.join(artifactDir, `overlay-resize-light-${size}.png`),
-      (await window.webContents.capturePage()).toPNG()
+      await waitForPaint(window, [
+        "#miniOverlayControls",
+        "#miniOverlayResize",
+      ]);
+      fs.writeFileSync(
+        path.join(artifactDir, `overlay-resize-light-${size}.png`),
+        (await window.webContents.capturePage()).toPNG()
+      );
+    }
+    console.log(
+      "PASS: settings controls, shortcut parity, single-save/media effects, legacy restoration, image input/clear, persistence, and desktop/narrow media positions"
     );
   }
-  console.log(
-    "PASS: settings controls, shortcut parity, single-save/media effects, legacy restoration, image input/clear, persistence, and desktop/narrow media positions"
-  );
-});
+);

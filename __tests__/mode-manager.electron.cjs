@@ -7,7 +7,14 @@ const fs = require("node:fs");
 const assert = require("node:assert/strict");
 
 runCheck(
-  async ({ createWindow, loadRenderer, reloadRenderer, artifactDir }) => {
+  async ({
+    createWindow,
+    loadRenderer,
+    reloadRenderer,
+    waitForPaint,
+    setViewport,
+    artifactDir,
+  }) => {
     const window = createWindow({
       show: false,
       width: 1280,
@@ -24,7 +31,7 @@ runCheck(
     const dir = artifactDir;
 
     if (process.argv.includes("--baseline")) {
-      await new Promise((resolve) => setTimeout(resolve, 250));
+      await waitForPaint(window, ["#settingsPanel", "#modeManager"]);
       fs.writeFileSync(
         path.join(dir, "modes-before.png"),
         (await window.webContents.capturePage()).toPNG()
@@ -133,6 +140,7 @@ runCheck(
       })()`);
       let dragTimer;
       const intercepted = new Promise((resolve, reject) => {
+        // Watchdog for the native drag event sequence, not a synchronization delay.
         dragTimer = setTimeout(
           () => reject(Error("Native drag did not start")),
           4000
@@ -200,9 +208,9 @@ runCheck(
         [640, 640],
         [360, 640],
       ]) {
-        window.setContentSize(width, height);
+        await setViewport(window, width, height);
         await window.webContents.executeJavaScript("flashHud()");
-        await new Promise((resolve) => setTimeout(resolve, 250));
+        await waitForPaint(window, ["#settingsPanel", "#modeManager"]);
         const layout = await window.webContents.executeJavaScript(`(() => {
           const list = document.getElementById("modeManagerList");
           const row = list.querySelector("li");

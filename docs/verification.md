@@ -50,6 +50,19 @@ and Orbit share their assertions and rendering scenes. The older direct Orbit
 `--prism` invocation remains supported, but npm commands provide timeout handling
 and automatic profile cleanup.
 
+Electron checks use harness `waitFor(description, read, accept, options)` for
+observable completion. Probes run sequentially, default to 25 ms intervals and a
+five-second deadline, and report the last observation on timeout. Pass `window`
+in options to cancel when its renderer closes. `waitForPaint(window, selectors)`
+waits for finite transitions on the inspected elements and two animation frames;
+continuous animations are excluded. Matching helpers are installed only in test
+renderers for assertions that run inside the page. All waits clean up on completion
+or teardown. Real analyser settling and process/drag watchdogs remain explicit.
+Derive incidental identities from registry/theme metadata; keep historical saved
+indices and canonical-order fixtures explicit as compatibility assertions.
+`setViewport` keeps the requested native size and awaits the renderer's agreement
+with the granted content size, allowing one DIP of fractional-scaling rounding.
+
 ## Profiles, results, and failures
 
 Electron commands use the project-local executable, clear `ELECTRON_RUN_AS_NODE`

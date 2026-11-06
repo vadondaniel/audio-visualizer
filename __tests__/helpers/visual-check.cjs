@@ -10,6 +10,8 @@ module.exports = function runVisualCheck(mode) {
       createWindow,
       loadRenderer,
       reloadRenderer,
+      waitForPaint,
+      setViewport,
       errors,
       artifactDir,
     }) => {
@@ -39,10 +41,8 @@ module.exports = function runVisualCheck(mode) {
             ]
           : []),
       ]) {
-        window.setContentSize(width, height);
-        await window.webContents.executeJavaScript(
-          "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
-        );
+        await setViewport(window, width, height);
+        await waitForPaint(window, ["#visualSurface"]);
         const result = await window.webContents.executeJavaScript(`(() => {
         startOverlay.style.display = "none";
         state.bgType = "color";
@@ -80,9 +80,7 @@ module.exports = function runVisualCheck(mode) {
         assert.equal(result.inList, true);
         assert.equal(result.enabled, true);
         assert.ok(result.lit > 1000);
-        await window.webContents.executeJavaScript(
-          "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
-        );
+        await waitForPaint(window, ["#visualSurface"]);
         assert.ok(
           await window.webContents.executeJavaScript(
             "displayCtx.getImageData(0,0,canvas.width,canvas.height).data.some((value,index) => index % 4 === 3 && value > 0)"

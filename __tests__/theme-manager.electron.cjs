@@ -3,7 +3,14 @@ const fs = require("node:fs"),
   path = require("node:path");
 const assert = require("node:assert/strict");
 runCheck(
-  async ({ createWindow, loadRenderer, reloadRenderer, artifactDir }) => {
+  async ({
+    createWindow,
+    loadRenderer,
+    reloadRenderer,
+    waitForPaint,
+    setViewport,
+    artifactDir,
+  }) => {
     const window = createWindow({
       width: 1280,
       height: 720,
@@ -65,11 +72,11 @@ runCheck(
       saved
     );
     for (const width of [1280, 360]) {
-      window.setContentSize(width, 720);
+      await setViewport(window, width, 720);
       await window.webContents.executeJavaScript(
         `startOverlay.style.display='none';panelOpen=true;flashHud();setThemeManagerOpen(true);`
       );
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await waitForPaint(window, ["#themeManager"]);
       const fit = await window.webContents.executeJavaScript(
         `(()=>{const rect=themeManager.getBoundingClientRect();return {fits:rect.width<=innerWidth&&rect.height<=innerHeight,overflow:themeManagerList.scrollWidth>themeManagerList.clientWidth};})()`
       );

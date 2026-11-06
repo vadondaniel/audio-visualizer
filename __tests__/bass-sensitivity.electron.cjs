@@ -5,20 +5,29 @@ const path = require("node:path"),
   fs = require("node:fs"),
   assert = require("node:assert/strict");
 
-runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
-  const window = createWindow({
-    show: false,
-    width: 1280,
-    height: 720,
-    webPreferences: {
-      partition: "bass-sensitivity-check",
+runCheck(
+  async ({
+    createWindow,
+    loadRenderer,
+    reloadRenderer,
+    waitForPaint,
+    setViewport,
+    errors,
+    artifactDir,
+  }) => {
+    const window = createWindow({
+      show: false,
+      width: 1280,
+      height: 720,
+      webPreferences: {
+        partition: "bass-sensitivity-check",
 
-      backgroundThrottling: false,
-    },
-  });
+        backgroundThrottling: false,
+      },
+    });
 
-  await loadRenderer(window);
-  const measured = await window.webContents.executeJavaScript(`(async () => {
+    await loadRenderer(window);
+    const measured = await window.webContents.executeJavaScript(`(async () => {
       const context = new AudioContext();
       const oscillator = context.createOscillator();
       const gain = context.createGain();
@@ -29,23 +38,25 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       oscillator.connect(gain).connect(detector).connect(mute).connect(context.destination);
       const checkPipe=AudioPipeline.create();const db=new Float32Array(1024);
       const measure=()=>{detector.getFloatFrequencyData(db);return checkPipe.update({spectrumDb:db,frequencyBytes:new Uint8Array(1024),timeBytes:new Uint8Array(1024).fill(128),sampleRate:context.sampleRate},state,{dtSec:.1}).bassDriverLevel;};
+      // Allow the real analyser to collect a complete FFT window after each tone change.
+      const ANALYSER_SETTLE_MS=150;
       try {
         oscillator.frequency.value=100;oscillator.start();await context.resume();
-        await new Promise(resolve=>setTimeout(resolve,150));
+        await new Promise(resolve=>setTimeout(resolve,ANALYSER_SETTLE_MS));
         const bass=measure();
         oscillator.frequency.value=1000;
-        await new Promise(resolve=>setTimeout(resolve,150));
+        await new Promise(resolve=>setTimeout(resolve,ANALYSER_SETTLE_MS));
         return {bass,mid:measure()};
       } finally {
         oscillator.stop();await context.close();
       }
     })()`);
-  assert.ok(measured.bass > 0.5, JSON.stringify(measured));
-  assert.ok(measured.mid < 0.05, JSON.stringify(measured));
-  console.log(
-    "PASS: real Web Audio 100 Hz tone drives bass; equal-level 1 kHz tone is rejected"
-  );
-  const result = await window.webContents.executeJavaScript(`(() => {
+    assert.ok(measured.bass > 0.5, JSON.stringify(measured));
+    assert.ok(measured.mid < 0.05, JSON.stringify(measured));
+    console.log(
+      "PASS: real Web Audio 100 Hz tone drives bass; equal-level 1 kHz tone is rejected"
+    );
+    const result = await window.webContents.executeJavaScript(`(() => {
       const check=(value,message)=>{if(!value)throw Error(message);};
       check(!state.bassSensitivityEnabled && state.bassSensitivityAmount===0.5,"Default is off with 50% amount");
       check(getComputedStyle(bassSensitivityAmountRow).display==="none","Amount hidden by default");
@@ -70,20 +81,16 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       bassSensitivityAmountSlider.value=75;bassSensitivityAmountSlider.dispatchEvent(new Event("input"));
       return {amount:state.bassSensitivityAmount,curve:state.valueHandling};
     })()`);
-  assert.equal(result.amount, 0.75);
-  assert.equal(result.curve, "logarithmic");
-  window.reload();
-  await new Promise((resolve) =>
-    window.webContents.once("did-finish-load", resolve)
-  );
-  await window.webContents.executeJavaScript("window.rendererReady");
-  assert.equal(
-    await window.webContents.executeJavaScript(
-      "state.bassSensitivityEnabled && state.bassSensitivityAmount===0.75 && state.valueHandling==='logarithmic'"
-    ),
-    true
-  );
-  const modes = await window.webContents.executeJavaScript(`(() => {
+    assert.equal(result.amount, 0.75);
+    assert.equal(result.curve, "logarithmic");
+    await reloadRenderer(window);
+    assert.equal(
+      await window.webContents.executeJavaScript(
+        "state.bassSensitivityEnabled && state.bassSensitivityAmount===0.75 && state.valueHandling==='logarithmic'"
+      ),
+      true
+    );
+    const modes = await window.webContents.executeJavaScript(`(() => {
       startOverlay.style.display="none";
       state.trailsEnabled=false;state.smoothingEnabled=false;
       bufferLength=1024;freqData=new Uint8Array(1024);timeData=new Uint8Array(1024);
@@ -112,34 +119,35 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       saveSettings();
       return rendered;
     })()`);
-  assert.ok(
-    modes.includes("bars") && modes.includes("orbit") && modes.includes("prism")
-  );
-  const dir = artifactDir;
+    assert.ok(
+      modes.includes("bars") &&
+        modes.includes("orbit") &&
+        modes.includes("prism")
+    );
+    const dir = artifactDir;
 
-  for (const [width, height] of [
-    [1280, 720],
-    [640, 640],
-  ]) {
-    window.setContentSize(width, height);
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    await window.webContents.executeJavaScript("flashHud()");
-    await window.webContents.executeJavaScript(
-      "new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))"
-    );
-    const layout = await window.webContents.executeJavaScript(
-      `(flashHud(), {visible:getComputedStyle(bassSensitivityAmountRow).display!=="none" && settingsPanel.classList.contains("visible"), fits:bassSensitivityAmountRow.scrollWidth<=bassSensitivityAmountRow.clientWidth, base:sensitivitySlider.value, range:bassSensitivityRange.textContent})`
-    );
-    assert.equal(layout.visible, true, JSON.stringify(layout));
-    assert.equal(layout.fits, true);
-    assert.equal(layout.base, "1");
-    fs.writeFileSync(
-      path.join(dir, `bass-sensitivity-${width}.png`),
-      (await window.webContents.capturePage()).toPNG()
+    for (const [width, height] of [
+      [1280, 720],
+      [640, 640],
+    ]) {
+      await setViewport(window, width, height);
+      await waitForPaint(window, ["#settingsPanel"]);
+      await window.webContents.executeJavaScript("flashHud()");
+
+      const layout = await window.webContents.executeJavaScript(
+        `(flashHud(), {visible:getComputedStyle(bassSensitivityAmountRow).display!=="none" && settingsPanel.classList.contains("visible"), fits:bassSensitivityAmountRow.scrollWidth<=bassSensitivityAmountRow.clientWidth, base:sensitivitySlider.value, range:bassSensitivityRange.textContent})`
+      );
+      assert.equal(layout.visible, true, JSON.stringify(layout));
+      assert.equal(layout.fits, true);
+      assert.equal(layout.base, "1");
+      fs.writeFileSync(
+        path.join(dir, `bass-sensitivity-${width}.png`),
+        (await window.webContents.capturePage()).toPNG()
+      );
+    }
+    assert.deepEqual(errors, []);
+    console.log(
+      "PASS: controls, curve wiring, range labels, immediate disable, zero amount, persistence, all registered modes, and two viewport sizes"
     );
   }
-  assert.deepEqual(errors, []);
-  console.log(
-    "PASS: controls, curve wiring, range labels, immediate disable, zero amount, persistence, all registered modes, and two viewport sizes"
-  );
-});
+);

@@ -69,7 +69,7 @@ runCheck(async ({ createWindow, loadRenderer, expectRendererErrors }) => {
     state.mode=MODES.indexOf('test-mode');syncSelectsToState();
     check(mediaOverlay.dataset.mediaLayout==='free'&&mediaOverlay.dataset.position==='bottom','Synthetic mode uses media capabilities');
     const pipe=AudioPipeline.create();pipe.update({sampleRate:48000,spectrumDb:new Float32Array(1024).fill(-45),frequencyBytes:new Uint8Array(1024).fill(120),timeBytes:new Uint8Array(1024).fill(128)},state,{dtSec:.1});
-    check(pipe.forMode('test-mode').bands.length===96,'Synthetic mode uses declared sampler');
+    check(pipe.forMode('test-mode').bands.length===ModeRegistry.resolveAudioProfile('test-mode',state).count,'Synthetic mode uses declared sampler');
     return {count:MODES.length,factories:Object.keys(ModeRegistry.getFactories()).length};
   })()`);
     assert.equal(result.count, 12);

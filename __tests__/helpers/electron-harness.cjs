@@ -1,6 +1,10 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 const {
+  waitFor: waitForCondition,
+  createPaintProbe,
+} = require("./verification-waits.cjs");
+const {
   projectRoot,
   configureProfile,
 } = require("../../scripts/verification-paths.cjs");
@@ -21,6 +25,97 @@ function runCheck(check, { requiresDesktop = false } = {}) {
     errors = [],
     allowances = new Map();
   let cleaning = false;
+  const pendingWaits = new Set();
+  let paintSequence = 0;
+  function waitFor(description, read, accept, options = {}) {
+    const controller = new AbortController(),
+      releases = [];
+    const abort = () =>
+      controller.abort(Error(`Owner closed while waiting for ${description}`));
+    const { window: owner, signal, ...timing } = options;
+    pendingWaits.add(abort);
+    if (owner) {
+      if (owner.isDestroyed() || owner.webContents.isDestroyed()) abort();
+      else
+        for (const [target, event] of [
+          [owner, "closed"],
+          [owner.webContents, "destroyed"],
+          [owner.webContents, "render-process-gone"],
+        ]) {
+          target.on(event, abort);
+          releases.push(() => target.removeListener(event, abort));
+        }
+    }
+    if (signal) {
+      const forward = () => controller.abort(signal.reason);
+      if (signal.aborted) forward();
+      else signal.addEventListener("abort", forward, { once: true });
+      releases.push(() => signal.removeEventListener("abort", forward));
+    }
+    return waitForCondition(description, read, accept, {
+      ...timing,
+      signal: controller.signal,
+    }).finally(() => {
+      pendingWaits.delete(abort);
+      for (const release of releases) release();
+    });
+  }
+  async function waitForPaint(window, selectors = ["body"], options = {}) {
+    const id = ++paintSequence;
+    try {
+      return await waitFor(
+        `paint ${selectors.join(", ")}`,
+        () =>
+          window.webContents.executeJavaScript(
+            `window.verificationPaintProbe.probe(${id},${JSON.stringify(selectors)})`
+          ),
+        (value) => value.frames >= 2 && value.animations === 0,
+        { ...options, window }
+      );
+    } finally {
+      if (!window.isDestroyed() && !window.webContents.isDestroyed())
+        // Queue cleanup without awaiting a potentially unresponsive renderer.
+        // Teardown destroys the owned window even if this IPC cannot complete.
+        void window.webContents
+          .executeJavaScript(`window.verificationPaintProbe.cancel(${id})`)
+          .catch(() => {});
+    }
+  }
+  async function setViewport(window, width, height) {
+    window.setContentSize(width, height);
+    // Windows can round the requested size at fractional display scaling.
+    return waitFor(
+      `viewport ${width} × ${height}`,
+      async () => {
+        const viewport = await window.webContents.executeJavaScript(
+          "({width:innerWidth,height:innerHeight})"
+        );
+        const [nativeWidth, nativeHeight] = window.getContentSize();
+        return { ...viewport, nativeWidth, nativeHeight };
+      },
+      (value) =>
+        Math.abs(value.width - value.nativeWidth) <= 1 &&
+        Math.abs(value.height - value.nativeHeight) <= 1,
+      { window }
+    );
+  }
+  async function installWaiters(window) {
+    await window.webContents.executeJavaScript(`(()=>{
+      const waitFor=${waitForCondition.toString()};
+      const controller=new AbortController();
+      const paint=(${createPaintProbe.toString()})(document,requestAnimationFrame.bind(window),cancelAnimationFrame.bind(window));
+      let id=0;
+      window.verificationPaintProbe=paint;
+      window.verificationWaitFor=(description,read,accept,options={})=>waitFor(description,read,accept,{...options,signal:controller.signal});
+      window.verificationWaitForPaint=async(selectors=['body'],options={})=>{
+        const token='renderer-'+(++id);
+        try{return await window.verificationWaitFor('paint '+selectors.join(', '),()=>paint.probe(token,selectors),value=>value.frames>=2&&value.animations===0,options);}
+        finally{paint.cancel(token);}
+      };
+      window.verificationDisposeWaiters=()=>{controller.abort(Error('Verification renderer disposed'));paint.dispose();};
+      window.addEventListener('pagehide',window.verificationDisposeWaiters,{once:true});
+    })()`);
+  }
   function createWindow({
     packaged = true,
     withRenderer = true,
@@ -84,6 +179,7 @@ function runCheck(check, { requiresDesktop = false } = {}) {
   }
   async function loadRenderer(window, { waitForReady = true } = {}) {
     await window.loadFile(path.join(projectRoot, "src/index.html"));
+    await installWaiters(window);
     if (waitForReady) await ready(window);
   }
   async function reloadRenderer(window) {
@@ -104,6 +200,7 @@ function runCheck(check, { requiresDesktop = false } = {}) {
       window.webContents.once("did-fail-load", failed);
       window.reload();
     });
+    await installWaiters(window);
     await ready(window);
   }
   async function expectRendererErrors(window, pattern, callback) {
@@ -126,6 +223,10 @@ function runCheck(check, { requiresDesktop = false } = {}) {
           loadRenderer,
           reloadRenderer,
           expectRendererErrors,
+          waitFor,
+          waitForPaint,
+          setViewport,
+          installWaiters,
           errors,
           artifactDir: paths.artifacts,
         });
@@ -137,6 +238,12 @@ function runCheck(check, { requiresDesktop = false } = {}) {
         failed = true;
       } finally {
         cleaning = true;
+        for (const abort of pendingWaits) abort();
+        for (const window of windows)
+          if (!window.isDestroyed() && !window.webContents.isDestroyed())
+            void window.webContents
+              .executeJavaScript("window.verificationDisposeWaiters?.()")
+              .catch(() => {});
         for (const window of windows)
           if (!window.isDestroyed()) window.destroy();
         ipcMain.removeHandler("get-performance-metrics");

@@ -4,7 +4,14 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs"),
   path = require("node:path");
 runCheck(
-  async ({ createWindow, loadRenderer, reloadRenderer, artifactDir }) => {
+  async ({
+    createWindow,
+    loadRenderer,
+    reloadRenderer,
+    waitForPaint,
+    setViewport,
+    artifactDir,
+  }) => {
     const window = createWindow({
       width: 640,
       height: 480,
@@ -27,6 +34,7 @@ runCheck(
     await loadRenderer(window);
     await window.webContents.executeJavaScript(`(async()=>{
     const check=(value,message)=>{if(!value)throw Error(message);};
+    const normalIndex=ModeRegistry.indexOf('bars'), enabled=ModeList.enabled(state.modeOrder,state.disabledModes);
     const control=(id,value,event='change')=>{const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event(event,{bubbles:true}));};
     check(state.miniOverlayScale===1&&state.miniOverlayOpacity===1&&state.miniOverlayMaxFps===60&&state.miniOverlayMode==='follow','Overlay defaults');
     check(document.getElementById('miniOverlayModeSelect').options.length===MODES.length+1,'Registry-driven overlay choices');
@@ -36,7 +44,7 @@ runCheck(
       control('miniOverlayScaleSlider','150','input');control('miniOverlayOpacitySlider','50','input');control('miniOverlayFpsSelect','30');control('miniOverlayModeSelect','orbit');
       check(writes===4,'One save per display control');
     }finally{Storage.prototype.setItem=save;}
-    check(state.mode===0&&modeSelect.value==='0','Normal selection unchanged');
+    check(state.mode===normalIndex&&modeSelect.value===String(normalIndex),'Normal selection unchanged');
     check(document.getElementById('miniOverlayScaleVal').textContent==='150%'&&document.getElementById('miniOverlayOpacityVal').textContent==='50%','Scale and opacity labels');
     check(getComputedStyle(canvas).transform==='none'&&getComputedStyle(document.getElementById('visualSurface')).opacity==='1','Normal presentation bypasses display controls');
     await overlayUI.enter();document.body.classList.add('mini-overlay');
@@ -48,10 +56,10 @@ runCheck(
     check(getComputedStyle(document.getElementById('visualSurface')).opacity==='0.5','Grouped opacity');
     check(!document.getElementById('visualSurface').contains(document.getElementById('miniOverlayControls')),'Controls outside fading surface');
     window.dispatchEvent(new KeyboardEvent('keydown',{key:'3'}));
-    check(state.miniOverlayMode===MODES[2]&&state.mode===0,'Overlay shortcut isolation');
-    settingsActions.nextMode();check(state.mode===1&&effectiveVisualMode()===MODES[2],'Normal cycling leaves overlay fixed');
+    check(state.miniOverlayMode===enabled[2]&&state.mode===normalIndex,'Overlay shortcut isolation');
+    settingsActions.nextMode();check(state.mode===ModeRegistry.indexOf(enabled[1])&&effectiveVisualMode()===enabled[2],'Normal cycling leaves overlay fixed');
     settingsActions.selectOverlayMode('follow');window.dispatchEvent(new KeyboardEvent('keydown',{key:'1'}));
-    check(state.mode===0&&state.miniOverlayMode==='follow'&&effectiveVisualMode()==='bars','Follow normal shortcut');
+    check(state.mode===normalIndex&&state.miniOverlayMode==='follow'&&effectiveVisualMode()==='bars','Follow normal shortcut');
     settingsActions.selectOverlayMode('orbit');
     settingsActions.setModePreferences({order:[...MODES].reverse(),disabled:['orbit']});
     check(state.miniOverlayMode==='prism'&&!Array.from(document.getElementById('miniOverlayModeSelect').options).some(o=>o.value==='orbit'),'Disabled overlay fallback and selector');
@@ -69,11 +77,11 @@ runCheck(
     startOverlay.style.display='none';
     settingsActions.selectOverlayMode('orbit');
   })()`);
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    await waitForPaint(window, ["#visualSurface"]);
     await window.webContents.executeJavaScript(
       `displayCtx.save();displayCtx.setTransform(1,0,0,1,0,0);displayCtx.globalAlpha=1;displayCtx.fillStyle='#0000ff';displayCtx.fillRect(0,0,canvas.width,canvas.height);displayCtx.restore();`
     );
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await waitForPaint(window, ["#visualSurface"]);
     const composed = await window.webContents.capturePage();
     fs.writeFileSync(
       path.join(artifactDir, "grouped-opacity.png"),
@@ -114,12 +122,12 @@ runCheck(
       "follow"
     );
     for (const width of [1280, 360]) {
-      window.setContentSize(width, 720);
+      await setViewport(window, width, 720);
       await window.webContents.executeJavaScript(`(async()=>{
         startOverlay.style.display='none';panelOpen=true;flashHud();
         for(const section of settingsPanel.querySelectorAll('.settingsSection'))section.classList.toggle('collapsed',section.id!=='miniOverlaySection');
       })()`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      await waitForPaint(window, ["#settingsPanel"]);
       await window.webContents.executeJavaScript(`(async()=>{
         document.getElementById('miniOverlaySection').scrollIntoView({block:'nearest'});
         if(settingsPanel.scrollWidth>settingsPanel.clientWidth)throw Error('Overlay settings overflow horizontally');

@@ -46,6 +46,7 @@ if (!acquireSingleInstance(app, () => (window ? windowPolicy : undefined))) {
         stderr += chunk;
       });
       await new Promise((resolve, reject) => {
+        // Watchdog for the owned secondary process; successful exit resolves immediately.
         const timer = setTimeout(
           () => reject(Error("Second launch did not exit")),
           10000

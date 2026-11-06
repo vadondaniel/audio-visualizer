@@ -4,7 +4,7 @@ const { EventEmitter } = require("node:events");
 const TrayController = require("../src/tray-controller");
 const { runCheck } = require("./helpers/electron-harness.cjs");
 
-runCheck(async ({ createWindow, loadRenderer }) => {
+runCheck(async ({ createWindow, loadRenderer, waitFor }) => {
   const window = createWindow();
   let nativeMenu;
   // Exercise native-controller composition without creating an OS tray or window.
@@ -50,12 +50,29 @@ runCheck(async ({ createWindow, loadRenderer }) => {
     ipcMain.handle("overlay-enter", () => presentation(true));
     ipcMain.handle("overlay-restore", () => presentation(false));
     await loadRenderer(window);
+    const expected = await window.webContents.executeJavaScript(
+      `({modes:ModeRegistry.ids,themes:THEMES.map(theme=>theme.name),prism:ModeRegistry.indexOf('prism'),ice:THEMES.findIndex(theme=>theme.name==='Ice')})`
+    );
+    await waitFor(
+      "initial tray inventory",
+      () => menu,
+      (value) =>
+        value &&
+        JSON.stringify(value.modes.map((item) => item.id)) ===
+          JSON.stringify(expected.modes) &&
+        JSON.stringify(value.themes.map((item) => item.id)) ===
+          JSON.stringify(expected.themes),
+      { window }
+    );
     nativeTray.ensure();
     const check = (value, message) => {
       if (!value) throw Error(message);
     };
     check(
-      menu?.modes.length === 11 && menu.themes.length > 0,
+      JSON.stringify(menu.modes.map((item) => item.id)) ===
+        JSON.stringify(expected.modes) &&
+        JSON.stringify(menu.themes.map((item) => item.id)) ===
+          JSON.stringify(expected.themes),
       "Initial tray choices"
     );
     nativeMenu
@@ -66,20 +83,36 @@ runCheck(async ({ createWindow, loadRenderer }) => {
       .find((item) => item.label === "Color theme")
       .submenu.find((item) => item.label === "Ice")
       .click();
-    await window.webContents.executeJavaScript(
-      `new Promise(resolve=>setTimeout(resolve,30))`
-    );
-    const normal = await window.webContents.executeJavaScript(
-      `({mode:ModeRegistry.ids[state.mode],theme:THEMES[state.theme].name,select:modeSelect.value,saved:JSON.parse(localStorage.getItem(SETTINGS_KEY))})`
+    const normal = await waitFor(
+      "tray selection, controls, persistence and menu marks",
+      async () => ({
+        ...(await window.webContents.executeJavaScript(
+          `({mode:ModeRegistry.ids[state.mode],theme:THEMES[state.theme].name,select:modeSelect.value,saved:JSON.parse(localStorage.getItem(SETTINGS_KEY))})`
+        )),
+        modeMarked: nativeMenu[0].submenu.find((item) => item.label === "Prism")
+          .checked,
+        themeMarked: nativeMenu[1].submenu.find((item) => item.label === "Ice")
+          .checked,
+      }),
+      (value) =>
+        value.mode === "prism" &&
+        value.theme === "Ice" &&
+        value.select === String(expected.prism) &&
+        value.saved?.mode === expected.prism &&
+        value.saved?.theme === expected.ice &&
+        value.modeMarked &&
+        value.themeMarked,
+      { window }
     );
     check(
       normal.mode === "prism" &&
         normal.theme === "Ice" &&
-        normal.select === "10",
+        normal.select === String(expected.prism),
       "Tray updates normal controls"
     );
     check(
-      normal.saved.mode === 10 && normal.saved.theme === 3,
+      normal.saved.mode === expected.prism &&
+        normal.saved.theme === expected.ice,
       "Tray persists choices"
     );
     await window.webContents.executeJavaScript(
@@ -89,11 +122,17 @@ runCheck(async ({ createWindow, loadRenderer }) => {
       .find((item) => item.label === "Visual mode")
       .submenu.find((item) => item.label === "Bars")
       .click();
-    await window.webContents.executeJavaScript(
-      `new Promise(resolve=>setTimeout(resolve,30))`
-    );
-    const overlay = await window.webContents.executeJavaScript(
-      `({normal:ModeRegistry.ids[state.mode],overlay:state.miniOverlayMode,control:document.getElementById('miniOverlayModeSelect').value})`
+    const overlay = await waitFor(
+      "independent overlay tray selection",
+      () =>
+        window.webContents.executeJavaScript(
+          `({normal:ModeRegistry.ids[state.mode],overlay:state.miniOverlayMode,control:document.getElementById('miniOverlayModeSelect').value})`
+        ),
+      (value) =>
+        value.normal === "prism" &&
+        value.overlay === "bars" &&
+        value.control === "bars",
+      { window }
     );
     check(
       overlay.normal === "prism" &&
@@ -104,10 +143,19 @@ runCheck(async ({ createWindow, loadRenderer }) => {
     await window.webContents.executeJavaScript(
       `settingsActions.setModePreferences({order:[...state.modeOrder].reverse(),disabled:['bars']});settingsActions.setThemePreferences({order:[...state.themeOrder].reverse(),disabled:['Ice']});`
     );
+    await waitFor(
+      "filtered and reordered tray choices",
+      () => menu,
+      (value) =>
+        !value.modes.some((item) => item.id === "bars") &&
+        !value.themes.some((item) => item.id === "Ice") &&
+        value.modes[0].id === expected.modes.at(-1),
+      { window }
+    );
     check(
       !menu.modes.some((x) => x.id === "bars") &&
         !menu.themes.some((x) => x.id === "Ice") &&
-        menu.modes[0].id === "prism",
+        menu.modes[0].id === expected.modes.at(-1),
       "Tray follows enabled order and fallback"
     );
     console.log(

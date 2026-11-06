@@ -8,7 +8,7 @@ const MiniOverlay = require("../src/mini-overlay");
 const TrayController = require("../src/tray-controller");
 
 runCheck(
-  async ({ artifactDir, errors }) => {
+  async ({ artifactDir, errors, waitFor, installWaiters }) => {
     const root = path.resolve(__dirname, "..");
     let controller;
     const nativeTray = TrayController.create({
@@ -55,6 +55,7 @@ runCheck(
     const originalDialog = electron.dialog.showMessageBox;
     try {
       await contents.loadFile(path.join(root, "src/index.html"));
+      await installWaiters({ webContents: contents });
       await contents.executeJavaScript("window.rendererReady");
       assert.equal(controller.snapshot().active, false);
       await contents.executeJavaScript(
@@ -89,7 +90,21 @@ runCheck(
           `if(analyser!==originalOverlayAnalyser||audioCtx.state!=='running')throw Error('Capture restarted');`
         );
         controller.setBounds({ x: 80, y: 80, width: 360, height: 320 });
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        await waitFor(
+          "overlay canvas dimensions",
+          () =>
+            contents.executeJavaScript(
+              "({width:innerWidth,height:innerHeight,canvasWidth:canvas.width,canvasHeight:canvas.height})"
+            ),
+          (value) =>
+            Math.abs(value.width - 360) <= 2 &&
+            Math.abs(value.height - 320) <= 2 &&
+            value.canvasWidth === value.width &&
+            value.canvasHeight === value.height
+        );
+        await contents.executeJavaScript(
+          "window.verificationWaitForPaint(['body'])"
+        );
         await contents.executeJavaScript(`(()=>{
         if(Math.abs(innerWidth-360)>2||Math.abs(innerHeight-320)>2||canvas.width!==innerWidth||canvas.height!==innerHeight)throw Error('View resize '+innerWidth+'x'+innerHeight);
         const visible=id=>getComputedStyle(document.getElementById(id)).visibility!=='hidden';
@@ -125,12 +140,16 @@ runCheck(
         await contents.executeJavaScript(
           `settingsActions.selectMode(${JSON.stringify(mode)});`
         );
-        await new Promise((resolve) => setTimeout(resolve, 30));
+        await contents.executeJavaScript(
+          "window.verificationWaitForPaint(['body'])"
+        );
       }
       await contents.executeJavaScript(
         `settingsActions.selectMode('orbit');document.body.classList.remove('overlay-controls-visible');document.activeElement.blur();`
       );
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await contents.executeJavaScript(
+        "window.verificationWaitForPaint(['body'])"
+      );
       fs.writeFileSync(
         path.join(artifactDir, "overlay-transparent.png"),
         (await contents.capturePage()).toPNG()
@@ -161,18 +180,31 @@ runCheck(
       move.setPointerCapture=()=>{};
       move.dispatchEvent(new PointerEvent('pointerdown',{button:0,pointerId:1,screenX:100,screenY:100}));
     })()`);
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await contents.executeJavaScript(
+        "window.verificationWaitForPaint(['body'])"
+      );
       await contents.executeJavaScript(`(()=>{
       const move=document.body;
       move.dispatchEvent(new PointerEvent('pointermove',{pointerId:1,screenX:130,screenY:120}));
       move.dispatchEvent(new PointerEvent('pointerup',{pointerId:1}));
     })()`);
-      await new Promise((resolve) => setTimeout(resolve, 50));
+      await waitFor(
+        "overlay native movement",
+        () => controller.getBounds(),
+        (value) => value.x === 110 && value.y === 100
+      );
       assert.equal(controller.getBounds().x, 110);
       await contents.executeJavaScript(
         "window.dispatchEvent(new KeyboardEvent('keydown',{key:'s'}))"
       );
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitFor(
+        "normal presentation restored",
+        () => controller.snapshot(),
+        (value) => !value.active
+      );
+      await contents.executeJavaScript(
+        "window.verificationWaitForPaint(['#settingsPanel'])"
+      );
       assert.equal(controller.snapshot().active, false);
       await contents.executeJavaScript(`(()=>{
       const section=document.getElementById('miniOverlaySection');
