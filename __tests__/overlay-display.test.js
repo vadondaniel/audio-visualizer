@@ -92,6 +92,7 @@ function loopFixture({
     beatPulse: 0,
     AudioPipeline: Pipeline,
     TrailMath: require("../src/trail-math"),
+    OverlayDisplay: require("../src/overlay-display"),
     overlayDrawSchedule: createDrawSchedule(),
     canvas: { width: 16, height: 16 },
     renderCanvas: { width: 16, height: 16 },
@@ -126,6 +127,7 @@ function loopFixture({
     recoverAudioCapture: jest.fn(),
     visualModeController: {
       getRenderBounds: () => null,
+      getOverlayBounds: () => null,
       update: jest.fn(),
       draw: jest.fn(),
     },
@@ -143,6 +145,8 @@ function loopFixture({
         { dtSec: elapsedMs / 1000 }
       );
       frame = {
+        width: ctx.canvas.width,
+        height: ctx.canvas.height,
         timestampMs,
         elapsedMs,
         dtSec: elapsedMs / 1000,
@@ -216,6 +220,63 @@ test("overlay background visibility changes drawing only, at the existing capped
   expect(f.ctx.updateProceduralBackground.mock.calls.at(-1)[0]).toBe(0.1);
   expect(f.ctx.drawProceduralBackground).toHaveBeenCalledTimes(30);
 });
+test("actual loop fits drawing only, keeps fitted history full size, and restores normal cropping", () => {
+  const f = loopFixture({ trails: true });
+  f.ctx.canvas.width = f.ctx.renderCanvas.width = 320;
+  f.ctx.canvas.height = f.ctx.renderCanvas.height = 320;
+  const bounds = { x: 80, y: 80, width: 160, height: 160 };
+  const overlayBounds = jest.fn(() => bounds),
+    trailBounds = jest.fn(() => bounds);
+  f.ctx.visualModeController.getOverlayBounds = overlayBounds;
+  f.ctx.visualModeController.getRenderBounds = trailBounds;
+  const transforms = [];
+  f.ctx.visualModeController.draw.mockImplementation((_id, ctx) =>
+    transforms.push([...ctx.transform])
+  );
+  f.tick(1000);
+  expect(transforms[0]).toEqual([
+    ["translate", -144, -144],
+    ["scale", 1.9, 1.9],
+  ]);
+  expect(overlayBounds).toHaveBeenCalledWith("orbit", f.frame());
+  expect(trailBounds).not.toHaveBeenCalled();
+  expect(f.history()[0]).toMatchObject({
+    x: 0,
+    y: 0,
+    canvas: { width: 320, height: 320 },
+  });
+  expect(f.ctx.ctx.transform).toEqual([]);
+  f.tick(1001); // Simulation advances without drawing or another fit query.
+  expect(f.ctx.visualModeController.update).toHaveBeenCalledTimes(2);
+  expect(overlayBounds).toHaveBeenCalledTimes(1);
+  f.ctx.overlayActive = false;
+  f.tick(1040);
+  expect(transforms.at(-1)).toEqual([]);
+  expect(trailBounds).toHaveBeenCalledWith("bars", f.frame());
+  expect(f.history().at(-1)).toMatchObject({
+    x: 80,
+    y: 80,
+    canvas: { width: 160, height: 160 },
+  });
+});
+
+test("fit drawing restores the canvas transform even when a mode throws", () => {
+  const f = loopFixture();
+  f.ctx.canvas.width = f.ctx.renderCanvas.width = 320;
+  f.ctx.canvas.height = f.ctx.renderCanvas.height = 320;
+  f.ctx.visualModeController.getOverlayBounds = () => ({
+    x: 80,
+    y: 80,
+    width: 160,
+    height: 160,
+  });
+  f.ctx.visualModeController.draw.mockImplementation(() => {
+    throw Error("test draw failure");
+  });
+  expect(() => f.tick(1000)).toThrow("test draw failure");
+  expect(f.ctx.ctx.transform).toEqual([]);
+});
+
 test("capped actual loop expires trails by real timestamps with bounded canvas retention and no pause burst", () => {
   const f = loopFixture({ trails: true });
   for (let i = 0; i < 288; i++) f.tick((i * 1000) / 144);

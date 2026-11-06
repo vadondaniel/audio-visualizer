@@ -16,6 +16,7 @@
     const themeCssColor = services.palette.themeCssColor;
 
     const { applyGlow } = services;
+    const overlayBounds = { x: 0, y: 0, width: 0, height: 0 };
     const kaleidoSegmentValues = new Float64Array(KALEIDO_BARS);
     let kaleidoRotation = 0;
 
@@ -138,12 +139,34 @@
       }
     }
 
+    /** Maximum rotated geometry; diffuse glow is covered by the presentation margin.
+     * @param {import('../visual-contracts').Frame} frame
+     * @returns {import('../visual-contracts').RenderBounds} */
+    function getOverlayBounds(frame) {
+      const size = Math.min(frame.width, frame.height);
+      const tuning = VISUAL_TUNING.kaleidoscope;
+      const maxR = size * tuning.maxRFrac;
+      const maxTilt = 1 + ((KALEIDO_BARS - 1) / KALEIDO_BARS) * 1.6;
+      const maxV = frame.settings.kaleidoClipEnabled
+        ? 1
+        : Math.pow(maxTilt, 0.7);
+      const wedgeRadius = 18 + maxV * maxR * (0.55 + 0.25 + 0.2 + 0.15);
+      const flashRadius = maxR * (0.15 + 0.55) + 7 / 2;
+      const coreRadius = maxR * tuning.coreRFrac * (1 + 0.7 + 0.6);
+      const extent = Math.max(wedgeRadius, flashRadius, coreRadius) + 2;
+      overlayBounds.x = frame.width / 2 - extent;
+      overlayBounds.y = frame.height / 2 - extent;
+      overlayBounds.width = overlayBounds.height = extent * 2;
+      return overlayBounds;
+    }
+
     const initial = structuredClone({
       kaleidoSegmentValues,
       kaleidoRotation,
       kaleidoFlash,
     });
     return {
+      getOverlayBounds,
       update: updateKaleidoscope,
       draw: drawKaleidoscope,
       reset() {

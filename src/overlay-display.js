@@ -15,6 +15,52 @@
       ? settings.miniOverlayMode
       : ids[settings.mode];
   }
+  /** @typedef {{scale:number,x:number,y:number}} OverlayFit */
+  /** Fit maximum geometry with a fixed display-space margin; no pixel rounding.
+   * @param {import('./visual-contracts').RenderBounds|null} bounds
+   * @param {number} width
+   * @param {number} height
+   * @param {OverlayFit} result
+   * @returns {OverlayFit|null} */
+  function fitBounds(bounds, width, height, result) {
+    result.scale = 1;
+    result.x = result.y = 0;
+    const margin = 8;
+    if (
+      !bounds ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= margin * 2 ||
+      height <= margin * 2 ||
+      !Number.isFinite(bounds.x) ||
+      !Number.isFinite(bounds.y) ||
+      !Number.isFinite(bounds.width) ||
+      !Number.isFinite(bounds.height) ||
+      !Number.isFinite(bounds.x + bounds.width) ||
+      !Number.isFinite(bounds.y + bounds.height) ||
+      bounds.width <= 0 ||
+      bounds.height <= 0
+    )
+      return null;
+    const scale = Math.min(
+      (width - margin * 2) / bounds.width,
+      (height - margin * 2) / bounds.height
+    );
+    const x = width / 2 - (bounds.x + bounds.width / 2) * scale;
+    const y = height / 2 - (bounds.y + bounds.height / 2) * scale;
+    if (
+      !Number.isFinite(scale) ||
+      scale <= 0 ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    )
+      return null;
+    result.scale = scale;
+    result.x = x;
+    result.y = y;
+    return result;
+  }
+
   function createDrawSchedule() {
     /** @type {number|null} */
     let deadline = null;
@@ -53,5 +99,5 @@
     }
     return { step, reset, resetDeadline };
   }
-  return { effectiveMode, createDrawSchedule };
+  return { effectiveMode, createDrawSchedule, fitBounds };
 });

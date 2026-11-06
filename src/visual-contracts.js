@@ -113,10 +113,11 @@
  * @property {(ctx:CanvasRenderingContext2D,frame:Frame)=>void} draw Requires update; never consumes events or randomness.
  * @property {()=>void} reset Restores initial state, retaining reusable allocations.
  * @property {(frame:Frame)=>RenderBounds|null} [getRenderBounds] Optional conservative painted bounds, including glow; null means full canvas.
+ * @property {(frame:Frame)=>RenderBounds|null} [getOverlayBounds] Optional stable maximum geometry for mini-overlay fitting, excluding diffuse glow.
  */
 /** @typedef {(services:Services)=>Mode} ModeFactory */
 /** @typedef {Services & {consumeBeat?:()=>void}} HostServices Only the controller may consume shared beat state. */
-/** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,getRenderBounds:(id:string,frame:Frame)=>RenderBounds|null,reset:()=>void}} ModeController */
+/** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,getRenderBounds:(id:string,frame:Frame)=>RenderBounds|null,getOverlayBounds:(id:string,frame:Frame)=>RenderBounds|null,reset:()=>void}} ModeController */
 /** @typedef {Readonly<{sampler:string,count:number,release:number,threshold?:number,domain?:'db'|'amplitude'}>} AudioProfile */
 /** @typedef {Readonly<{setting:'waveformStyle',profiles:Readonly<Record<string,AudioProfile>>}>} AudioVariants */
 /** @typedef {AudioProfile & Readonly<{variants?:AudioVariants}>} AudioDefinition */

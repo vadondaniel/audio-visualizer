@@ -40,6 +40,8 @@ Instances expose:
 - `reset()`: restore initial state and random-stream position, retaining reusable storage.
 - Optional `getRenderBounds(frame)`: return a borrowed canvas-space rectangle
   containing all painted pixels, including glow, or `null` for full canvas.
+- Optional `getOverlayBounds(frame)`: return reusable maximum geometry bounds
+  for mini-overlay fitting, excluding diffuse glow; missing/null keeps viewport framing.
 
 The host calls update then draw only for the active mode. Switching, resizing, and
 settings changes do not reset modes. Capture teardown/recovery resets all modes.
@@ -56,6 +58,14 @@ The compatibility `renderProceduralBackground` calls both. Overlay presentation
 skips hidden background drawing and all live FX style updates without pausing
 simulation or accumulating a catch-up step.
 
+Orbit, Prism, Radial, and Kaleidoscope fit their maximum geometry into the mini
+overlay with an 8 px display-space margin. Kaleidoscope bounds follow its clipping
+setting. The host transforms drawing before rasterization, retaining actual frame
+dimensions, simulation coordinates, native glow blur, and stable framing across
+audio/hue changes. Backgrounds and controls are outside the transform. The saved
+Visualizer scale remains an additional zoom; values above 100% can crop content.
+Other modes retain their viewport compositions, including Cascade's scene particles.
+
 Trail snapshots retain native-resolution rectangles for Orbit, Prism, and Radial.
 Their reusable bounds use maximum geometry extents and conservative glow padding,
 so audio peaks do not resize snapshot storage. Other modes use full-canvas history.
@@ -63,6 +73,8 @@ Each snapshot owns its origin; compositing preserves mixed-mode history and the
 existing capture schedule and opacity. The pool prefers matching dimensions,
 retains at most one unused spare, and zeroes discarded canvas dimensions on
 release/reset. No production pixel readback is used.
+Automatically fitted overlay drawing uses full-canvas history so native shadows
+and the transformed geometry cannot be clipped by normal-window trail bounds.
 
 External media text caches its character nodes and painted palette inputs.
 Static frames do no repeated character writes; cycling themes use the renderer's

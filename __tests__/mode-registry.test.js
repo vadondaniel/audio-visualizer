@@ -138,16 +138,19 @@ test.each([
     ).toThrow(/audio (variants|profile)/);
   }
 );
-test("invalid optional render-bounds methods fail lifecycle validation", () => {
-  const registry = Registry.createRegistry([synthetic]);
-  registry.registerFactory("test-mode", () => ({
-    ...lifecycle(),
-    getRenderBounds: 1,
-  }));
-  expect(() => registry.getFactories()["test-mode"]({})).toThrow(
-    "Invalid lifecycle"
-  );
-});
+test.each(["getRenderBounds", "getOverlayBounds"])(
+  "invalid optional %s method fails lifecycle validation",
+  (method) => {
+    const registry = Registry.createRegistry([synthetic]);
+    registry.registerFactory("test-mode", () => ({
+      ...lifecycle(),
+      [method]: 1,
+    }));
+    expect(() => registry.getFactories()["test-mode"]({})).toThrow(
+      "Invalid lifecycle"
+    );
+  }
+);
 
 test("invalid definitions and factory registrations fail explicitly", () => {
   expect(() => Registry.createRegistry([synthetic, synthetic])).toThrow(

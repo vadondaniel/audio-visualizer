@@ -130,3 +130,10 @@ checks that excluded regions are transparent. It uses a dedicated readback
 surface and the same output context for both paths, avoiding readback-triggered
 GPU/CPU blend-rounding differences. Rectangle areas and `pixels × 4` estimates
 describe retained storage/work, not measured GPU memory or frame-rate gains.
+
+`overlay-fitting` checks all modes in hidden square, wide, tall, and minimum-size
+hosts, including maximum geometry, both Kaleidoscope clipping settings, stable
+framing, manual zoom, full-size fitted trails, and state continuity on return.
+It waits for canvas resize completion and uses a 0.0001 tolerance for
+native Canvas matrix values to accommodate their Float32 precision. Screenshots and scenario records
+are retained with the run artifacts.

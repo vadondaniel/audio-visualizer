@@ -1,5 +1,6 @@
 // ---------- main loop ----------
 let lastFrameTime = 0;
+const overlayModeFit = { scale: 1, x: 0, y: 0 };
 
 function diagnosticCall(method, ...args) {
   try {
@@ -106,13 +107,30 @@ function loop(timestamp = performance.now()) {
   const modeTimer = diagnosticCall("beginRender");
 
   visualModeController.update(modeId, frame);
-  visualModeController.draw(modeId, ctx, frame);
+  const fit = overlayActive
+    ? OverlayDisplay.fitBounds(
+        visualModeController.getOverlayBounds(modeId, frame),
+        frame.width,
+        frame.height,
+        overlayModeFit
+      )
+    : null;
+  if (fit) {
+    ctx.save();
+    try {
+      ctx.translate(fit.x, fit.y);
+      ctx.scale(fit.scale, fit.scale);
+      visualModeController.draw(modeId, ctx, frame);
+    } finally {
+      ctx.restore();
+    }
+  } else visualModeController.draw(modeId, ctx, frame);
   diagnosticCall("endRender", modeTimer);
 
   const trailTimer = diagnosticCall("beginTrail");
   renderTrailHistory(
     timestamp,
-    state.trailsEnabled
+    state.trailsEnabled && !fit
       ? visualModeController.getRenderBounds(modeId, frame)
       : null
   );

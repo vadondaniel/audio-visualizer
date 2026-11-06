@@ -20,6 +20,12 @@ function checkContracts(frame, services, ctx, input, settings) {
   /** @type {import('../../src/visual-contracts').Mode} */
   const bounded = {
     ...mode,
+    getOverlayBounds: () => ({
+      x: 0,
+      y: 0,
+      width: frame.width,
+      height: frame.height,
+    }),
     getRenderBounds: () => ({
       x: 0,
       y: 0,
@@ -37,6 +43,8 @@ function checkContracts(frame, services, ctx, input, settings) {
     ...mode,
     // @ts-expect-error Bounds must be a rectangle or null, not a scalar.
     getRenderBounds: () => 1,
+    // @ts-expect-error Overlay bounds must also be a rectangle or null.
+    getOverlayBounds: () => "full",
   };
 
   const pipeline = Pipeline.create();

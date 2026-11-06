@@ -68,6 +68,7 @@
 
     const { applyGlow } = services;
     const renderBounds = { x: 0, y: 0, width: 0, height: 0 };
+    const overlayBounds = { x: 0, y: 0, width: 0, height: 0 };
     // One spectrum quarter reflected across both local axes. The entire assembly
     // shares one rotation; audio pulls the rope inward and pushes bars outward.
     const ORBIT_BANDS = 40;
@@ -244,8 +245,10 @@
 
     /** Stable maximum extents avoid resizing history with each audio peak.
      * @param {import('../visual-contracts').Frame} frame
+     * @param {boolean} includeGlow
      * @returns {import('../visual-contracts').RenderBounds} */
-    function getRenderBounds(frame) {
+    function getBounds(frame, includeGlow) {
+      const bounds = includeGlow ? renderBounds : overlayBounds;
       const size = Math.min(frame.width, frame.height);
       const radius = size * VISUAL_TUNING.orbit.radiusFrac * (1 + 0.035 + 0.02);
       const gap = Math.max(4, size * 0.009);
@@ -253,14 +256,14 @@
       // The maximum outer bars also contain every rotated rope Bezier control point.
       const extent = radius + gap + orbitOuterLength(radius, 1);
       const padding =
-        4 * 12 * frame.settings.glowIntensity +
+        (includeGlow ? 4 * 12 * frame.settings.glowIntensity : 0) +
         Math.max(barWidth, Math.max(2.5, size * 0.006)) / 2 +
         2;
       const halfSize = extent + padding;
-      renderBounds.x = frame.width / 2 - halfSize;
-      renderBounds.y = frame.height / 2 - halfSize;
-      renderBounds.width = renderBounds.height = halfSize * 2;
-      return renderBounds;
+      bounds.x = frame.width / 2 - halfSize;
+      bounds.y = frame.height / 2 - halfSize;
+      bounds.width = bounds.height = halfSize * 2;
+      return bounds;
     }
 
     const initial = structuredClone({
@@ -271,7 +274,8 @@
       orbitRotation,
     });
     return {
-      getRenderBounds,
+      getRenderBounds: (frame) => getBounds(frame, true),
+      getOverlayBounds: (frame) => getBounds(frame, false),
       update: updateOrbit,
       draw: drawOrbit,
       reset() {

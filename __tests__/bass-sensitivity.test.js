@@ -266,6 +266,7 @@ test.each([0, 255])(
       syncMediaThemeColors: () => {},
       visualModeController: {
         getRenderBounds: () => null,
+        getOverlayBounds: () => null,
         update: jest.fn(),
         draw: render,
       },

@@ -264,7 +264,9 @@
             (method) => typeof mode[method] !== "function"
           ) ||
           (mode.getRenderBounds !== undefined &&
-            typeof mode.getRenderBounds !== "function")
+            typeof mode.getRenderBounds !== "function") ||
+          (mode.getOverlayBounds !== undefined &&
+            typeof mode.getOverlayBounds !== "function")
         )
           throw Error(`Invalid lifecycle for mode: ${id}`);
         return mode;
