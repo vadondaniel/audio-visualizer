@@ -1,7 +1,9 @@
 const { runCheck } = require("./helpers/electron-harness.cjs");
+const fs = require("node:fs");
+const path = require("node:path");
 // Run with: npm run test:electron -- settings-actions
 
-runCheck(async ({ createWindow, loadRenderer, errors }) => {
+runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
   const window = createWindow({
     show: false,
     width: 1280,
@@ -85,6 +87,26 @@ runCheck(async ({ createWindow, loadRenderer, errors }) => {
     window.setContentSize(width, 720);
     await window.webContents.executeJavaScript(
       `(()=>{settingsActions.selectMode('radial');settingsActions.setMediaPosition('radial','above');if(mediaOverlay.dataset.mediaLayout!=='focus'||mediaTextPositionSelect.value!=='above')throw Error('Focus layout');settingsActions.selectMode('orbit');settingsActions.setMediaPosition('orbit','bottom-right');if(mediaOverlay.dataset.mediaLayout!=='free'||mediaTextPositionSelect.value!=='bottom-right')throw Error('Free layout');})()`
+    );
+    const slider = await window.webContents.executeJavaScript(`(async()=>{
+      document.getElementById('startOverlay').style.display='none';
+      panelOpen=true;flashHud();
+      bassSensitivityAmountSlider.closest('.settingsSection').classList.remove('collapsed');
+      settingsActions.set('bassSensitivityEnabled',true);
+      settingsActions.set('bassSensitivityAmount',1);
+      await new Promise(resolve=>setTimeout(resolve,350));
+      bassSensitivityAmountSlider.scrollIntoView({block:'center'});
+      const bounds=bassSensitivityAmountSlider.getBoundingClientRect();
+      const clip=bassSensitivityAmountSlider.closest('.sectionContent').getBoundingClientRect();
+      if(bounds.left-clip.left<7||clip.right-bounds.right<7)throw Error('Slider endpoint glow clipped by section');
+      if(settingsPanel.scrollWidth>settingsPanel.clientWidth)throw Error('Settings overflow horizontally');
+      return {x:bounds.right-8,y:bounds.top+bounds.height/2};
+    })()`);
+    window.webContents.sendInputEvent({ type: "mouseMove", ...slider });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    fs.writeFileSync(
+      path.join(artifactDir, `slider-glow-${width}.png`),
+      (await window.webContents.capturePage()).toPNG()
     );
   }
   if (errors.length) throw Error(errors.join("\n"));

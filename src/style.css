@@ -823,6 +823,10 @@ body {
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
+  /* Keep slider endpoint glows inside the collapsible clipping area without
+     moving the controls or changing the collapse animation. */
+  margin-inline: -8px;
+  padding-inline: 8px;
   max-height: 600px;
   padding-bottom: 14px;
   transition:
