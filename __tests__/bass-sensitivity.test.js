@@ -265,6 +265,7 @@ test.each([0, 255])(
       syncMediaThemeColors: () => {},
       visualModeController: { update: jest.fn(), draw: render },
       effectiveVisualMode: () => "bars",
+      isMiniOverlayActive: () => false,
       overlayDrawSchedule:
         require("../src/overlay-display").createDrawSchedule(),
       prepareVisualFrame: () => {

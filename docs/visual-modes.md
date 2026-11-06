@@ -65,6 +65,21 @@ do not retain their values as history without copying the data needed.
 - `mediaArt`: a loaded, valid cover image when the current display enables it;
   otherwise null. Radial and Cascade retain their existing crop and fallback behavior.
 
+## Renderer initialization
+
+Renderer adapters are composed in `renderer-entry.js` after all module definitions
+load. Settings, overlay, and tray factories have passive `create(dependencies)`
+methods, guarded `start()` methods, and idempotent `dispose()` methods. The
+bootstrap restores preferences, wires callbacks, starts subscriptions, initializes
+settings effects once, and awaits the initial presentation before resolving
+`window.rendererReady`. It owns unload and partial-startup cleanup.
+
+Settings actions synchronize controls and tray choices through separate callbacks;
+presentation changes notify the tray explicitly. The overlay adapter owns activity
+state; rendering and shortcuts read it through `isMiniOverlayActive()`. Only
+`renderer-bridge.js` connects these adapters to legacy UI/capture helpers. New
+adapter dependencies belong in factory arguments, not script-order globals.
+
 ## Injected services
 
 Factories receive `constants`, `palette.currentHue`,

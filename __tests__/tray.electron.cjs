@@ -10,6 +10,15 @@ runCheck(async ({ createWindow, loadRenderer }) => {
   };
   ipcMain.on(IPC.TRAY_SETTINGS, receive);
   try {
+    const presentation = (active) => ({
+      active,
+      locked: false,
+      canLock: true,
+      openSettings: false,
+      error: null,
+    });
+    ipcMain.handle("overlay-enter", () => presentation(true));
+    ipcMain.handle("overlay-restore", () => presentation(false));
     await loadRenderer(window);
     const check = (value, message) => {
       if (!value) throw Error(message);
@@ -37,7 +46,7 @@ runCheck(async ({ createWindow, loadRenderer }) => {
       "Tray persists choices"
     );
     await window.webContents.executeJavaScript(
-      `miniOverlayActive=true;settingsActions.selectOverlayMode('orbit');`
+      `(async()=>{await overlayUI.enter();settingsActions.selectOverlayMode('orbit');})()`
     );
     window.webContents.send(IPC.TRAY_SELECT, { kind: "mode", id: "bars" });
     await window.webContents.executeJavaScript(

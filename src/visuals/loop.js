@@ -64,8 +64,7 @@ function loop(timestamp = performance.now()) {
     syncMediaThemeColors();
   }
 
-  const overlayActive =
-    typeof miniOverlayActive !== "undefined" && miniOverlayActive;
+  const overlayActive = isMiniOverlayActive();
   const presentation = overlayDrawSchedule.step(
     timestamp,
     overlayActive,

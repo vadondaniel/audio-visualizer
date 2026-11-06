@@ -353,8 +353,7 @@ mediaTextPositionSelect.addEventListener("change", (e) =>
   settingsActions.setMediaPosition(MODES[state.mode], e.target.value)
 );
 
-// Initialize settings from localStorage into UI and state
-loadSettings();
+// Settings initialization is owned by renderer-entry.
 
 // ---------- input & hud ----------
 let hudTimeout;
@@ -430,12 +429,12 @@ const KEY_ACTIONS = {
 };
 
 window.addEventListener("keydown", (e) => {
-  if (typeof miniOverlayActive !== "undefined" && miniOverlayActive) {
+  if (isMiniOverlayActive()) {
     const key = e.key.toLowerCase();
     if (["escape", "s", "f", "t"].includes(key)) {
       e.preventDefault();
       if (key === "escape" || key === "s")
-        window.electronAPI.restoreNormalWindow(key === "s");
+        restoreNormalPresentation(key === "s");
       return;
     }
   }
@@ -472,10 +471,7 @@ window.addEventListener("keydown", (e) => {
     const enabledModes = ModeList.enabled(state.modeOrder, state.disabledModes);
     const mode = enabledModes[Number(e.key) - 1];
     if (!mode) return;
-    settingsActions.selectActiveMode(
-      mode,
-      typeof miniOverlayActive !== "undefined" && miniOverlayActive
-    );
+    settingsActions.selectActiveMode(mode, isMiniOverlayActive());
     return;
   }
   const action = KEY_ACTIONS[e.key.toLowerCase()];

@@ -155,6 +155,7 @@ test("loader waits for each module, caches readiness and starts dependents only 
   await promise;
   expect(order).toEqual([
     synthetic.modulePath,
+    "renderer-bridge.js",
     "visual-mode-host.js",
     "visuals/loop.js",
     "settings-actions.js",

@@ -1,7 +1,5 @@
-const fs = require("node:fs");
-const vm = require("node:vm");
-const path = require("node:path");
-function setup() {
+const OverlayUI = require("../src/mini-overlay-ui");
+function setup({ start = true } = {}) {
   const nodes = new Map();
   function node(id, button = false) {
     const listeners = new Map();
@@ -17,6 +15,13 @@ function setup() {
       },
       closest: () => (button ? {} : null),
       setPointerCapture: jest.fn(),
+      hasPointerCapture: () => true,
+      releasePointerCapture: jest.fn(),
+      removeEventListener: (name, callback) =>
+        listeners.set(
+          name,
+          (listeners.get(name) || []).filter((fn) => fn !== callback)
+        ),
       addEventListener: (name, callback) => {
         listeners.set(name, [...(listeners.get(name) || []), callback]);
       },
@@ -47,6 +52,7 @@ function setup() {
     miniOverlaySupported: false,
     onMiniOverlayState: (callback) => {
       receive = callback;
+      return jest.fn();
     },
     getMiniOverlayBounds: jest.fn(async () => ({
       x: 100,
@@ -61,6 +67,7 @@ function setup() {
     window: {
       electronAPI: api,
       addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
       innerWidth: 320,
       innerHeight: 300,
     },
@@ -73,13 +80,29 @@ function setup() {
     modeManager: { open: false },
     themeManager: { open: false },
   };
-  vm.runInNewContext(
-    fs.readFileSync(path.join(__dirname, "../src/mini-overlay-ui.js"), "utf8"),
-    context
-  );
+  const dependencies = {
+    window: context.window,
+    document: context.document,
+    api,
+    actions: { set: jest.fn(), selectOverlayMode: jest.fn() },
+    timers: {
+      setTimeout: context.setTimeout,
+      clearTimeout: context.clearTimeout,
+    },
+    snapSize: context.MiniOverlayMath.snapSize,
+    canCapture: () => true,
+    resetDrawDeadline: jest.fn(),
+    showStart: jest.fn(),
+    closePanels: jest.fn(),
+    openSettings: jest.fn(),
+    reportError: jest.fn(),
+    onPresentationChange: jest.fn(),
+  };
+  const adapter = OverlayUI.create(dependencies);
+  if (start) adapter.start();
   const state = (overrides = {}) =>
     receive({ active: true, locked: false, canLock: true, ...overrides });
-  state();
+  if (start) state();
   const event = (target, x = 100, y = 100) => ({
     button: 0,
     pointerId: 1,
@@ -87,7 +110,17 @@ function setup() {
     screenY: y,
     target,
   });
-  return { api, body, canvas, nodes, state, event, window: context.window };
+  return {
+    api,
+    body,
+    canvas,
+    nodes,
+    state,
+    event,
+    window: context.window,
+    adapter,
+    dependencies,
+  };
 }
 test("dragging any visual area moves the overlay without requiring a handle", async () => {
   const f = setup();
@@ -179,4 +212,74 @@ test("live dimensions follow actual viewport resize and disappear when leaving o
   await grip.emit("pointerdown", f.event(grip));
   f.state({ active: false });
   expect(label.hidden).toBe(true);
+});
+
+test("construction is passive, start is guarded, and disposal removes listeners and capture", async () => {
+  const f = setup({ start: false });
+  expect(f.window.addEventListener).not.toHaveBeenCalled();
+  expect(f.api.getMiniOverlayBounds).not.toHaveBeenCalled();
+  f.adapter.start();
+  const count = f.window.addEventListener.mock.calls.length;
+  f.adapter.start();
+  expect(f.window.addEventListener).toHaveBeenCalledTimes(count);
+  f.state();
+  await f.body.emit("pointerdown", f.event(f.canvas));
+  f.adapter.dispose();
+  expect(f.body.releasePointerCapture).toHaveBeenCalledWith(1);
+  expect(f.window.removeEventListener).toHaveBeenCalledTimes(count);
+  f.adapter.dispose();
+  f.adapter.start();
+  await f.body.emit("pointermove", f.event(f.canvas, 200, 200));
+  expect(f.api.setMiniOverlayBounds).not.toHaveBeenCalled();
+  expect(f.window.addEventListener).toHaveBeenCalledTimes(count);
+});
+
+test("late native state and bounds replies cannot revive a disposed adapter", async () => {
+  const f = setup();
+  let complete;
+  f.api.enterMiniOverlay = () =>
+    new Promise((resolve) => {
+      complete = resolve;
+    });
+  const enter = f.adapter.enter();
+  let bounds;
+  f.api.getMiniOverlayBounds.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        bounds = resolve;
+      })
+  );
+  const down = f.body.emit("pointerdown", f.event(f.canvas));
+  f.adapter.dispose();
+  const count = f.dependencies.onPresentationChange.mock.calls.length;
+  complete({ active: false, locked: false, canLock: true });
+  bounds({ x: 0, y: 0, width: 320, height: 320 });
+  await Promise.all([enter, down]);
+  f.state({ active: false });
+  expect(f.dependencies.onPresentationChange).toHaveBeenCalledTimes(count);
+  expect(f.api.setMiniOverlayBounds).not.toHaveBeenCalled();
+});
+
+test("native operation errors recover normal presentation and report the error", async () => {
+  const f = setup();
+  f.api.enterMiniOverlay = jest
+    .fn()
+    .mockRejectedValue(Error("attachment failed"));
+  f.api.restoreNormalWindow = jest.fn().mockResolvedValue({ active: false });
+  await f.adapter.enter();
+  expect(f.api.restoreNormalWindow).toHaveBeenCalledTimes(1);
+  expect(f.adapter.isActive()).toBe(false);
+  expect(f.dependencies.reportError).toHaveBeenCalledWith("attachment failed");
+});
+
+test("initial native state failure recovers and rejects startup rather than resolving readiness", async () => {
+  const f = setup();
+  f.api.miniOverlaySupported = true;
+  f.api.getMiniOverlayState = jest
+    .fn()
+    .mockRejectedValue(Error("state unavailable"));
+  f.api.restoreNormalWindow = jest.fn().mockResolvedValue({ active: false });
+  await expect(f.adapter.initialize()).rejects.toThrow("state unavailable");
+  expect(f.dependencies.reportError).toHaveBeenCalledWith("state unavailable");
+  expect(f.api.restoreNormalWindow).toHaveBeenCalledTimes(1);
 });

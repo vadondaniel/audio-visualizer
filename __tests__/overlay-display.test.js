@@ -83,7 +83,8 @@ function loopFixture({
     MODES: Registry.ids,
     THEMES: fixture.constants.THEMES,
     VISUAL_TUNING: fixture.constants.VISUAL_TUNING,
-    miniOverlayActive: active,
+    overlayActive: active,
+    isMiniOverlayActive: () => ctx.overlayActive,
     analyser,
     audioCtx: { state: "running" },
     freqData: freq,
@@ -124,7 +125,7 @@ function loopFixture({
     recoverAudioCapture: jest.fn(),
     visualModeController: { update: jest.fn(), draw: jest.fn() },
     effectiveVisualMode: () =>
-      effectiveMode(settings, ctx.miniOverlayActive, Registry.ids),
+      effectiveMode(settings, ctx.overlayActive, Registry.ids),
     prepareVisualFrame: (timestampMs, elapsedMs, id) => {
       pipeline.update(
         {
@@ -185,7 +186,7 @@ test("actual loop keeps acquisition, beat/silence checks, and simulation running
   expect(f.ctx.renderProceduralBackground.mock.calls[1][0]).toBeCloseTo(
     5 / 144
   );
-  f.ctx.miniOverlayActive = false;
+  f.ctx.overlayActive = false;
   f.tick(2000);
   f.tick(2001);
   expect(f.ctx.visualModeController.draw.mock.calls.at(-1)[0]).toBe("bars");

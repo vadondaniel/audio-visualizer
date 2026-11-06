@@ -1,3 +1,4 @@
+const { ipcMain } = require("electron");
 const { runCheck } = require("./helpers/electron-harness.cjs");
 const assert = require("node:assert/strict");
 const fs = require("node:fs"),
@@ -13,8 +14,18 @@ runCheck(
         partition: "overlay-display-check",
       },
     });
+
+    const presentation = (active) => ({
+      active,
+      locked: false,
+      canLock: true,
+      openSettings: false,
+      error: null,
+    });
+    ipcMain.handle("overlay-enter", () => presentation(true));
+    ipcMain.handle("overlay-restore", () => presentation(false));
     await loadRenderer(window);
-    await window.webContents.executeJavaScript(`(()=>{
+    await window.webContents.executeJavaScript(`(async()=>{
     const check=(value,message)=>{if(!value)throw Error(message);};
     const control=(id,value,event='change')=>{const input=document.getElementById(id);input.value=value;input.dispatchEvent(new Event(event,{bubbles:true}));};
     check(state.miniOverlayScale===1&&state.miniOverlayOpacity===1&&state.miniOverlayMaxFps===60&&state.miniOverlayMode==='follow','Overlay defaults');
@@ -28,7 +39,7 @@ runCheck(
     check(state.mode===0&&modeSelect.value==='0','Normal selection unchanged');
     check(document.getElementById('miniOverlayScaleVal').textContent==='150%'&&document.getElementById('miniOverlayOpacityVal').textContent==='50%','Scale and opacity labels');
     check(getComputedStyle(canvas).transform==='none'&&getComputedStyle(document.getElementById('visualSurface')).opacity==='1','Normal presentation bypasses display controls');
-    miniOverlayActive=true;document.body.classList.add('mini-overlay');
+    await overlayUI.enter();document.body.classList.add('mini-overlay');
     check(effectiveVisualMode()==='orbit','Independent effective mode');
     check(getComputedStyle(canvas).transform==='matrix(1.5, 0, 0, 1.5, 0, 0)','Centered visualizer scaling');
     const box=canvas.getBoundingClientRect();
@@ -77,14 +88,14 @@ runCheck(
         (Math.abs(alpha - 128) < 5 || Math.abs(blue - 128) < 5),
       `Grouped fade must not leak red background through blue mode: ${[blue, red, alpha]}`
     );
-    await window.webContents.executeJavaScript(`(()=>{
-    miniOverlayActive=false;document.body.classList.remove('mini-overlay');
+    await window.webContents.executeJavaScript(`(async()=>{
+    await overlayUI.restore();document.body.classList.remove('mini-overlay');
     if(getComputedStyle(canvas).transform!=='none'||getComputedStyle(document.getElementById('visualSurface')).opacity!=='1')throw Error('Normal display restoration');
     settingsActions.set('miniOverlayScale',1.5);
   })()`);
     await reloadRenderer(window);
     const restored = await window.webContents.executeJavaScript(
-      `({scale:state.miniOverlayScale,opacity:state.miniOverlayOpacity,fps:state.miniOverlayMaxFps,mode:state.miniOverlayMode,active:miniOverlayActive,selected:document.getElementById('miniOverlayModeSelect').value})`
+      `({scale:state.miniOverlayScale,opacity:state.miniOverlayOpacity,fps:state.miniOverlayMaxFps,mode:state.miniOverlayMode,active:isMiniOverlayActive(),selected:document.getElementById('miniOverlayModeSelect').value})`
     );
     assert.deepEqual(restored, {
       scale: 1.5,
@@ -94,7 +105,7 @@ runCheck(
       active: false,
       selected: "orbit",
     });
-    await window.webContents.executeJavaScript(`(()=>{
+    await window.webContents.executeJavaScript(`(async()=>{
       const saved=JSON.parse(localStorage.getItem(SETTINGS_KEY));saved.miniOverlayMode='unknown';localStorage.setItem(SETTINGS_KEY,JSON.stringify(saved));
     })()`);
     await reloadRenderer(window);
@@ -104,12 +115,12 @@ runCheck(
     );
     for (const width of [1280, 360]) {
       window.setContentSize(width, 720);
-      await window.webContents.executeJavaScript(`(()=>{
+      await window.webContents.executeJavaScript(`(async()=>{
         startOverlay.style.display='none';panelOpen=true;flashHud();
         for(const section of settingsPanel.querySelectorAll('.settingsSection'))section.classList.toggle('collapsed',section.id!=='miniOverlaySection');
       })()`);
       await new Promise((resolve) => setTimeout(resolve, 350));
-      await window.webContents.executeJavaScript(`(()=>{
+      await window.webContents.executeJavaScript(`(async()=>{
         document.getElementById('miniOverlaySection').scrollIntoView({block:'nearest'});
         if(settingsPanel.scrollWidth>settingsPanel.clientWidth)throw Error('Overlay settings overflow horizontally');
         if(document.getElementById('miniOverlayModeSelect').value!=='follow')throw Error('Restored mode control');

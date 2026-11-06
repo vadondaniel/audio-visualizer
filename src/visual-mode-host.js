@@ -2,11 +2,7 @@
 const visualSpectrumReader = ModeRuntime.createFloatSpectrumReader();
 const overlayDrawSchedule = OverlayDisplay.createDrawSchedule();
 function effectiveVisualMode() {
-  return OverlayDisplay.effectiveMode(
-    state,
-    typeof miniOverlayActive !== "undefined" && miniOverlayActive,
-    MODES
-  );
+  return OverlayDisplay.effectiveMode(state, isMiniOverlayActive(), MODES);
 }
 /** @type {import('./visual-contracts').FrameStorage} */
 const visualFrame = {

@@ -1,34 +1,70 @@
-// Tray commands use the same actions as controls and shortcuts, including the
-// independent overlay selection. Native menus never mutate renderer state.
-function syncTraySettings() {
-  window.electronAPI?.setTraySettings?.({
-    modes: ModeList.enabled(state.modeOrder, state.disabledModes).map((id) => ({
-      id,
-      label: ModeRegistry.get(id).label,
-    })),
-    themes: ModeList.enabled(state.themeOrder, state.disabledThemes).map(
-      (id) => ({
-        id,
-        label: id,
-      })
-    ),
-    mode:
-      miniOverlayActive && state.miniOverlayMode !== "follow"
-        ? state.miniOverlayMode
-        : ModeRegistry.ids[state.mode],
-    theme: themeIds[state.theme],
-  });
-}
-const removeTrayListener = window.electronAPI?.onTraySelect?.(
-  ({ kind, id }) => {
-    if (kind === "mode")
-      settingsActions.selectActiveMode(id, miniOverlayActive);
-    else if (
-      kind === "theme" &&
-      ModeList.enabled(state.themeOrder, state.disabledThemes).includes(id)
-    )
-      settingsActions.set("theme", themeIds.indexOf(id));
+/** @typedef {{setTraySettings:(value:import('./mini-overlay').TraySettings)=>void,onTraySelect:(callback:(selection:{kind:'mode'|'theme',id:string})=>void)=>()=>void}} NativeApi */
+/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],settingsActions:ReturnType<typeof import('./settings-actions').create>,isActive:()=>boolean,api:NativeApi}} Dependencies */
+
+(function (root, build) {
+  const api = build();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.TrayControls = api;
+})(globalThis, function () {
+  /** @param {Dependencies} dependencies */
+  function create({
+    state,
+    registry,
+    modeList,
+    themeIds,
+    settingsActions,
+    isActive,
+    api,
+  }) {
+    let started = false,
+      disposed = false,
+      unsubscribe;
+    function sync() {
+      if (!started || disposed) return;
+      api.setTraySettings({
+        modes: modeList
+          .enabled(state.modeOrder, state.disabledModes)
+          .map((id) => ({
+            id,
+            label: registry.get(id).label,
+          })),
+        themes: modeList
+          .enabled(state.themeOrder, state.disabledThemes)
+          .map((id) => ({
+            id,
+            label: id,
+          })),
+        mode:
+          isActive() && state.miniOverlayMode !== "follow"
+            ? state.miniOverlayMode
+            : registry.ids[state.mode],
+        theme: themeIds[state.theme],
+      });
+    }
+
+    return {
+      sync,
+      start() {
+        if (started || disposed) return;
+        started = true;
+        unsubscribe = api.onTraySelect(({ kind, id }) => {
+          if (disposed) return;
+          if (kind === "mode") settingsActions.selectActiveMode(id, isActive());
+          else if (
+            kind === "theme" &&
+            modeList
+              .enabled(state.themeOrder, state.disabledThemes)
+              .includes(id)
+          )
+            settingsActions.set("theme", themeIds.indexOf(id));
+        });
+      },
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+        unsubscribe?.();
+      },
+    };
   }
-);
-window.addEventListener("unload", () => removeTrayListener?.());
-syncTraySettings();
+  return { create };
+});
