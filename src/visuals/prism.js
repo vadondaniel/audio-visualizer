@@ -49,7 +49,8 @@
       const rainbowRotation = rainbow ? currentHue(0) : 0;
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.lineWidth = Math.max(1, size * 0.0018);
+      const style = VISUAL_TUNING.prism;
+      ctx.lineWidth = Math.max(style.minLineWidth, size * style.lineWidthScale);
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       for (let i = 0; i < PRISM_BANDS; i++) {
@@ -85,18 +86,23 @@
         ctx.lineTo(prismOuter[next * 2], prismOuter[next * 2 + 1]);
         ctx.moveTo(iX, iY);
         ctx.lineTo(prismInner[next * 2], prismInner[next * 2 + 1]);
-        ctx.strokeStyle = themeCssColor(hue, 95, 70, 0.4 + level * 0.6);
+        ctx.strokeStyle = themeCssColor(
+          hue,
+          95,
+          70,
+          style.contourAlpha + level * (1 - style.contourAlpha)
+        );
         applyGlow(
           ctx,
           themeCssColor(hue, 95, 65, 1),
-          8 + level * 7,
+          style.glowBlur + level * style.glowBlurGain,
           state.glowIntensity
         );
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(iX, iY);
         ctx.lineTo(oX, oY);
-        ctx.globalAlpha = 0.25 + level * 0.45;
+        ctx.globalAlpha = style.spokeAlpha + level * style.spokeAlphaGain;
         ctx.stroke();
         ctx.globalAlpha = 1;
         ctx.beginPath();

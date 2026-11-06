@@ -11,7 +11,7 @@
    * @returns {import("../visual-contracts").Mode}
    */
   function createMode(services) {
-    const { THEMES } = services.constants;
+    const { THEMES, VISUAL_TUNING } = services.constants;
     const currentHue = services.palette.currentHue;
     const themeCssColor = services.palette.themeCssColor;
 
@@ -26,7 +26,8 @@
       const span = frame.height * 0.38;
       const step = frame.width / (bands.length - 1);
       const size = Math.min(frame.width, frame.height);
-      ctx.lineWidth = Math.max(1, size * 0.0018);
+      const style = VISUAL_TUNING.prism;
+      ctx.lineWidth = Math.max(style.minLineWidth, size * style.lineWidthScale);
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       for (let i = 0; i < bands.length; i++) {
@@ -35,11 +36,16 @@
         const top = midY - level * span;
         const bottom = midY + level * span;
         const hue = currentHue(i / (bands.length - 1));
-        ctx.strokeStyle = themeCssColor(hue, 95, 70, 0.4 + level * 0.6);
+        ctx.strokeStyle = themeCssColor(
+          hue,
+          95,
+          70,
+          style.contourAlpha + level * (1 - style.contourAlpha)
+        );
         applyGlow(
           ctx,
           themeCssColor(hue, 95, 65, 1),
-          8 + level * 7,
+          style.glowBlur + level * style.glowBlurGain,
           frame.settings.glowIntensity
         );
         if (i + 1 < bands.length) {
@@ -54,7 +60,7 @@
         ctx.beginPath();
         ctx.moveTo(x, bottom);
         ctx.lineTo(x, top);
-        ctx.globalAlpha = 0.25 + level * 0.45;
+        ctx.globalAlpha = style.spokeAlpha + level * style.spokeAlphaGain;
         ctx.stroke();
         ctx.globalAlpha = 1;
         ctx.fillStyle = themeCssColor(hue, 85, 85, 0.65 + level * 0.35);

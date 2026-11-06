@@ -216,7 +216,7 @@ test.each(["Neon", "Rainbow", "Rainbow Cycle", "Color Cycle", "White"])(
             hue,
             95,
             70,
-            0.4 + app.frame.signals.bands[i] * 0.6
+            0.65 + app.frame.signals.bands[i] * 0.35
           )
         );
         expect(strokes[i * 2 + 1]).toBe(strokes[i * 2]);

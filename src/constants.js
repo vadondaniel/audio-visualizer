@@ -121,6 +121,13 @@ const VISUAL_TUNING = {
   },
   prism: {
     radiusFrac: 0.215,
+    minLineWidth: 1.5,
+    lineWidthScale: 0.0026,
+    contourAlpha: 0.65,
+    spokeAlpha: 0.4,
+    spokeAlphaGain: 0.45,
+    glowBlur: 10,
+    glowBlurGain: 9,
   },
   kaleidoscope: {
     maxRFrac: 0.46,

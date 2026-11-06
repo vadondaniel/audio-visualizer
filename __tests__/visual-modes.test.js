@@ -56,6 +56,18 @@ describe.each(names)("%s lifecycle", (name) => {
         a.settings.hueShift = 87;
       }
       const source = geometry[name][scene];
+      // Preserve the historical fingerprint with its original style preset.
+      // Shipped Prism styling and unchanged geometry are compared separately.
+      if (name === "prism")
+        Object.assign(a.constants.VISUAL_TUNING.prism, {
+          minLineWidth: 1,
+          lineWidthScale: 0.0018,
+          contourAlpha: 0.4,
+          spokeAlpha: 0.25,
+          spokeAlphaGain: 0.45,
+          glowBlur: 8,
+          glowBlurGain: 7,
+        });
       a.frame.timestampMs = 1000;
       a.frame.audioClockMs = 1000;
       a.frame.beat.pulse = 0.8;

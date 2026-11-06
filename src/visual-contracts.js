@@ -88,7 +88,7 @@
  * @property {Readonly<{baseYFrac:number,heightScale:number}>} bars
  * @property {Readonly<{baseRFrac:number,lengthScale:number}>} radial
  * @property {Readonly<{radiusFrac:number,spinPerSec:number}>} orbit
- * @property {Readonly<{radiusFrac:number}>} prism
+ * @property {Readonly<{radiusFrac:number,minLineWidth:number,lineWidthScale:number,contourAlpha:number,spokeAlpha:number,spokeAlphaGain:number,glowBlur:number,glowBlurGain:number}>} prism
  * @property {Readonly<{maxRFrac:number,coreRFrac:number,spinPerSec:number,spinTreblePerSec:number,spinBeatPerSec:number,flashDecayPerSec:number}>} kaleidoscope
  * @property {Readonly<{cap:number}>} particles
  */
