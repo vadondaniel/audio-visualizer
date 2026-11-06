@@ -18,7 +18,12 @@ function loadMain({ primary = true, packaged = false } = {}) {
   const electron = {
     app,
     BrowserWindow: jest.fn(),
-    ipcMain: { on: jest.fn(), handle: jest.fn() },
+    ipcMain: {
+      on: jest.fn(),
+      handle: jest.fn(),
+      removeListener: jest.fn(),
+      removeHandler: jest.fn(),
+    },
   };
   const filename = path.join(__dirname, "../src/main.js");
   const nativeRequire = createRequire(filename);
@@ -95,6 +100,23 @@ test("second launch restores the normal presentation before focusing it", async 
   expect(restore).toHaveBeenCalledTimes(1);
   expect(restore.mock.invocationCallOrder[0]).toBeLessThan(
     window.focus.mock.invocationCallOrder[0]
+  );
+});
+
+test("quit removes tray IPC and disposes tray before closing the presentation", async () => {
+  const { app, context, evaluate, electron } = loadMain({ packaged: true });
+  await Promise.resolve();
+  context.testTray = { dispose: jest.fn() };
+  context.testPresentation = { dispose: jest.fn() };
+  evaluate("nativeTray=testTray;presentation=testPresentation;");
+  for (const [event, handler] of app.on.mock.calls)
+    if (event === "before-quit") handler();
+  expect(electron.ipcMain.removeListener).toHaveBeenCalledWith(
+    "tray-settings",
+    expect.any(Function)
+  );
+  expect(context.testTray.dispose.mock.invocationCallOrder[0]).toBeLessThan(
+    context.testPresentation.dispose.mock.invocationCallOrder[0]
   );
 });
 

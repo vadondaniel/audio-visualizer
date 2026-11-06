@@ -1,4 +1,4 @@
-/** @typedef {{setTraySettings:(value:import('./mini-overlay').TraySettings)=>void,onTraySelect:(callback:(selection:{kind:'mode'|'theme',id:string})=>void)=>()=>void}} NativeApi */
+/** @typedef {{setTraySettings:(value:import('./tray-controller').TraySettings)=>void,onTraySelect:(callback:(selection:import('./tray-controller').Selection)=>void)=>()=>void}} NativeApi */
 /** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],settingsActions:ReturnType<typeof import('./settings-actions').create>,isActive:()=>boolean,api:NativeApi}} Dependencies */
 
 (function (root, build) {

@@ -5,17 +5,34 @@ const path = require("node:path");
 const fs = require("node:fs");
 const assert = require("node:assert/strict");
 const MiniOverlay = require("../src/mini-overlay");
+const TrayController = require("../src/tray-controller");
 
 runCheck(
   async ({ artifactDir, errors }) => {
     const root = path.resolve(__dirname, "..");
-    const controller = MiniOverlay.create({
+    let controller;
+    const nativeTray = TrayController.create({
+      Tray: electron.Tray,
+      Menu: electron.Menu,
+      icon: path.join(root, "src/icon.png"),
+      onSelect: (selection) => {
+        if (!controller.contents.isDestroyed())
+          controller.contents.send("tray-select", selection);
+      },
+      onUnlock: () => controller.unlock(),
+      onReturn: () => controller.restore(),
+      onQuit: () => {},
+    });
+    controller = MiniOverlay.create({
       electron,
       preload: path.join(root, "src/preload.js"),
       icon: path.join(root, "src/icon.png"),
       packaged: true,
       preferencesPath: path.join(artifactDir, "overlay-position.json"),
       onQuit: () => {},
+      ensureTray: nativeTray.ensure,
+      isTrayAvailable: nativeTray.isAvailable,
+      onPresentationChange: nativeTray.setPresentation,
     });
     const contents = controller.contents;
     contents.on("console-message", (event) => {
@@ -29,6 +46,11 @@ runCheck(
       () => controller,
       async () =>
         contents.executeJavaScript("!!analyser && audioCtx.state==='running'")
+    );
+    const removeTrayIpc = TrayController.registerIpc(
+      electron.ipcMain,
+      () => contents,
+      () => nativeTray
     );
     const originalDialog = electron.dialog.showMessageBox;
     try {
@@ -170,6 +192,8 @@ runCheck(
           .executeJavaScript("overlayTone?.stop();captureForOverlay?.close()")
           .catch(() => {});
       unregister();
+      removeTrayIpc();
+      nativeTray.dispose();
       controller.dispose();
     }
   },

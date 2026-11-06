@@ -80,6 +80,12 @@ state; rendering and shortcuts read it through `isMiniOverlayActive()`. Only
 `renderer-bridge.js` connects these adapters to legacy UI/capture helpers. New
 adapter dependencies belong in factory arguments, not script-order globals.
 
+In the main process, `tray-controller.js` owns the native tray, menu choices,
+validation, and selection callbacks. The main entry wires it to the persistent
+renderer and overlay controller, creates the tray lazily on overlay entry, and
+disposes it before the window hosts. Overlay locking queries tray availability;
+choice updates refresh menus without publishing presentation events.
+
 ## Injected services
 
 Factories receive `constants`, `palette.currentHue`,

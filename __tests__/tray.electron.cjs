@@ -1,9 +1,39 @@
 const { ipcMain } = require("electron");
 const IPC = require("../src/ipc-channels");
+const { EventEmitter } = require("node:events");
+const TrayController = require("../src/tray-controller");
 const { runCheck } = require("./helpers/electron-harness.cjs");
 
 runCheck(async ({ createWindow, loadRenderer }) => {
   const window = createWindow();
+  let nativeMenu;
+  // Exercise native-controller composition without creating an OS tray or window.
+  const nativeTray = TrayController.create({
+    Tray: class extends EventEmitter {
+      setToolTip() {}
+      setContextMenu(menu) {
+        nativeMenu = menu;
+      }
+      isDestroyed() {
+        return false;
+      }
+      destroy() {}
+    },
+    Menu: { buildFromTemplate: (menu) => menu },
+    icon: "unused-test-icon",
+    onSelect: (selection) => {
+      if (!window.webContents.isDestroyed())
+        window.webContents.send(IPC.TRAY_SELECT, selection);
+    },
+    onUnlock() {},
+    onReturn() {},
+    onQuit() {},
+  });
+  const removeTrayIpc = TrayController.registerIpc(
+    ipcMain,
+    () => window.webContents,
+    () => nativeTray
+  );
   let menu;
   const receive = (event, value) => {
     if (event.sender === window.webContents) menu = value;
@@ -20,6 +50,7 @@ runCheck(async ({ createWindow, loadRenderer }) => {
     ipcMain.handle("overlay-enter", () => presentation(true));
     ipcMain.handle("overlay-restore", () => presentation(false));
     await loadRenderer(window);
+    nativeTray.ensure();
     const check = (value, message) => {
       if (!value) throw Error(message);
     };
@@ -27,8 +58,14 @@ runCheck(async ({ createWindow, loadRenderer }) => {
       menu?.modes.length === 11 && menu.themes.length > 0,
       "Initial tray choices"
     );
-    window.webContents.send(IPC.TRAY_SELECT, { kind: "mode", id: "prism" });
-    window.webContents.send(IPC.TRAY_SELECT, { kind: "theme", id: "Ice" });
+    nativeMenu
+      .find((item) => item.label === "Visual mode")
+      .submenu.find((item) => item.label === "Prism")
+      .click();
+    nativeMenu
+      .find((item) => item.label === "Color theme")
+      .submenu.find((item) => item.label === "Ice")
+      .click();
     await window.webContents.executeJavaScript(
       `new Promise(resolve=>setTimeout(resolve,30))`
     );
@@ -48,7 +85,10 @@ runCheck(async ({ createWindow, loadRenderer }) => {
     await window.webContents.executeJavaScript(
       `(async()=>{await overlayUI.enter();settingsActions.selectOverlayMode('orbit');})()`
     );
-    window.webContents.send(IPC.TRAY_SELECT, { kind: "mode", id: "bars" });
+    nativeMenu
+      .find((item) => item.label === "Visual mode")
+      .submenu.find((item) => item.label === "Bars")
+      .click();
     await window.webContents.executeJavaScript(
       `new Promise(resolve=>setTimeout(resolve,30))`
     );
@@ -74,6 +114,8 @@ runCheck(async ({ createWindow, loadRenderer }) => {
       "PASS: tray choices, actions, controls, persistence, independent overlay and preferences"
     );
   } finally {
+    removeTrayIpc();
+    nativeTray.dispose();
     ipcMain.removeListener(IPC.TRAY_SETTINGS, receive);
   }
 });

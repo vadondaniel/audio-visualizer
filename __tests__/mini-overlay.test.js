@@ -7,6 +7,7 @@ jest.mock("node:fs", () => ({
   writeFileSync: jest.fn(),
 }));
 const fs = require("node:fs");
+const TrayController = require("../src/tray-controller");
 const { create, clampBounds, validBounds } = require("../src/mini-overlay");
 
 function setup({ trayFails = false, saved } = {}) {
@@ -88,10 +89,26 @@ function setup({ trayFails = false, saved } = {}) {
     setToolTip: jest.fn(),
     setContextMenu: jest.fn(),
     destroy: jest.fn(),
+    isDestroyed: () => false,
   });
   const dialog = { showMessageBox: jest.fn(async () => ({ response: 0 })) };
   const quit = jest.fn();
-  const controller = create({
+  let controller;
+  const nativeTray = TrayController.create({
+    Tray: class {
+      constructor() {
+        if (trayFails) throw Error("No tray");
+        return tray;
+      }
+    },
+    Menu: { buildFromTemplate: (value) => value },
+    icon: "icon.png",
+    onSelect: (selection) => contents.send("tray-select", selection),
+    onUnlock: () => controller.unlock(),
+    onReturn: () => controller.restore(),
+    onQuit: quit,
+  });
+  controller = create({
     electron: {
       BaseWindow: Window,
       WebContentsView: class {
@@ -100,13 +117,6 @@ function setup({ trayFails = false, saved } = {}) {
         }
       },
       screen,
-      Tray: class {
-        constructor() {
-          if (trayFails) throw Error("No tray");
-          return tray;
-        }
-      },
-      Menu: { buildFromTemplate: (value) => value },
       dialog,
     },
     preload: "preload.js",
@@ -114,8 +124,12 @@ function setup({ trayFails = false, saved } = {}) {
     packaged: true,
     preferencesPath: "owned/overlay.json",
     onQuit: quit,
+    ensureTray: nativeTray.ensure,
+    isTrayAvailable: nativeTray.isAvailable,
+    onPresentationChange: nativeTray.setPresentation,
   });
   return {
+    nativeTray,
     controller,
     windows,
     contents,
@@ -249,7 +263,7 @@ test("tray choices reflect enabled order and selection without unlocking or rest
     mode: "bars",
     theme: "Ice",
   };
-  f.controller.setTraySettings(settings);
+  f.nativeTray.setChoices(settings);
   expect(f.controller.contents.send).not.toHaveBeenCalled();
   f.controller.enter();
   f.dialog.showMessageBox.mockResolvedValue({ response: 1 });
@@ -274,8 +288,8 @@ test("tray choices reflect enabled order and selection without unlocking or rest
   });
   expect(f.controller.snapshot()).toMatchObject({ active: true, locked: true });
   const calls = f.tray.setContextMenu.mock.calls.length;
-  f.controller.setTraySettings({ ...settings, mode: "unknown" });
-  f.controller.setTraySettings({ ...settings, themes: null });
+  f.nativeTray.setChoices({ ...settings, mode: "unknown" });
+  f.nativeTray.setChoices({ ...settings, themes: null });
   expect(f.tray.setContextMenu).toHaveBeenCalledTimes(calls);
 });
 test("restoring during a pending confirmation cannot lock the normal window", async () => {
@@ -302,6 +316,28 @@ test("tray failure disables locking while retaining a return path", async () => 
   expect(f.dialog.showMessageBox).not.toHaveBeenCalled();
   expect(f.controller.restore().active).toBe(false);
   warn.mockRestore();
+});
+
+test("losing tray availability during confirmation cannot enable click-through", async () => {
+  const f = setup();
+  f.controller.enter();
+  let resolve;
+  f.dialog.showMessageBox.mockImplementation(
+    () =>
+      new Promise((done) => {
+        resolve = done;
+      })
+  );
+  const pending = f.controller.lock();
+  f.nativeTray.dispose();
+  resolve({ response: 1 });
+  await pending;
+  expect(f.controller.snapshot()).toMatchObject({
+    active: true,
+    locked: false,
+    canLock: false,
+  });
+  expect(f.windows[1].setIgnoreMouseEvents).not.toHaveBeenCalledWith(true);
 });
 test("preferences restore only bounds, sanitize monitor changes, and ignore locked resize", async () => {
   const f = setup({
@@ -338,7 +374,9 @@ test("tray return and double-click unlock and restore; disposal closes all owned
   await f.controller.lock();
   f.tray.emit("double-click");
   expect(f.controller.snapshot().active).toBe(false);
+  f.nativeTray.dispose();
   f.controller.dispose();
+  f.nativeTray.dispose();
   f.controller.dispose();
   expect(f.contents.close).toHaveBeenCalledTimes(1);
   expect(f.tray.destroy).toHaveBeenCalledTimes(1);

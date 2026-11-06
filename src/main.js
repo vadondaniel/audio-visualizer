@@ -12,9 +12,11 @@ const { toggleAlwaysOnTop } = require("./window-state");
 const { spawn } = require("child_process");
 const { acquireSingleInstance } = require("./single-instance");
 const MiniOverlay = require("./mini-overlay");
+const TrayController = require("./tray-controller");
 
 let mainWindow;
 let presentation;
+let nativeTray;
 let rendererContents;
 let rendererReady = false;
 let rendererLoadGeneration = 0;
@@ -130,13 +132,29 @@ async function finishRendererStartup(contents) {
 }
 
 function createWindow() {
+  const electron = require("electron");
+  nativeTray = TrayController.create({
+    Tray: electron.Tray,
+    Menu: electron.Menu,
+    icon: path.join(__dirname, "icon.png"),
+    onSelect: (selection) => {
+      if (rendererContents && !rendererContents.isDestroyed())
+        rendererContents.send(IPC.TRAY_SELECT, selection);
+    },
+    onUnlock: () => presentation?.unlock(),
+    onReturn: () => presentation?.restore(),
+    onQuit: () => app.quit(),
+  });
   presentation = MiniOverlay.create({
-    electron: require("electron"),
+    electron,
     preload: path.join(__dirname, "preload.js"),
     icon: path.join(__dirname, "icon.png"),
     packaged: app.isPackaged,
     preferencesPath: path.join(app.getPath("userData"), "mini-overlay.json"),
     onQuit: () => app.quit(),
+    ensureTray: nativeTray.ensure,
+    isTrayAvailable: nativeTray.isAvailable,
+    onPresentationChange: nativeTray.setPresentation,
   });
   mainWindow = presentation.normal;
   rendererContents = presentation.contents;
@@ -242,7 +260,7 @@ if (
 
   ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
 
-  MiniOverlay.registerIpc(
+  const removeOverlayIpc = MiniOverlay.registerIpc(
     ipcMain,
     () => presentation,
     async () => {
@@ -253,6 +271,11 @@ if (
       );
     }
   );
+  const removeTrayIpc = TrayController.registerIpc(
+    ipcMain,
+    () => rendererContents,
+    () => nativeTray
+  );
 
   ipcMain.on(IPC.SET_MEDIA_METADATA_ENABLED, (_event, enabled) => {
     if (enabled) startMediaWatcher();
@@ -260,5 +283,13 @@ if (
   });
 
   app.on("before-quit", stopMediaWatcher);
-  app.on("before-quit", () => presentation?.dispose());
+  app.on("before-quit", () => {
+    removeTrayIpc();
+    removeOverlayIpc();
+    try {
+      nativeTray?.dispose();
+    } finally {
+      presentation?.dispose();
+    }
+  });
 }

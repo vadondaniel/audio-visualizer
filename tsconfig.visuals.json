@@ -20,6 +20,7 @@
     "src/mode-runtime.js",
     "src/settings-actions.js",
     "src/mini-overlay.js",
+    "src/tray-controller.js",
     "src/mini-overlay-math.js",
     "src/overlay-display.js",
     "src/preload.js",
