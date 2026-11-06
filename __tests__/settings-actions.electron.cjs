@@ -100,6 +100,16 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
       const clip=bassSensitivityAmountSlider.closest('.sectionContent').getBoundingClientRect();
       if(bounds.left-clip.left<7||clip.right-bounds.right<7)throw Error('Slider endpoint glow clipped by section');
       if(settingsPanel.scrollWidth>settingsPanel.clientWidth)throw Error('Settings overflow horizontally');
+      const header=settingsPanel.querySelector('.settingsHeader');
+      const title=settingsPanel.querySelector('.settingsSectionTitle');
+      const previousScroll=settingsPanel.scrollTop;
+      settingsPanel.scrollTop=0;
+      settingsPanel.scrollTop=title.getBoundingClientRect().top-header.getBoundingClientRect().top-8;
+      await new Promise(resolve=>setTimeout(resolve,350));
+      const titleBounds=title.getBoundingClientRect();
+      const topElement=document.elementFromPoint(titleBounds.right-4,titleBounds.top+titleBounds.height/2);
+      if(!header.contains(topElement))throw Error('Scrolled section chevron paints over sticky header');
+      settingsPanel.scrollTop=previousScroll;
       return {x:bounds.right-8,y:bounds.top+bounds.height/2};
     })()`);
     window.webContents.sendInputEvent({ type: "mouseMove", ...slider });

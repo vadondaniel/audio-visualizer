@@ -750,6 +750,7 @@ body {
   border-bottom: 1px solid var(--hairline);
   position: sticky;
   top: 0;
+  z-index: 1;
 }
 
 #settingsPanel .settingsHeader svg {
