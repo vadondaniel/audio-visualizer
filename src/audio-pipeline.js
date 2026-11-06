@@ -121,6 +121,17 @@
    * @returns {import('./visual-contracts').Pipeline} */
   function create({ registry: sourceRegistry = registry } = {}) {
     const definitions = sourceRegistry.audioProfiles;
+    // Snapshot only declared selectors so mid-frame edits cannot change the
+    // profile of a frame whose acquisition has already completed.
+    const selectorKeys = [
+      ...new Set(
+        Object.values(definitions).flatMap((definition) =>
+          definition.variants ? [definition.variants.setting] : []
+        )
+      ),
+    ];
+    /** @type {Pick<import('./visual-contracts').AudioSettings,'waveformStyle'>} */
+    const selectorValues = {};
     /** @type {import('./visual-contracts').PipelineInput|null} */
     let input = null;
     /** @type {Readonly<import('./visual-contracts').AudioSettings>|null} */
@@ -160,38 +171,61 @@
     const commonNeutral = new Float64Array(8),
       commonFinal = new Float64Array(8);
     const normalizedLevels = new Float64Array(3);
-    /** @typedef {{neutral:Float64Array,bands:Float64Array,generation:number,rangeEnd:number,rangeHold:number,envelopeNeutral:number,envelopeFinal:number,output:import('./visual-contracts').CommonSignals & {bands:Float64Array,motionBands:Float64Array,rangeEndHz:number,envelopes:{aurora:number},motionEnvelopes:{aurora:number}}}} ProfileState */
+    /** @typedef {{neutral:Float64Array,bands:Float64Array,views:Map<number,{bands:Float64Array,motionBands:Float64Array}>,hasPrism:boolean,generation:number,rangeEnd:number,rangeHold:number,envelopeNeutral:number,envelopeFinal:number,output:import('./visual-contracts').CommonSignals & {bands:Float64Array,motionBands:Float64Array,rangeEndHz:number,envelopes:{aurora:number},motionEnvelopes:{aurora:number}}}} ProfileState */
     /** @type {Record<string,ProfileState>} */
     const profiles = Object.fromEntries(
       Object.entries(definitions).map(
-        /** @returns {[string,ProfileState]} */ ([id, profile]) => [
-          id,
-          {
-            neutral: new Float64Array(profile.count),
-            bands: new Float64Array(profile.count),
-            generation: -1,
-            rangeEnd: 0,
-            rangeHold: 0,
-            envelopeNeutral: 0,
-            envelopeFinal: 0,
-            output: {
-              ...common,
-              bands: new Float64Array(0),
-              motionBands: new Float64Array(0),
-              rangeEndHz: 0,
-              envelopes: { aurora: 0 },
-              motionEnvelopes: { aurora: 0 },
+        /** @returns {[string,ProfileState]} */ ([id, definition]) => {
+          const specs = [
+            definition,
+            ...Object.values(definition.variants?.profiles || {}),
+          ];
+          const capacity = Math.max(...specs.map((spec) => spec.count));
+          const neutral = new Float64Array(capacity),
+            bands = new Float64Array(capacity);
+          const views = new Map(
+            specs.map((spec) => [
+              spec.count,
+              {
+                bands:
+                  spec.count === capacity
+                    ? bands
+                    : bands.subarray(0, spec.count),
+                motionBands:
+                  spec.count === capacity
+                    ? neutral
+                    : neutral.subarray(0, spec.count),
+              },
+            ])
+          );
+          return [
+            id,
+            {
+              neutral,
+              bands,
+              views,
+              hasPrism: specs.some((spec) => spec.sampler === "prism"),
+              generation: -1,
+              rangeEnd: 0,
+              rangeHold: 0,
+              envelopeNeutral: 0,
+              envelopeFinal: 0,
+              output: {
+                ...common,
+                bands,
+                motionBands: neutral,
+                rangeEndHz: 0,
+                envelopes: { aurora: 0 },
+                motionEnvelopes: { aurora: 0 },
+              },
             },
-          },
-        ]
+          ];
+        }
       )
     );
-    for (const profile of Object.values(profiles)) {
-      profile.output.bands = profile.bands;
-      profile.output.motionBands = profile.neutral;
-    }
 
     function reset() {
+      for (const key of selectorKeys) selectorValues[key] = undefined;
       input = null;
       settings = null;
       spectrum = null;
@@ -260,6 +294,7 @@
     function update(nextInput, nextSettings, timing) {
       input = nextInput;
       settings = nextSettings;
+      for (const key of selectorKeys) selectorValues[key] = nextSettings[key];
       dt = Math.min(0.1, Math.max(0, timing.dtSec));
       generation++;
       const bytes = input.frequencyBytes,
@@ -282,10 +317,10 @@
       );
       if (powers.length !== spectrum.length) {
         powers = new Float64Array(spectrum.length);
-        for (const [id, definition] of Object.entries(definitions)) {
-          if (definition.sampler === "prism") {
-            profiles[id].rangeEnd = 0;
-            profiles[id].rangeHold = 0;
+        for (const profile of Object.values(profiles)) {
+          if (profile.hasPrism) {
+            profile.rangeEnd = 0;
+            profile.rangeHold = 0;
           }
         }
       }
@@ -388,17 +423,18 @@
     /** @param {string} id
      * @returns {import('./visual-contracts').Signals} */
     function forMode(id) {
-      const spec = definitions[id],
-        profile = profiles[id];
-      if (!spec) throw Error(`Unknown audio profile: ${id}`);
+      const profile = profiles[id];
+      if (!profile) throw Error(`Unknown audio profile: ${id}`);
       if (!input || !settings || !spectrum)
         throw Error("Audio pipeline requires update before forMode");
       if (profile.generation === generation) return profile.output;
       profile.generation = generation;
-      const sampler =
-        spec.sampler === "waveform" && settings.waveformStyle === "prism"
-          ? "prism"
-          : spec.sampler;
+      const spec = sourceRegistry.resolveAudioProfile(id, selectorValues);
+      const sampler = spec.sampler;
+      const view = profile.views.get(spec.count);
+      if (!view) throw Error(`Unallocated audio profile: ${id}`);
+      profile.output.bands = view.bands;
+      profile.output.motionBands = view.motionBands;
       if (sampler === "aurora") {
         const neutral = controlled(
           normalizedLevels[0] * 0.45 +

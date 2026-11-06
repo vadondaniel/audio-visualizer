@@ -38,7 +38,17 @@
       id: "waveform",
       label: "Waveform",
       modulePath: "visuals/waveform.js",
-      audio: { sampler: "waveform", count: 96, release: 10 },
+      audio: {
+        sampler: "waveform",
+        count: 96,
+        release: 10,
+        variants: {
+          setting: "waveformStyle",
+          profiles: {
+            prism: { sampler: "prism", count: 96, release: 10 },
+          },
+        },
+      },
       media: {
         group: "free",
         defaultPosition: "auto",
@@ -146,6 +156,17 @@
   /** @param {ReadonlyArray<import('./visual-contracts').ModeDefinition>} definitions
    * @returns {import('./visual-contracts').Registry} */
   function createRegistry(definitions) {
+    /** @param {import('./visual-contracts').AudioProfile} profile @param {string} id */
+    function validateProfile(profile, id) {
+      if (
+        !profile ||
+        typeof profile.sampler !== "string" ||
+        !Number.isInteger(profile.count) ||
+        profile.count < 0 ||
+        !(profile.release > 0)
+      )
+        throw Error(`Invalid audio profile: ${id}`);
+    }
     /** @type {Map<string, import('./visual-contracts').ModeEntry>} */
     const byId = new Map();
     /** @type {Map<string, import('./visual-contracts').ModeFactory>} */
@@ -162,13 +183,33 @@
         )
           throw Error(`Incomplete mode definition: ${definition.id}`);
         const { audio, media } = definition;
-        if (
-          typeof audio.sampler !== "string" ||
-          !Number.isInteger(audio.count) ||
-          audio.count < 0 ||
-          !(audio.release > 0)
-        )
-          throw Error(`Invalid audio profile: ${definition.id}`);
+        validateProfile(audio, definition.id);
+        const { variants, ...base } = audio;
+        /** @type {import('./visual-contracts').AudioVariants|undefined} */
+        let frozenVariants;
+        if (variants !== undefined) {
+          if (
+            !variants ||
+            variants.setting !== "waveformStyle" ||
+            !variants.profiles ||
+            typeof variants.profiles !== "object" ||
+            Array.isArray(variants.profiles) ||
+            Object.keys(variants.profiles).length === 0
+          )
+            throw Error(`Invalid audio variants: ${definition.id}`);
+          const profiles = Object.fromEntries(
+            Object.entries(variants.profiles).map(([name, profile]) => {
+              validateProfile(profile, `${definition.id}/${name}`);
+              if ("variants" in profile)
+                throw Error(`Nested audio variants: ${definition.id}/${name}`);
+              return [name, Object.freeze({ ...profile })];
+            })
+          );
+          frozenVariants = Object.freeze({
+            setting: variants.setting,
+            profiles: Object.freeze(profiles),
+          });
+        }
         if (
           !["free", "focus"].includes(media.group) ||
           typeof media.autoPlacement !== "string" ||
@@ -178,7 +219,10 @@
         const entry = Object.freeze({
           ...definition,
           index,
-          audio: Object.freeze({ ...definition.audio }),
+          audio: Object.freeze({
+            ...base,
+            ...(frozenVariants ? { variants: frozenVariants } : {}),
+          }),
           media: Object.freeze({ ...definition.media }),
         });
         byId.set(entry.id, entry);
@@ -189,6 +233,20 @@
     const audioProfiles = Object.freeze(
       Object.fromEntries(entries.map((entry) => [entry.id, entry.audio]))
     );
+    /** @param {string} id @param {Readonly<Pick<import('./visual-contracts').AudioSettings,'waveformStyle'>>} settings
+     * @returns {import('./visual-contracts').AudioProfile} */
+    function resolveAudioProfile(id, settings) {
+      const entry = byId.get(id);
+      if (!entry) throw Error(`Unknown audio profile: ${id}`);
+      const base = entry.audio,
+        variants = base.variants;
+      if (!variants) return base;
+      const selected = settings[variants.setting];
+      return typeof selected === "string" &&
+        Object.hasOwn(variants.profiles, selected)
+        ? variants.profiles[selected]
+        : base;
+    }
     /** @type {Promise<void>|null} */
     let loading = null;
     /** @param {string} id
@@ -239,6 +297,7 @@
       entries,
       ids,
       audioProfiles,
+      resolveAudioProfile,
       get: (id) => byId.get(id),
       indexOf: (id) => byId.get(id)?.index ?? -1,
       mediaDefaults: () =>

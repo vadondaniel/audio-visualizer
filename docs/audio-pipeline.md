@@ -55,6 +55,14 @@ fall. Its input never includes Sensitivity or processed output.
 Registry definitions' `audio` records are the source of truth for band counts,
 release rates, and sampling behavior; `AudioPipeline.PROFILES` is a derived view.
 The explicit `sampler` selects the algorithm independently of a mode's ID.
+Optional `audio.variants` declares a setting selector and complete named profiles.
+`resolveAudioProfile(id, settings)` returns the selected immutable profile;
+the compatibility views above still expose base profiles. Waveform declares a
+`prism` variant selected by `waveformStyle`; other values use its base sampler.
+Variants share one mode history and preallocated storage sized for the largest
+declared count. Count-specific views are reused, and only the requested profile
+advances. Style changes take effect on the next pipeline update. FFT-size changes
+reset adaptive range for any mode declaring a Prism sampler, including variants.
 Orbit uses the common 45 dB display range so exponential response preserves
 quieter mid/high bands; its logarithmic sampling layout and rope physics remain
 mode-specific. Prism keeps distinct

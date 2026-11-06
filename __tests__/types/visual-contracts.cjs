@@ -18,6 +18,12 @@ function checkContracts(frame, services, ctx, input, settings) {
   mode.draw(ctx, frame);
   mode.reset();
   const pipeline = Pipeline.create();
+  /** @type {import('../../src/visual-contracts').AudioProfile} */
+  const resolved = Registry.resolveAudioProfile("waveform", settings);
+  // @ts-expect-error Resolved registry profiles are immutable.
+  resolved.count = 12;
+  // @ts-expect-error Variant selectors use the declared audio-setting contract.
+  Registry.resolveAudioProfile("waveform", { waveformStyle: "unknown" });
   pipeline.update(input, settings, frame);
   /** @type {import('../../src/visual-contracts').Signals} */
   const signals = pipeline.forMode("bars");

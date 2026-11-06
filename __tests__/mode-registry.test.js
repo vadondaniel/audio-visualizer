@@ -62,6 +62,82 @@ test("definitions and derived profile views are immutable; settings get fresh de
   expect(Registry.mediaDefaults().bars).toBe("top");
   expect(Pipeline.PROFILES).toBe(Registry.audioProfiles);
 });
+
+test("style profiles resolve to immutable registry objects with safe base fallbacks", () => {
+  const base = Registry.audioProfiles.waveform;
+  const prism = base.variants.profiles.prism;
+  expect(
+    Registry.resolveAudioProfile("waveform", { waveformStyle: "prism" })
+  ).toBe(prism);
+  for (const waveformStyle of [
+    "line",
+    "filled",
+    undefined,
+    "unknown",
+    "toString",
+    "__proto__",
+  ])
+    expect(Registry.resolveAudioProfile("waveform", { waveformStyle })).toBe(
+      base
+    );
+  expect(Registry.resolveAudioProfile("bars", { waveformStyle: "prism" })).toBe(
+    Registry.audioProfiles.bars
+  );
+  expect(() => Registry.resolveAudioProfile("missing", {})).toThrow(
+    "Unknown audio profile"
+  );
+  for (const value of [base.variants, base.variants.profiles, prism])
+    expect(Object.isFrozen(value)).toBe(true);
+  const original = {
+    setting: "waveformStyle",
+    profiles: { prism: { sampler: "prism", count: 96, release: 10 } },
+  };
+  const custom = Registry.createRegistry([
+    { ...synthetic, audio: { ...synthetic.audio, variants: original } },
+  ]);
+  original.profiles.prism.count = 1;
+  original.profiles.extra = { sampler: "bars", count: 1, release: 1 };
+  expect(
+    custom.resolveAudioProfile("test-mode", { waveformStyle: "prism" }).count
+  ).toBe(96);
+  expect(Object.keys(custom.get("test-mode").audio.variants.profiles)).toEqual([
+    "prism",
+  ]);
+});
+
+test.each([
+  null,
+  {
+    setting: "unsupported",
+    profiles: { prism: { sampler: "prism", count: 96, release: 10 } },
+  },
+  { setting: "waveformStyle", profiles: {} },
+  { setting: "waveformStyle", profiles: [] },
+  { setting: "waveformStyle", profiles: { prism: { count: 96, release: 10 } } },
+  {
+    setting: "waveformStyle",
+    profiles: { prism: { sampler: "prism", count: -1, release: 10 } },
+  },
+  {
+    setting: "waveformStyle",
+    profiles: { prism: { sampler: "prism", count: 96, release: 0 } },
+  },
+  {
+    setting: "waveformStyle",
+    profiles: {
+      prism: { sampler: "prism", count: 96, release: 10, variants: {} },
+    },
+  },
+])(
+  "invalid audio variants fail during registry construction: %p",
+  (variants) => {
+    expect(() =>
+      Registry.createRegistry([
+        { ...synthetic, audio: { ...synthetic.audio, variants } },
+      ])
+    ).toThrow(/audio (variants|profile)/);
+  }
+);
 test("invalid definitions and factory registrations fail explicitly", () => {
   expect(() => Registry.createRegistry([synthetic, synthetic])).toThrow(
     "duplicate mode ID"

@@ -116,14 +116,17 @@
 /** @typedef {Services & {consumeBeat?:()=>void}} HostServices Only the controller may consume shared beat state. */
 /** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,reset:()=>void}} ModeController */
 /** @typedef {Readonly<{sampler:string,count:number,release:number,threshold?:number,domain?:'db'|'amplitude'}>} AudioProfile */
+/** @typedef {Readonly<{setting:'waveformStyle',profiles:Readonly<Record<string,AudioProfile>>}>} AudioVariants */
+/** @typedef {AudioProfile & Readonly<{variants?:AudioVariants}>} AudioDefinition */
 /** @typedef {Readonly<{group:'free'|'focus',defaultPosition:string,autoPlacement:string,overlayCover:boolean}>} MediaProfile */
-/** @typedef {Readonly<{id:string,label:string,modulePath:string,audio:AudioProfile,media:MediaProfile}>} ModeDefinition */
+/** @typedef {Readonly<{id:string,label:string,modulePath:string,audio:AudioDefinition,media:MediaProfile}>} ModeDefinition */
 /** @typedef {ModeDefinition & Readonly<{index:number}>} ModeEntry */
 /**
  * @typedef {object} RegistryAPI
  * @property {ReadonlyArray<ModeEntry>} entries Canonical order, independent of saved preferences.
  * @property {ReadonlyArray<string>} ids
- * @property {Readonly<Record<string,AudioProfile>>} audioProfiles
+ * @property {Readonly<Record<string,AudioDefinition>>} audioProfiles Base profiles, including variant metadata.
+ * @property {(id:string,settings:Readonly<Pick<AudioSettings,'waveformStyle'>>)=>AudioProfile} resolveAudioProfile Resolves a style to an existing immutable profile; throws for unknown IDs.
  * @property {(id:string)=>ModeEntry|undefined} get
  * @property {(id:string)=>number} indexOf Returns -1 for an unknown ID.
  * @property {()=>Record<string,string>} mediaDefaults Fresh mutable preferences.
