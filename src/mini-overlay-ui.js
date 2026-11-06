@@ -33,6 +33,11 @@ let miniOverlayActive = false;
   /** @param {import('./mini-overlay').Presentation} value */
   function receive(value) {
     if (!value) return;
+    if (
+      miniOverlayActive !== value.active &&
+      typeof overlayDrawSchedule !== "undefined"
+    )
+      overlayDrawSchedule.resetDeadline();
     miniOverlayActive = value.active;
     locked = value.locked;
     if (!value.active || value.locked) showSize(false);
@@ -61,7 +66,7 @@ let miniOverlayActive = false;
       document
         .getElementById("miniOverlaySection")
         .scrollIntoView({ block: "nearest" });
-      document.getElementById("miniOverlayBackgroundCheckbox").focus();
+      document.getElementById("miniOverlayModeSelect").focus();
     }
     if (value.error) {
       errorMsg.textContent = value.error;
@@ -105,6 +110,29 @@ let miniOverlayActive = false;
     .getElementById("miniOverlayBackgroundCheckbox")
     .addEventListener("change", (event) =>
       settingsActions.set("miniOverlayShowBackground", event.target.checked)
+    );
+  document
+    .getElementById("miniOverlayModeSelect")
+    .addEventListener("change", (event) =>
+      settingsActions.selectOverlayMode(event.target.value)
+    );
+  document
+    .getElementById("miniOverlayScaleSlider")
+    .addEventListener("input", (event) =>
+      settingsActions.set("miniOverlayScale", Number(event.target.value) / 100)
+    );
+  document
+    .getElementById("miniOverlayOpacitySlider")
+    .addEventListener("input", (event) =>
+      settingsActions.set(
+        "miniOverlayOpacity",
+        Number(event.target.value) / 100
+      )
+    );
+  document
+    .getElementById("miniOverlayFpsSelect")
+    .addEventListener("change", (event) =>
+      settingsActions.set("miniOverlayMaxFps", Number(event.target.value))
     );
   window.addEventListener("mousemove", showControls);
   controls.addEventListener("focusin", showControls);

@@ -61,7 +61,7 @@ module.exports = function runVisualCheck(mode) {
         }
         resetVisualModes();
         const renderMode = (timestamp) => visualModeController.render("${mode}",ctx,
-          prepareVisualFrame(timestamp,1000/60,0,${silent ? "0,0,0" : "0.5,0.4,0.3"}));
+          prepareVisualFrame(timestamp,1000/60));
         // Let the connected rope respond before taking the steady-audio preview.
         for (let frame=0; frame<60; frame++) {
           ctx.clearRect(0,0,renderCanvas.width,renderCanvas.height);

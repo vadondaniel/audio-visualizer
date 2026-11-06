@@ -9,6 +9,52 @@ const {
 } = require("../src/audio-math");
 const { formatAudioCaptureError } = require("../src/audio");
 
+test("overlay display settings restore validated values and leave old preferences at defaults", () => {
+  const defaults = {
+    miniOverlayScale: 1,
+    miniOverlayOpacity: 1,
+    miniOverlayMaxFps: 60,
+    miniOverlayMode: "follow",
+  };
+  expect(mergeSettings(defaults, {}, 11, 14)).toMatchObject(defaults);
+  expect(
+    mergeSettings(
+      defaults,
+      {
+        miniOverlayScale: 1.55,
+        miniOverlayOpacity: 0.35,
+        miniOverlayMaxFps: 30,
+        miniOverlayMode: "orbit",
+      },
+      11,
+      14
+    )
+  ).toMatchObject({
+    miniOverlayScale: 1.55,
+    miniOverlayOpacity: 0.35,
+    miniOverlayMaxFps: 30,
+    miniOverlayMode: "orbit",
+  });
+  for (const value of [-1, 0, 0.54, 2.1, NaN, Infinity, "1.5"])
+    expect(
+      mergeSettings(defaults, { miniOverlayScale: value }, 11, 14)
+        .miniOverlayScale
+    ).toBe(1);
+  for (const value of [-1, 0, 0.12, 1.1, NaN, Infinity, "0.5"])
+    expect(
+      mergeSettings(defaults, { miniOverlayOpacity: value }, 11, 14)
+        .miniOverlayOpacity
+    ).toBe(1);
+  for (const value of [-1, 45, 240, "30", null])
+    expect(
+      mergeSettings(defaults, { miniOverlayMaxFps: value }, 11, 14)
+        .miniOverlayMaxFps
+    ).toBe(60);
+  expect(
+    mergeSettings(defaults, { miniOverlayMaxFps: 0 }, 11, 14).miniOverlayMaxFps
+  ).toBe(0);
+});
+
 test("overlay background restoration validates booleans and preserves the old default", () => {
   const defaults = { miniOverlayShowBackground: false };
   expect(mergeSettings(defaults, {}, 11, 14).miniOverlayShowBackground).toBe(

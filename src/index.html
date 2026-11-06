@@ -46,10 +46,12 @@
       </div>
     </div>
 
-    <div id="bgLayer">
-      <canvas id="bgCanvas"></canvas>
+    <div id="visualSurface">
+      <div id="bgLayer">
+        <canvas id="bgCanvas"></canvas>
+      </div>
+      <canvas id="canvas"></canvas>
     </div>
-    <canvas id="canvas"></canvas>
     <div id="fxOverlay"></div>
 
     <div id="startOverlay">
@@ -661,8 +663,70 @@
       </div>
 
       <div id="miniOverlaySection" class="settingsSection collapsed">
-        <div class="settingsSectionTitle">Mini overlay</div>
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <rect x="12" y="11" width="7" height="6" rx="1" />
+          </svg>
+          Mini overlay
+        </div>
         <div class="sectionContent">
+          <div class="field">
+            <label for="miniOverlayModeSelect">Visual mode</label>
+            <select id="miniOverlayModeSelect"></select>
+            <p class="bassSensitivityHint">
+              Choose a separate style to keep it fixed while the normal window
+              auto-cycles.
+            </p>
+          </div>
+          <div class="field">
+            <label for="miniOverlayScaleSlider"
+              >Visualizer scale
+              <span class="val" id="miniOverlayScaleVal">100%</span></label
+            >
+            <input
+              id="miniOverlayScaleSlider"
+              type="range"
+              min="50"
+              max="200"
+              step="5"
+              value="100"
+            />
+          </div>
+          <div class="field">
+            <label for="miniOverlayOpacitySlider"
+              >Opacity
+              <span class="val" id="miniOverlayOpacityVal">100%</span></label
+            >
+            <input
+              id="miniOverlayOpacitySlider"
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value="100"
+            />
+          </div>
+          <div class="field">
+            <label for="miniOverlayFpsSelect">FPS limit</label>
+            <select id="miniOverlayFpsSelect">
+              <option value="15">15 FPS</option>
+              <option value="30">30 FPS</option>
+              <option value="60" selected>60 FPS</option>
+              <option value="120">120 FPS</option>
+              <option value="0">Unlimited</option>
+            </select>
+          </div>
           <div class="toggleRow">
             <label for="miniOverlayBackgroundCheckbox">Show background</label>
             <input id="miniOverlayBackgroundCheckbox" type="checkbox" />
@@ -816,6 +880,7 @@
     <script src="audio-math.js"></script>
     <script src="audio-pipeline.js"></script>
     <script src="trail-math.js"></script>
+    <script src="overlay-display.js"></script>
     <script src="constants.js"></script>
     <script src="mode-list.js"></script>
     <script src="state.js"></script>

@@ -220,6 +220,21 @@ body {
   border-radius: var(--radius-sm);
 }
 
+#visualSurface {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-canvas);
+}
+
+body.mini-overlay #visualSurface {
+  opacity: var(--mini-overlay-opacity, 1);
+}
+
+body.mini-overlay #canvas {
+  transform: scale(var(--mini-overlay-scale, 1));
+  transform-origin: center;
+}
+
 #bgLayer {
   position: absolute;
   /* Larger than the viewport on every side (not inset:0) — CSS

@@ -18,6 +18,10 @@ const state = {
   bgBrightness: 1,
   bgBlur: 0,
   miniOverlayShowBackground: false,
+  miniOverlayScale: 1,
+  miniOverlayOpacity: 1,
+  miniOverlayMaxFps: 60,
+  miniOverlayMode: "follow",
   smoothingEnabled: true,
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
@@ -54,6 +58,10 @@ const PERSISTED_KEYS = [
   "bgBrightness",
   "bgBlur",
   "miniOverlayShowBackground",
+  "miniOverlayScale",
+  "miniOverlayOpacity",
+  "miniOverlayMaxFps",
+  "miniOverlayMode",
   "mode",
   "modeOrder",
   "disabledModes",

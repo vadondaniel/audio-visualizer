@@ -9,6 +9,18 @@ const settingsControlBindings = {
     document.getElementById("miniOverlayBackgroundCheckbox"),
     "checked",
   ],
+  miniOverlayMode: [document.getElementById("miniOverlayModeSelect"), "value"],
+  miniOverlayScale: [
+    document.getElementById("miniOverlayScaleSlider"),
+    "value",
+    (value) => value * 100,
+  ],
+  miniOverlayOpacity: [
+    document.getElementById("miniOverlayOpacitySlider"),
+    "value",
+    (value) => value * 100,
+  ],
+  miniOverlayMaxFps: [document.getElementById("miniOverlayFpsSelect"), "value"],
   smoothingEnabled: [smoothingCheckbox, "checked"],
   radialMode: [
     radialMirroredCheckbox,
@@ -53,6 +65,25 @@ function syncSettingsControls(keys) {
     "overlay-with-background",
     state.miniOverlayShowBackground
   );
+  if (keys === "all" || keys.some((key) => key.startsWith("miniOverlay"))) {
+    document.body.style.setProperty(
+      "--mini-overlay-scale",
+      state.miniOverlayScale
+    );
+    document.body.style.setProperty(
+      "--mini-overlay-opacity",
+      state.miniOverlayOpacity
+    );
+    document.getElementById("miniOverlayScaleVal").textContent =
+      `${Math.round(state.miniOverlayScale * 100)}%`;
+    document.getElementById("miniOverlayOpacityVal").textContent =
+      `${Math.round(state.miniOverlayOpacity * 100)}%`;
+    if (
+      (keys === "all" || keys.includes("miniOverlayMaxFps")) &&
+      typeof overlayDrawSchedule !== "undefined"
+    )
+      overlayDrawSchedule.resetDeadline();
+  }
   for (const key of keys === "all"
     ? Object.keys(settingsControlBindings)
     : keys) {
@@ -75,7 +106,21 @@ const settingsActions = SettingsActions.create({
   },
   effects: {
     syncControls: syncSettingsControls,
-    modeOptions: rebuildModeOptions,
+    modeOptions: () => {
+      rebuildModeOptions();
+      const select = document.getElementById("miniOverlayModeSelect");
+      select.replaceChildren();
+      const follow = document.createElement("option");
+      follow.value = "follow";
+      follow.textContent = "Follow normal window";
+      select.append(follow);
+      for (const id of ModeList.enabled(state.modeOrder, state.disabledModes)) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = ModeRegistry.get(id).label;
+        select.append(option);
+      }
+    },
     modeManager: () => {
       if (modeManager.open) renderModeManager();
     },

@@ -457,7 +457,10 @@ window.addEventListener("keydown", (e) => {
     const enabledModes = ModeList.enabled(state.modeOrder, state.disabledModes);
     const mode = enabledModes[Number(e.key) - 1];
     if (!mode) return;
-    settingsActions.selectMode(mode);
+    settingsActions.selectActiveMode(
+      mode,
+      typeof miniOverlayActive !== "undefined" && miniOverlayActive
+    );
     return;
   }
   const action = KEY_ACTIONS[e.key.toLowerCase()];

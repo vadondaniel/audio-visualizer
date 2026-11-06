@@ -21,6 +21,7 @@
     "src/settings-actions.js",
     "src/mini-overlay.js",
     "src/mini-overlay-math.js",
+    "src/overlay-display.js",
     "src/preload.js",
     "src/visuals/*.js",
     "__tests__/types/*.cjs",

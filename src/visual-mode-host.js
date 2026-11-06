@@ -1,5 +1,13 @@
 // Application adapter: owns the frame and resolves globals before calling modes.
 const visualSpectrumReader = ModeRuntime.createFloatSpectrumReader();
+const overlayDrawSchedule = OverlayDisplay.createDrawSchedule();
+function effectiveVisualMode() {
+  return OverlayDisplay.effectiveMode(
+    state,
+    typeof miniOverlayActive !== "undefined" && miniOverlayActive,
+    MODES
+  );
+}
 /** @type {import('./visual-contracts').FrameStorage} */
 const visualFrame = {
   width: 0,
@@ -51,8 +59,13 @@ const visualAudioInput = {
 };
 /** @param {number} timestampMs
  * @param {number} elapsedMs
+ * @param {string} [modeId]
  * @returns {import('./visual-contracts').Frame} */
-function prepareVisualFrame(timestampMs, elapsedMs) {
+function prepareVisualFrame(
+  timestampMs,
+  elapsedMs,
+  modeId = effectiveVisualMode()
+) {
   visualFrame.width = canvas.width;
   visualFrame.height = canvas.height;
   visualFrame.timestampMs = timestampMs;
@@ -72,7 +85,7 @@ function prepareVisualFrame(timestampMs, elapsedMs) {
     state,
     visualFrame
   );
-  visualFrame.signals = audioPipeline.forMode(MODES[state.mode]);
+  visualFrame.signals = audioPipeline.forMode(modeId);
   visualFrame.beat.pulse = beatPulse;
   visualFrame.beat.justHit = beatJustHit;
   const display =
@@ -92,6 +105,7 @@ function prepareVisualFrame(timestampMs, elapsedMs) {
 }
 
 function resetVisualModes() {
+  overlayDrawSchedule.reset();
   visualModeController.reset();
   visualSpectrumReader.reset();
   audioPipeline.reset();

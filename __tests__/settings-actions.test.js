@@ -75,6 +75,54 @@ test("state is complete before targeted synchronization and persistence runs las
   expect(a.save).toHaveBeenCalledTimes(1);
 });
 
+test("independent overlay selection and shortcuts leave normal selection and mode simulations alone", () => {
+  const a = setup();
+  a.actions.selectOverlayMode("orbit");
+  expect(a.state).toMatchObject({ mode: 0, miniOverlayMode: "orbit" });
+  expect(a.save).toHaveBeenCalledTimes(1);
+  expect(a.effects.resetTrails).not.toHaveBeenCalled();
+  a.actions.selectActiveMode("prism", true);
+  expect(a.state).toMatchObject({ mode: 0, miniOverlayMode: "prism" });
+  a.actions.nextMode();
+  expect(a.state.mode).toBe(1);
+  expect(a.state.miniOverlayMode).toBe("prism");
+  a.actions.selectActiveMode("waves", false);
+  expect(a.state.mode).toBe(6);
+  expect(a.state.miniOverlayMode).toBe("prism");
+  a.actions.selectOverlayMode("follow");
+  a.actions.selectActiveMode("bars", true);
+  expect(a.state.mode).toBe(0);
+  expect(a.state.miniOverlayMode).toBe("follow");
+});
+test("overlay preferences fall back atomically when disabled; unknown IDs restore to follow without saving", () => {
+  const a = setup({ miniOverlayMode: "orbit" });
+  a.actions.setModePreferences({
+    order: [...registry.ids].reverse(),
+    disabled: ["orbit"],
+  });
+  expect(a.state.miniOverlayMode).toBe("prism");
+  expect(a.save).toHaveBeenCalledTimes(1);
+  const saves = a.save.mock.calls.length;
+  a.actions.selectOverlayMode("orbit");
+  a.actions.selectOverlayMode("missing");
+  expect(a.save).toHaveBeenCalledTimes(saves);
+  a.state.miniOverlayMode = "unknown";
+  a.actions.initialize();
+  expect(a.state.miniOverlayMode).toBe("follow");
+  expect(a.save).toHaveBeenCalledTimes(saves);
+});
+test.each([
+  ["miniOverlayScale", 1.5],
+  ["miniOverlayOpacity", 0.5],
+  ["miniOverlayMaxFps", 30],
+])("%s synchronizes and saves once without unrelated effects", (key, value) => {
+  const a = setup();
+  a.actions.set(key, value);
+  expect(a.state[key]).toBe(value);
+  expect(a.order).toEqual(["syncControls", "save"]);
+  expect(a.effects.resetTrails).not.toHaveBeenCalled();
+});
+
 test.each([
   ["bassSensitivityEnabled", true, ["bassRows"]],
   ["bassSensitivityAmount", 0.75, ["labels"]],

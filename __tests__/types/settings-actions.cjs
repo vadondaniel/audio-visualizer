@@ -5,6 +5,15 @@ function checkActions(dependencies) {
   actions.set("sensitivity", 1.5);
   actions.set("valueHandling", "logarithmic");
   actions.set("miniOverlayShowBackground", true);
+  actions.set("miniOverlayScale", 1.5);
+  actions.set("miniOverlayOpacity", 0.5);
+  actions.set("miniOverlayMaxFps", 30);
+  actions.selectOverlayMode("orbit");
+  actions.selectActiveMode("prism", true);
+  // @ts-expect-error The overlay FPS choices are explicit.
+  actions.set("miniOverlayMaxFps", 42);
+  // @ts-expect-error Mode selection uses its dedicated action.
+  actions.set("miniOverlayMode", "orbit");
   // @ts-expect-error Background visibility is a boolean setting.
   actions.set("miniOverlayShowBackground", "transparent");
   actions.selectMode("bars");

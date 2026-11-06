@@ -179,6 +179,28 @@
       state.smoothingEnabled = saved.smoothingEnabled;
     if (typeof saved.miniOverlayShowBackground === "boolean")
       state.miniOverlayShowBackground = saved.miniOverlayShowBackground;
+    for (const [
+      key,
+      minimum,
+      maximum,
+    ] of /** @type {Array<[string,number,number]>} */ ([
+      ["miniOverlayScale", 0.5, 2],
+      ["miniOverlayOpacity", 0.1, 1],
+    ])) {
+      const value = saved[key];
+      if (
+        typeof value === "number" &&
+        Number.isFinite(value) &&
+        value >= minimum &&
+        value <= maximum &&
+        Math.abs(value * 20 - Math.round(value * 20)) < 1e-8
+      )
+        state[key] = value;
+    }
+    if ([0, 15, 30, 60, 120].includes(saved.miniOverlayMaxFps))
+      state.miniOverlayMaxFps = saved.miniOverlayMaxFps;
+    if (typeof saved.miniOverlayMode === "string")
+      state.miniOverlayMode = saved.miniOverlayMode;
     if (saved.radialMode === "mirrored" || saved.radialMode === "full")
       state.radialMode = saved.radialMode;
     if (typeof saved.kaleidoClipEnabled === "boolean")

@@ -131,18 +131,30 @@
         ]) => [id, factory(services)]
       )
     );
+    /** @param {string} id @param {import('./visual-contracts').Frame} frame */
+    function update(id, frame) {
+      const mode = modes[id];
+      if (!mode) throw new Error(`Unknown visual mode: ${id}`);
+      mode.update(frame);
+      if (id === "particles" && frame.beat.justHit) services.consumeBeat?.();
+    }
+    /** @param {string} id @param {CanvasRenderingContext2D} ctx @param {import('./visual-contracts').Frame} frame */
+    function draw(id, ctx, frame) {
+      const mode = modes[id];
+      if (!mode) throw new Error(`Unknown visual mode: ${id}`);
+      ctx.save();
+      try {
+        mode.draw(ctx, frame);
+      } finally {
+        ctx.restore();
+      }
+    }
     return {
+      update,
+      draw,
       render(id, ctx, frame) {
-        const mode = modes[id];
-        if (!mode) throw new Error(`Unknown visual mode: ${id}`);
-        mode.update(frame);
-        if (id === "particles" && frame.beat.justHit) services.consumeBeat?.();
-        ctx.save();
-        try {
-          mode.draw(ctx, frame);
-        } finally {
-          ctx.restore();
-        }
+        update(id, frame);
+        draw(id, ctx, frame);
       },
       reset() {
         for (const mode of Object.values(modes)) mode.reset();

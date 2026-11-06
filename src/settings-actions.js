@@ -1,7 +1,7 @@
 // Settings commands own mutation and effects; UI adapters own DOM events and rendering.
 /** @typedef {'auto'|'above'|'below'|'top-left'|'top'|'top-right'|'right'|'bottom-right'|'bottom'|'bottom-left'|'left'} MediaPosition */
-/** @typedef {import('./visual-contracts').AudioSettings & import('./visual-contracts').VisualSettings & {autoCycle:boolean,miniOverlayShowBackground:boolean,bgType:'color'|'image'|'nebula'|'stars'|'grid',bgColor:string,bgBrightness:number,bgBlur:number,trailsEnabled:boolean,trailDuration:number,trailMaxFps:number,wakeLockEnabled:boolean,reactiveVignette:boolean,crtFilter:boolean,beatFlash:boolean,mediaMetadataEnabled:boolean,mediaDisplay:'title'|'title-artist'|'cover'|'cover-title'|'cover-title-artist'}} ScalarSettings */
-/** @typedef {ScalarSettings & {mode:number,modeOrder:string[],disabledModes:string[],mediaTextPositions:Record<string,string>,bgImageDataUrl:string|null,bgImageName:string|null}} SettingsState */
+/** @typedef {import('./visual-contracts').AudioSettings & import('./visual-contracts').VisualSettings & {autoCycle:boolean,miniOverlayShowBackground:boolean,miniOverlayScale:number,miniOverlayOpacity:number,miniOverlayMaxFps:0|15|30|60|120,bgType:'color'|'image'|'nebula'|'stars'|'grid',bgColor:string,bgBrightness:number,bgBlur:number,trailsEnabled:boolean,trailDuration:number,trailMaxFps:number,wakeLockEnabled:boolean,reactiveVignette:boolean,crtFilter:boolean,beatFlash:boolean,mediaMetadataEnabled:boolean,mediaDisplay:'title'|'title-artist'|'cover'|'cover-title'|'cover-title-artist'}} ScalarSettings */
+/** @typedef {ScalarSettings & {miniOverlayMode:string,mode:number,modeOrder:string[],disabledModes:string[],mediaTextPositions:Record<string,string>,bgImageDataUrl:string|null,bgImageName:string|null}} SettingsState */
 /** @typedef {readonly (keyof SettingsState)[]} ChangedKeys */
 /**
  * @typedef {object} Effects
@@ -76,6 +76,12 @@
       const enabled = modeList.enabled(state.modeOrder, state.disabledModes);
       if (!enabled.includes(registry.ids[state.mode]))
         state.mode = registry.indexOf(enabled[0]);
+      if (state.miniOverlayMode !== "follow") {
+        if (!registry.get(state.miniOverlayMode))
+          state.miniOverlayMode = "follow";
+        else if (!enabled.includes(state.miniOverlayMode))
+          state.miniOverlayMode = enabled[0];
+      }
     }
     function normalizeMediaPosition() {
       const entry = registry.get(registry.ids[state.mode]);
@@ -165,6 +171,22 @@
       state.mode = registry.indexOf(id);
       finish(["mode"]);
     }
+    /** @param {string} id */
+    function selectOverlayMode(id) {
+      if (
+        id !== "follow" &&
+        !modeList.enabled(state.modeOrder, state.disabledModes).includes(id)
+      )
+        return;
+      state.miniOverlayMode = id;
+      finish(["miniOverlayMode"]);
+    }
+    /** @param {string} id @param {boolean} overlayActive */
+    function selectActiveMode(id, overlayActive) {
+      if (overlayActive && state.miniOverlayMode !== "follow")
+        selectOverlayMode(id);
+      else selectMode(id);
+    }
     function nextMode() {
       selectMode(
         modeList.next(
@@ -182,7 +204,7 @@
       state.modeOrder = [...order];
       state.disabledModes = [...disabled];
       normalizeMode();
-      finish(["modeOrder", "disabledModes", "mode"]);
+      finish(["modeOrder", "disabledModes", "mode", "miniOverlayMode"]);
     }
     /** @param {string} id
      * @param {MediaPosition} position */
@@ -226,6 +248,8 @@
     return {
       set,
       selectMode,
+      selectOverlayMode,
+      selectActiveMode,
       nextMode,
       cycleTheme,
       setModePreferences,

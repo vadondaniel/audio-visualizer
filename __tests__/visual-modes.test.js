@@ -241,3 +241,30 @@ test("host consumes a particle beat after update and restores canvas state even 
   expect(calls).toEqual(["update", "consume", "draw"]);
   expect(a.canvas.depth).toBe(0);
 });
+
+test("controller update and draw are independent and drawing never consumes another event", () => {
+  const a = setup("particles"),
+    calls = [];
+  const controller = runtime.createController(
+    {
+      particles: () => ({
+        update: () => calls.push("update"),
+        draw: () => calls.push("draw"),
+        reset: () => calls.push("reset"),
+      }),
+    },
+    { consumeBeat: () => calls.push("consume") }
+  );
+  controller.update("particles", a.frame);
+  expect(calls).toEqual(["update", "consume"]);
+  controller.draw("particles", a.canvas.ctx, a.frame);
+  controller.draw("particles", a.canvas.ctx, a.frame);
+  expect(calls).toEqual(["update", "consume", "draw", "draw"]);
+  expect(a.canvas.depth).toBe(0);
+  expect(() => controller.update("missing", a.frame)).toThrow(
+    "Unknown visual mode"
+  );
+  expect(() => controller.draw("missing", a.canvas.ctx, a.frame)).toThrow(
+    "Unknown visual mode"
+  );
+});

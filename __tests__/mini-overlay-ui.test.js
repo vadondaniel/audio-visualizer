@@ -34,6 +34,10 @@ function setup() {
     "miniOverlayReturn",
     "miniOverlayBackgroundCheckbox",
     "miniOverlaySize",
+    "miniOverlayModeSelect",
+    "miniOverlayScaleSlider",
+    "miniOverlayOpacitySlider",
+    "miniOverlayFpsSelect",
   ])
     nodes.set(id, node(id, id !== "miniOverlayControls"));
   const body = node("body"),

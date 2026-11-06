@@ -263,7 +263,10 @@ test.each([0, 255])(
       renderProceduralBackground: background,
       updateFxLive: fx,
       syncMediaThemeColors: () => {},
-      visualModeController: { render },
+      visualModeController: { update: jest.fn(), draw: render },
+      effectiveVisualMode: () => "bars",
+      overlayDrawSchedule:
+        require("../src/overlay-display").createDrawSchedule(),
       prepareVisualFrame: () => {
         app.process();
         return app.frame;

@@ -23,6 +23,26 @@ restored at startup. `miniOverlayShowBackground` uses the existing renderer
 settings actions and saved-setting validation, independently of normal background
 settings.
 
+Overlay display controls use the same settings actions and persistence: scale
+50–200%, grouped picture opacity 10–100%, and a 15/30/60/120 FPS or unlimited
+canvas-drawing cap (60 by default). CSS scales only the presented mode canvas;
+the background and canvas share one opacity surface while controls remain outside
+it. These controls have no effect in the normal presentation.
+
+An independent mode is stored by registry ID; `follow` uses the normal numeric
+selection. One effective-mode resolver selects both audio profile and mode
+instance. Overlay number shortcuts affect its independent selection, while
+auto-cycle continues to change only the normal selection. Disabled selections
+fall back during the same mode-preferences action; unknown saved IDs use Follow.
+
+Audio acquisition, pipeline processing, beat/silence detection, and active-mode
+updates continue at animation-frame cadence. The scheduled drawing deadline gates
+mode drawing, procedural backgrounds, and trail capture/compositing. Backgrounds
+receive elapsed time between draws; trails retain real capture timestamps. The
+controller's `render` remains an update/draw compatibility composition. Canvas
+resizing and capture reset retain their existing lifecycle behavior; scale,
+opacity, and FPS edits do not clear simulation or trail history.
+
 Overlay presentation hides external metadata and full-screen effects without
 changing their preferences or media-art availability. Radial/Cascade artwork
 inside the mode remains part of the mode rendering. The centered hover toolbar
@@ -40,3 +60,5 @@ Unit tests cover policy, IPC ownership, bounds, settings, pointer gestures, and
 shutdown. The native lifecycle check requires explicit `--interactive`; see
 [verification commands](verification.md). Default verification cannot show or
 focus windows, and skipped interactive checks are reported separately.
+`npm run test:electron -- overlay-display` verifies display controls, effective
+profiles, grouped pixel opacity, and persistence in a hidden window.

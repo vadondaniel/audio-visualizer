@@ -25,7 +25,7 @@ runCheck(async ({ createWindow, loadRenderer, errors }) => {
       installInput();
       const render=id=>{
         state.mode=MODES.indexOf(id);clearFrame();
-        visualModeController.render(id,ctx,prepareVisualFrame(1000,1000/60,130,.5,.4,.3));
+        visualModeController.render(id,ctx,prepareVisualFrame(1000,1000/60));
       };
       const originalRotate=ctx.rotate.bind(ctx);const rotations=[];
       ctx.rotate=angle=>{rotations.push(angle);originalRotate(angle);};
@@ -45,15 +45,15 @@ runCheck(async ({ createWindow, loadRenderer, errors }) => {
       await image.decode();
       mediaState.thumbnailImage=image;mediaState.metadata={thumbnailDataUrl:image.src};
       state.mediaMetadataEnabled=true;state.mediaDisplay="cover-title-artist";
-      check(prepareVisualFrame(1000,16,0,0,0,0).mediaArt===image,"Host resolves valid cover");
+      check(prepareVisualFrame(1000,16).mediaArt===image,"Host resolves valid cover");
       const drawImage=ctx.drawImage.bind(ctx);let covers=0;
       ctx.drawImage=(...args)=>{if(args[0]===image)covers++;drawImage(...args);};
       render("radial");render("cascade");check(covers===2,"Radial and Cascade render the resolved cover");
       ctx.drawImage=drawImage;
       state.mediaDisplay="title";
-      check(prepareVisualFrame(1000,16,0,0,0,0).mediaArt===null,"Title-only display excludes the cover");
+      check(prepareVisualFrame(1000,16).mediaArt===null,"Title-only display excludes the cover");
       state.mediaDisplay="cover";state.mediaMetadataEnabled=false;
-      check(prepareVisualFrame(1000,16,0,0,0,0).mediaArt===null,"Disabled metadata excludes cover");
+      check(prepareVisualFrame(1000,16).mediaArt===null,"Disabled metadata excludes cover");
       cleanupAudioCapture();
     })()`);
   if (errors.length) throw Error(errors.join("\n"));

@@ -45,7 +45,8 @@ function loop(timestamp = performance.now()) {
   checkSilence();
 
   updateBeat(AudioPipeline.legacyBass(freqData), elapsedMs, dtSec);
-  const frame = prepareVisualFrame(timestamp, elapsedMs);
+  const modeId = effectiveVisualMode();
+  const frame = prepareVisualFrame(timestamp, elapsedMs, modeId);
   const { levels, motion, features, beatIntensity } = frame.signals;
   diagnosticCall("endAudio", audioTimer);
 
@@ -63,6 +64,20 @@ function loop(timestamp = performance.now()) {
     syncMediaThemeColors();
   }
 
+  const overlayActive =
+    typeof miniOverlayActive !== "undefined" && miniOverlayActive;
+  const presentation = overlayDrawSchedule.step(
+    timestamp,
+    overlayActive,
+    state.miniOverlayMaxFps
+  );
+  if (!presentation.draw) {
+    const updateTimer = diagnosticCall("beginRender");
+    visualModeController.update(modeId, frame);
+    diagnosticCall("endRender", updateTimer);
+    return;
+  }
+
   const clearTimer = diagnosticCall("beginClear");
   clearFrame();
   diagnosticCall("endClear", clearTimer);
@@ -70,7 +85,7 @@ function loop(timestamp = performance.now()) {
   const backgroundTimer = diagnosticCall("beginBackground");
   if (typeof renderProceduralBackground === "function") {
     renderProceduralBackground(
-      dtSec,
+      overlayActive ? Math.min(100, presentation.elapsedMs) / 1000 : dtSec,
       levels.bass,
       levels.mid,
       levels.treble,
@@ -89,7 +104,8 @@ function loop(timestamp = performance.now()) {
 
   const modeTimer = diagnosticCall("beginRender");
 
-  visualModeController.render(MODES[state.mode], ctx, frame);
+  visualModeController.update(modeId, frame);
+  visualModeController.draw(modeId, ctx, frame);
   diagnosticCall("endRender", modeTimer);
 
   const trailTimer = diagnosticCall("beginTrail");

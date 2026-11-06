@@ -113,7 +113,7 @@
  */
 /** @typedef {(services:Services)=>Mode} ModeFactory */
 /** @typedef {Services & {consumeBeat?:()=>void}} HostServices Only the controller may consume shared beat state. */
-/** @typedef {{render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,reset:()=>void}} ModeController */
+/** @typedef {{update:(id:string,frame:Frame)=>void,draw:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,render:(id:string,ctx:CanvasRenderingContext2D,frame:Frame)=>void,reset:()=>void}} ModeController */
 /** @typedef {Readonly<{sampler:string,count:number,release:number,threshold?:number,domain?:'db'|'amplitude'}>} AudioProfile */
 /** @typedef {Readonly<{group:'free'|'focus',defaultPosition:string,autoPlacement:string,overlayCover:boolean}>} MediaProfile */
 /** @typedef {Readonly<{id:string,label:string,modulePath:string,audio:AudioProfile,media:MediaProfile}>} ModeDefinition */
