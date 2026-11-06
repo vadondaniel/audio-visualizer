@@ -35,7 +35,13 @@ settingsBtn.addEventListener("click", (e) => {
 // Click-outside-to-dismiss: only cares about closing, never opening —
 // opening is settingsBtn/"S"'s job above.
 window.addEventListener("click", (e) => {
-  if (!panelOpen || modeManager.open || e.composedPath().includes(modeManager))
+  if (
+    !panelOpen ||
+    modeManager.open ||
+    themeManager.open ||
+    e.composedPath().includes(modeManager) ||
+    e.composedPath().includes(themeManager)
+  )
     return;
   if (settingsPanel.contains(e.target)) return;
   panelOpen = false;
@@ -438,6 +444,13 @@ window.addEventListener("keydown", (e) => {
     closeHotkeys();
     return;
   }
+  if (themeManager.open) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setThemeManagerOpen(false);
+    }
+    return;
+  }
   if (modeManager.open) {
     if (e.key === "Escape") {
       e.preventDefault();
@@ -449,7 +462,9 @@ window.addEventListener("keydown", (e) => {
   if (
     e.target instanceof Node &&
     (modeManager.contains(e.target) ||
-      (e.target === manageModesBtn && (e.key === " " || e.key === "Enter")))
+      themeManager.contains(e.target) ||
+      ((e.target === manageModesBtn || e.target === manageThemesBtn) &&
+        (e.key === " " || e.key === "Enter")))
   )
     return;
   flashHud();

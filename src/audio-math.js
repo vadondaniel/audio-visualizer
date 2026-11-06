@@ -172,6 +172,10 @@
       saved.theme < validThemeCount
     )
       state.theme = saved.theme;
+    if (Array.isArray(saved.themeOrder))
+      state.themeOrder = [...saved.themeOrder];
+    if (Array.isArray(saved.disabledThemes))
+      state.disabledThemes = [...saved.disabledThemes];
     if (typeof saved.colorGradientEnabled === "boolean")
       state.colorGradientEnabled = saved.colorGradientEnabled;
     if (typeof saved.autoCycle === "boolean") state.autoCycle = saved.autoCycle;

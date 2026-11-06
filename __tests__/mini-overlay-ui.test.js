@@ -71,6 +71,7 @@ function setup() {
     updatePanelVisibility: jest.fn(),
     closeHotkeys: jest.fn(),
     modeManager: { open: false },
+    themeManager: { open: false },
   };
   vm.runInNewContext(
     fs.readFileSync(path.join(__dirname, "../src/mini-overlay-ui.js"), "utf8"),

@@ -4,7 +4,8 @@ const modeList = require("../src/mode-list");
 const { setup: visualFixture } = require("./helpers/mode-fixture.cjs");
 
 function setup(overrides = {}) {
-  const state = Object.assign(visualFixture("bars").settings, overrides);
+  const fixture = visualFixture("bars");
+  const state = Object.assign(fixture.settings, overrides);
   const order = [];
   const effects = Object.fromEntries(
     [
@@ -13,6 +14,8 @@ function setup(overrides = {}) {
       "modeManager",
       "visualOptions",
       "theme",
+      "themeOptions",
+      "themeManager",
       "labels",
       "backgroundRows",
       "background",
@@ -35,7 +38,7 @@ function setup(overrides = {}) {
     state,
     registry,
     modeList,
-    themeCount: 14,
+    themeIds: fixture.constants.THEMES.map((theme) => theme.name),
     save,
     effects,
     timers,
@@ -73,6 +76,45 @@ test("state is complete before targeted synchronization and persistence runs las
   a.actions.set("sensitivity", 2.1);
   expect(a.order).toEqual(["syncControls", "labels", "save"]);
   expect(a.save).toHaveBeenCalledTimes(1);
+});
+
+test("theme preferences preserve canonical selection, cycle enabled order, and save once", () => {
+  const a = setup();
+  a.actions.setThemePreferences({
+    order: ["Ice", "Fire", "Neon"],
+    disabled: a.state.themeOrder.filter((id) => !["Ice", "Neon"].includes(id)),
+  });
+  expect(a.state.theme).toBe(0);
+  expect(a.save).toHaveBeenCalledTimes(1);
+  a.actions.cycleTheme();
+  expect(a.state.theme).toBe(3);
+  a.actions.cycleTheme();
+  expect(a.state.theme).toBe(0);
+  // Disabling the selected theme chooses the first enabled item.
+  a.save.mockClear();
+  a.actions.setThemePreferences({
+    order: ["Ice", "Fire", "Neon"],
+    disabled: ["Ice", "Neon"],
+  });
+  expect(a.state.theme).toBe(1);
+  expect(a.save).toHaveBeenCalledTimes(1);
+  expect(a.effects.themeOptions).toHaveBeenCalledTimes(2);
+});
+test("theme normalization deduplicates, appends additions, and keeps one theme enabled", () => {
+  const a = setup({
+    theme: 7,
+    themeOrder: ["Fire", "Fire", "unknown"],
+    disabledThemes: ["unknown", "Fire"],
+  });
+  a.actions.initialize();
+  expect(a.state.theme).toBe(7);
+  expect(a.state.themeOrder.slice(0, 2)).toEqual(["Fire", "Neon"]);
+  expect(a.state.disabledThemes).toEqual(["Fire"]);
+  expect(a.save).not.toHaveBeenCalled();
+  const order = [...a.state.themeOrder];
+  a.actions.setThemePreferences({ order, disabled: order });
+  expect(a.state.disabledThemes).not.toContain(order[0]);
+  expect(a.state.theme).toBe(1);
 });
 
 test("independent overlay selection and shortcuts leave normal selection and mode simulations alone", () => {

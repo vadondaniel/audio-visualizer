@@ -1,7 +1,7 @@
 // Settings commands own mutation and effects; UI adapters own DOM events and rendering.
 /** @typedef {'auto'|'above'|'below'|'top-left'|'top'|'top-right'|'right'|'bottom-right'|'bottom'|'bottom-left'|'left'} MediaPosition */
 /** @typedef {import('./visual-contracts').AudioSettings & import('./visual-contracts').VisualSettings & {autoCycle:boolean,miniOverlayShowBackground:boolean,miniOverlayScale:number,miniOverlayOpacity:number,miniOverlayMaxFps:0|15|30|60|120,bgType:'color'|'image'|'nebula'|'stars'|'grid',bgColor:string,bgBrightness:number,bgBlur:number,trailsEnabled:boolean,trailDuration:number,trailMaxFps:number,wakeLockEnabled:boolean,reactiveVignette:boolean,crtFilter:boolean,beatFlash:boolean,mediaMetadataEnabled:boolean,mediaDisplay:'title'|'title-artist'|'cover'|'cover-title'|'cover-title-artist'}} ScalarSettings */
-/** @typedef {ScalarSettings & {miniOverlayMode:string,mode:number,modeOrder:string[],disabledModes:string[],mediaTextPositions:Record<string,string>,bgImageDataUrl:string|null,bgImageName:string|null}} SettingsState */
+/** @typedef {ScalarSettings & {miniOverlayMode:string,mode:number,modeOrder:string[],disabledModes:string[],themeOrder:string[],disabledThemes:string[],mediaTextPositions:Record<string,string>,bgImageDataUrl:string|null,bgImageName:string|null}} SettingsState */
 /** @typedef {readonly (keyof SettingsState)[]} ChangedKeys */
 /**
  * @typedef {object} Effects
@@ -10,6 +10,8 @@
  * @property {()=>void} modeManager
  * @property {()=>void} visualOptions
  * @property {()=>void} theme
+ * @property {()=>void} themeOptions
+ * @property {()=>void} themeManager
  * @property {()=>void} labels
  * @property {()=>void} backgroundRows
  * @property {()=>void} background
@@ -22,7 +24,7 @@
  * @property {(enabled:boolean)=>void} mediaWatching
  * @property {()=>void} clearImageInput
  */
-/** @typedef {{state:SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeCount:number,save:()=>void,effects:Effects,timers:{setInterval:(callback:()=>void,delay:number)=>unknown,clearInterval:(id:unknown)=>void}}} Dependencies */
+/** @typedef {{state:SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],save:()=>void,effects:Effects,timers:{setInterval:(callback:()=>void,delay:number)=>unknown,clearInterval:(id:unknown)=>void}}} Dependencies */
 
 (function (root, build) {
   const api = build();
@@ -53,7 +55,7 @@
     state,
     registry,
     modeList,
-    themeCount,
+    themeIds,
     save,
     effects,
     timers,
@@ -94,11 +96,24 @@
       )
         state.mediaTextPositions[entry.id] = entry.media.defaultPosition;
     }
+    function normalizeThemes() {
+      const normalized = modeList.normalize(
+        themeIds,
+        state.themeOrder,
+        state.disabledThemes
+      );
+      state.themeOrder = normalized.modeOrder;
+      state.disabledThemes = normalized.disabledModes;
+      const enabled = modeList.enabled(state.themeOrder, state.disabledThemes);
+      if (!enabled.includes(themeIds[state.theme]))
+        state.theme = themeIds.indexOf(enabled[0]);
+    }
     /** @param {ChangedKeys} keys */
     function finish(keys) {
       /** @param {...(keyof SettingsState)} names */
       const has = (...names) => names.some((name) => keys.includes(name));
       const preferences = has("modeOrder", "disabledModes");
+      const themePreferences = has("themeOrder", "disabledThemes");
       const mode = preferences || has("mode");
       const theme = has("theme");
       const media =
@@ -112,6 +127,7 @@
         );
       if (media) normalizeMediaPosition();
       if (preferences) effects.modeOptions();
+      if (themePreferences) effects.themeOptions();
       effects.syncControls(keys);
       if (mode || theme) effects.visualOptions();
       if (theme) effects.theme();
@@ -155,6 +171,7 @@
         effects.mediaWatching(state.mediaMetadataEnabled);
       if (has("autoCycle")) scheduleCycle();
       if (preferences) effects.modeManager();
+      if (themePreferences) effects.themeManager();
       save();
     }
     /** @template {keyof ScalarSettings} K
@@ -197,7 +214,19 @@
       );
     }
     function cycleTheme() {
-      set("theme", (state.theme + 1) % themeCount);
+      const next = modeList.next(
+        state.themeOrder,
+        state.disabledThemes,
+        themeIds[state.theme]
+      );
+      set("theme", themeIds.indexOf(next));
+    }
+    /** @param {{order:readonly string[],disabled:readonly string[]}} preferences */
+    function setThemePreferences({ order, disabled }) {
+      state.themeOrder = [...order];
+      state.disabledThemes = [...disabled];
+      normalizeThemes();
+      finish(["themeOrder", "disabledThemes", "theme"]);
     }
     /** @param {{order:readonly string[],disabled:readonly string[]}} preferences */
     function setModePreferences({ order, disabled }) {
@@ -229,8 +258,10 @@
     }
     function initialize() {
       normalizeMode();
+      normalizeThemes();
       normalizeMediaPosition();
       effects.modeOptions();
+      effects.themeOptions();
       effects.syncControls("all");
       effects.visualOptions();
       effects.labels();
@@ -242,6 +273,7 @@
       effects.theme();
       effects.media();
       effects.modeManager();
+      effects.themeManager();
       scheduleCycle();
       if (state.mediaMetadataEnabled) effects.mediaWatching(true);
     }
@@ -253,6 +285,7 @@
       nextMode,
       cycleTheme,
       setModePreferences,
+      setThemePreferences,
       setMediaPosition,
       setBackgroundImage,
       clearBackgroundImage,

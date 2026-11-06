@@ -1,8 +1,8 @@
 # Settings actions
 
 `SettingsActions.create(dependencies)` owns interactive settings changes. It is
-DOM-free and receives the mutable state, mode registry/list helpers, theme count,
-persistence, timers, and named effect callbacks. Its JSDoc contracts and expected
+DOM-free and receives the mutable state, mode registry/list helpers, canonical
+theme names, persistence, timers, and named effect callbacks. Its JSDoc contracts and expected
 compiler-error fixtures are checked by `npm run check:types`.
 
 Use `set(key, value)` for an already-parsed scalar setting. Composite and derived
@@ -20,6 +20,12 @@ backgrounds, overlays, trail resets, wake locking, or media-watcher IPC. Duratio
 and FPS commands clear trails; disabling trails clears them; unrelated commands
 leave simulation history alone. Mode preferences retain canonical numeric
 selection and use the existing enabled-mode fallback.
+
+Color themes use saved name-based ordering and disabled preferences while the
+selected theme retains its canonical numeric index. `setThemePreferences` keeps
+at least one enabled and applies any selection fallback in one save; C follows
+enabled order. Mode and theme dialogs share drag, keyboard reorder, and focus
+handling through the preference-manager component.
 
 `settings-ui.js` adapts these effects to browser helpers and synchronizes only
 changed controls. File decoding, input parsing, dialog/focus handling, and drag

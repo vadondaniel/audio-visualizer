@@ -148,7 +148,7 @@ test.each([
       state: app.context.state,
       registry: require("../src/mode-registry"),
       modeList: require("../src/mode-list"),
-      themeCount: 14,
+      themeIds: ["Neon"],
       save: app.context.saveSettings,
       effects: new Proxy(
         {

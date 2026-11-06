@@ -98,7 +98,7 @@ const settingsActions = SettingsActions.create({
   state,
   registry: ModeRegistry,
   modeList: ModeList,
-  themeCount: THEMES.length,
+  themeIds,
   save: saveSettings,
   timers: {
     setInterval: (callback, delay) => window.setInterval(callback, delay),
@@ -128,6 +128,10 @@ const settingsActions = SettingsActions.create({
     theme: () => {
       applyThemeUiColors();
       restartUiAccentAnimation();
+    },
+    themeOptions: rebuildThemeOptions,
+    themeManager: () => {
+      if (themeManager.open) renderThemeManager();
     },
     labels: updateSliderLabels,
     backgroundRows: updateBgRowsVisibility,

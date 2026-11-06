@@ -122,6 +122,46 @@
       ></span>
     </dialog>
 
+    <dialog
+      id="themeManager"
+      class="modeManager"
+      aria-labelledby="themeManagerTitle"
+      aria-describedby="themeManagerHint"
+    >
+      <div class="modeManagerHeader">
+        <h2 id="themeManagerTitle">Color themes</h2>
+        <button
+          id="closeThemeManagerBtn"
+          class="modeDialogClose"
+          type="button"
+          aria-label="Close color themes"
+        >
+          &#x2715;
+        </button>
+      </div>
+      <p id="themeManagerHint" class="modeManagerHint">
+        Drag to reorder. Choose which themes appear in your list.
+      </p>
+      <ul
+        id="themeManagerList"
+        class="modeManagerList"
+        aria-label="Color theme order"
+      ></ul>
+      <div class="modeManagerFooter">
+        <span class="modeManagerHint"
+          >C cycles through enabled themes in this order.</span
+        >
+        <button id="doneThemeManagerBtn" class="modeDoneButton" type="button">
+          Done
+        </button>
+      </div>
+      <span
+        id="themeManagerStatus"
+        class="modeManagerStatus"
+        role="status"
+        aria-live="polite"
+      ></span>
+    </dialog>
     <!-- hotkeys modal -->
     <div
       id="hotkeysOverlay"
@@ -384,7 +424,19 @@
             </select>
           </div>
           <div class="field">
-            <label for="themeSelect">Color theme</label>
+            <div class="modeFieldHeader">
+              <label for="themeSelect">Color theme</label>
+              <button
+                id="manageThemesBtn"
+                class="modeManageButton"
+                type="button"
+                aria-expanded="false"
+                aria-controls="themeManager"
+                aria-haspopup="dialog"
+              >
+                Manage
+              </button>
+            </div>
             <select id="themeSelect"></select>
           </div>
           <div id="colorGradientRow" class="toggleRow">

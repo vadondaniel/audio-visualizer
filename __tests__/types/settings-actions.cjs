@@ -20,6 +20,9 @@ function checkActions(dependencies) {
   actions.nextMode();
   actions.cycleTheme();
   actions.setModePreferences({ order: ["bars"], disabled: [] });
+  actions.setThemePreferences({ order: ["Neon"], disabled: [] });
+  // @ts-expect-error Theme preferences use stable theme names.
+  actions.setThemePreferences({ order: [0], disabled: [] });
   actions.setMediaPosition("bars", "top-left");
   actions.setBackgroundImage({
     dataUrl: "data:image/png;base64,test",

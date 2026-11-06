@@ -689,6 +689,7 @@ body.mini-overlay #benchmarkHud,
 body.mini-overlay #startOverlay,
 body.mini-overlay #hotkeysOverlay,
 body.mini-overlay #modeManager,
+body.mini-overlay #themeManager,
 body.mini-overlay:not(.overlay-with-background) #bgLayer {
   visibility: hidden;
   pointer-events: none;

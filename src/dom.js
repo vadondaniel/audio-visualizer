@@ -134,9 +134,4 @@ resize();
 
 // ---------- populate dropdowns ----------
 // Mode options are populated from saved preferences by mode-controls.js.
-THEMES.forEach((theme, i) => {
-  const opt = document.createElement("option");
-  opt.value = i;
-  opt.textContent = theme.name;
-  themeSelect.appendChild(opt);
-});
+// Theme options are populated from saved preferences by theme-controls.js.

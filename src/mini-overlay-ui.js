@@ -53,6 +53,7 @@ let miniOverlayActive = false;
       updatePanelVisibility();
       closeHotkeys();
       if (modeManager.open) setModeManagerOpen(false);
+      if (themeManager.open) setThemeManagerOpen(false);
       showControls();
     }
     if (value.openSettings) {
