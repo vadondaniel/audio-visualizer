@@ -120,6 +120,49 @@ runCheck(
         assert.equal(controller.normal.isVisible(), true);
       }
       await contents.executeJavaScript("window.electronAPI.enterMiniOverlay()");
+      const displayArea = electron.screen.getPrimaryDisplay().bounds;
+      const partial = {
+        x: displayArea.x - 120,
+        y: displayArea.y - 100,
+        width: 360,
+        height: 320,
+      };
+      controller.setBounds({
+        ...partial,
+        operation: "move",
+        snapToEdges: false,
+      });
+      await waitFor(
+        "native overlay overhang",
+        () => controller.getBounds(),
+        (value) =>
+          Math.abs(value.x - partial.x) <= 2 &&
+          Math.abs(value.y - partial.y) <= 2
+      );
+      controller.restore();
+      controller.enter();
+      await waitFor(
+        "overhang retained on re-entry",
+        () => controller.getBounds(),
+        (value) =>
+          Math.abs(value.x - partial.x) <= 2 &&
+          Math.abs(value.y - partial.y) <= 2
+      );
+      const edgeRequest = {
+        x: displayArea.x - 8,
+        y: displayArea.y + 80,
+        width: 360,
+        height: 320,
+        operation: "move",
+        snapToEdges: true,
+      };
+      controller.setBounds(edgeRequest);
+      assert.ok(Math.abs(controller.getBounds().x - displayArea.x) <= 2);
+      controller.setBounds({ ...edgeRequest, x: displayArea.x - 13 });
+      assert.ok(Math.abs(controller.getBounds().x - (displayArea.x - 13)) <= 2);
+      controller.setBounds({ ...edgeRequest, snapToEdges: false });
+      assert.ok(Math.abs(controller.getBounds().x - (displayArea.x - 8)) <= 2);
+      controller.setBounds({ x: 80, y: 80, width: 360, height: 320 });
       await contents.executeJavaScript(`(async()=>{
       const cover=document.createElement('canvas');cover.width=cover.height=32;
       const paint=cover.getContext('2d');paint.fillStyle='#ff0000';paint.fillRect(0,0,32,32);

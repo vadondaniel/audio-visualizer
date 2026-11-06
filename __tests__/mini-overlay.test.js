@@ -153,6 +153,114 @@ test("bounds reject malformed input and clamp dimensions and placement", () => {
   ).toEqual({ x: 540, y: 30, width: 160, height: 600 });
 });
 
+test("bounds request metadata is validated before native movement", () => {
+  const { validBoundsRequest } = require("../src/mini-overlay");
+  const f = setup();
+  f.controller.enter();
+  const before = f.controller.getBounds();
+  for (const fields of [
+    { operation: "teleport" },
+    { operation: null },
+    { snapToEdges: 1 },
+    { snapToEdges: "yes" },
+    { aspectRatio: NaN },
+    { aspectRatio: "1" },
+  ]) {
+    const request = { x: -8, y: -8, width: 320, height: 320, ...fields };
+    expect(validBoundsRequest(request)).toBe(false);
+    f.controller.setBounds(request);
+    expect(f.controller.getBounds()).toEqual(before);
+  }
+  expect(
+    validBoundsRequest({
+      x: -8,
+      y: -8,
+      width: 320,
+      height: 320,
+      operation: "move",
+      snapToEdges: true,
+    })
+  ).toBe(true);
+  expect(validBoundsRequest({ x: -8, y: -8, width: 320, height: 320 })).toBe(
+    true
+  );
+});
+
+test("main controller snaps, releases, bypasses and persists overhang without gesture metadata", () => {
+  const f = setup();
+  f.controller.enter();
+  const request = {
+    x: -8,
+    y: -8,
+    width: 320,
+    height: 320,
+    operation: "move",
+    snapToEdges: true,
+  };
+  f.controller.setBounds(request);
+  expect(f.controller.getBounds()).toEqual({
+    x: 0,
+    y: 0,
+    width: 320,
+    height: 320,
+  });
+  f.controller.setBounds({ ...request, x: -13, y: -13 });
+  expect(f.controller.getBounds()).toEqual({
+    x: -13,
+    y: -13,
+    width: 320,
+    height: 320,
+  });
+  f.controller.setBounds({ ...request, snapToEdges: false });
+  expect(f.controller.getBounds()).toEqual({
+    x: -8,
+    y: -8,
+    width: 320,
+    height: 320,
+  });
+  f.controller.setBounds({ ...request, x: -272, y: 1032 });
+  const saved = { x: -272, y: 1032, width: 320, height: 320 };
+  expect(JSON.parse(fs.writeFileSync.mock.calls.at(-1)[1])).toEqual(saved);
+  const restored = setup({ saved });
+  restored.controller.enter();
+  expect(restored.controller.getBounds()).toEqual(saved);
+});
+
+test("display changes preserve usable overhang and recover windows from removed monitors", () => {
+  const f = setup({ saved: { x: -272, y: 100, width: 320, height: 320 } });
+  f.controller.enter();
+  f.screen.emit("display-metrics-changed");
+  expect(f.controller.getBounds()).toEqual({
+    x: -272,
+    y: 100,
+    width: 320,
+    height: 320,
+  });
+  f.area.x = 5000;
+  f.screen.emit("display-removed");
+  expect(f.controller.getBounds()).toEqual({
+    x: 5000,
+    y: 100,
+    width: 320,
+    height: 320,
+  });
+});
+
+test("main controller preserves native bounds when a ratio cannot fit at an off-screen anchor", () => {
+  const f = setup();
+  f.controller.enter();
+  const before = { x: -1700, y: -900, width: 1920, height: 1080 };
+  f.controller.setBounds(before);
+  f.controller.setBounds({
+    ...before,
+    width: 1080,
+    aspectRatio: 1,
+    operation: "resize",
+    snapToEdges: true,
+  });
+  expect(f.controller.getBounds()).toEqual(before);
+});
+
 test("placement may overlap the taskbar and restores there without being pushed into the work area", () => {
   const f = setup();
   f.controller.enter();

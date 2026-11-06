@@ -11,6 +11,30 @@ const Actions = require("../../src/settings-actions");
  * @param {import('../../src/renderer-entry').Bridge} bridge
  * @param {HTMLInputElement} input @param {HTMLSelectElement} select */
 function contracts(settings, overlay, tray, bridge, input, select) {
+  overlay.api.setMiniOverlayBounds({
+    x: -200,
+    y: -100,
+    width: 320,
+    height: 320,
+    operation: "move",
+    snapToEdges: false,
+  });
+  overlay.api.setMiniOverlayBounds({
+    x: 0,
+    y: 0,
+    width: 320,
+    height: 320,
+    // @ts-expect-error Gesture operations use the fixed move/resize union.
+    operation: "restore",
+  });
+  overlay.api.setMiniOverlayBounds({
+    x: 0,
+    y: 0,
+    width: 320,
+    height: 320,
+    // @ts-expect-error Magnetic snapping intent must be boolean.
+    snapToEdges: 1,
+  });
   const value = SettingsUI.valueBinding("sensitivity", input, (v) =>
     v.toFixed(1)
   );

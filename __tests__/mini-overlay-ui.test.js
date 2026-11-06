@@ -153,6 +153,8 @@ test("dragging any visual area moves the overlay without requiring a handle", as
     y: 100,
     width: 320,
     height: 300,
+    operation: "move",
+    snapToEdges: true,
   });
   await f.body.emit("pointerup", f.event(f.canvas));
   f.api.setMiniOverlayBounds.mockClear();
@@ -187,6 +189,8 @@ test("resize changes only size and pointer cancellation ends it", async () => {
     y: 80,
     width: 360,
     height: 325,
+    operation: "resize",
+    snapToEdges: true,
   });
   await grip.emit("pointercancel", f.event(grip));
   expect(label.hidden).toBe(true);
@@ -206,6 +210,8 @@ test("holding Shift snaps resize and releasing it restores free sizing", async (
     width: 480,
     height: 270,
     aspectRatio: 16 / 9,
+    operation: "resize",
+    snapToEdges: true,
   });
   await grip.emit("pointermove", {
     ...f.event(grip, 250, 70),
@@ -216,7 +222,54 @@ test("holding Shift snaps resize and releasing it restores free sizing", async (
     y: 80,
     width: 470,
     height: 270,
+    operation: "resize",
+    snapToEdges: true,
   });
+});
+
+test("Alt bypasses edge snapping for move/resize and preserves Shift aspect snapping", async () => {
+  const f = setup(),
+    grip = f.nodes.get("miniOverlayResize");
+  await f.body.emit("pointerdown", f.event(f.canvas));
+  await f.body.emit("pointermove", {
+    ...f.event(f.canvas, 80, 70),
+    altKey: true,
+  });
+  expect(f.api.setMiniOverlayBounds).toHaveBeenLastCalledWith({
+    x: 80,
+    y: 50,
+    width: 320,
+    height: 300,
+    operation: "move",
+    snapToEdges: false,
+  });
+  await f.body.emit("pointermove", {
+    ...f.event(f.canvas, 80, 70),
+    altKey: false,
+  });
+  expect(f.api.setMiniOverlayBounds.mock.calls.at(-1)[0].snapToEdges).toBe(
+    true
+  );
+  await f.body.emit("pointerup", f.event(f.canvas));
+  await grip.emit("pointerdown", f.event(grip));
+  await grip.emit("pointermove", {
+    ...f.event(grip, 260, 70),
+    shiftKey: true,
+    altKey: true,
+  });
+  expect(f.api.setMiniOverlayBounds).toHaveBeenLastCalledWith({
+    x: 100,
+    y: 80,
+    width: 480,
+    height: 270,
+    aspectRatio: 16 / 9,
+    operation: "resize",
+    snapToEdges: false,
+  });
+  await grip.emit("lostpointercapture", f.event(grip));
+  f.api.setMiniOverlayBounds.mockClear();
+  await grip.emit("pointermove", f.event(grip, 300, 100));
+  expect(f.api.setMiniOverlayBounds).not.toHaveBeenCalled();
 });
 
 test("live dimensions follow actual viewport resize and disappear when leaving or locking", async () => {

@@ -137,3 +137,9 @@ framing, manual zoom, full-size fitted trails, and state continuity on return.
 It waits for canvas resize completion and uses a 0.0001 tolerance for
 native Canvas matrix values to accommodate their Float32 precision. Screenshots and scenario records
 are retained with the run artifacts.
+
+`overlay-gestures` exercises pointer intent through the real preload/IPC boundary
+in a hidden renderer with a simulated native host. It covers magnetic release,
+Alt, Shift+Alt, off-screen anchors, cleanup, and lock rejection. Native placement
+and overhang/re-entry remain part of `mini-overlay --interactive`; hidden results
+do not establish foreground behavior on a particular Windows/DPI configuration.

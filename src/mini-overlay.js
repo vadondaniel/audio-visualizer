@@ -1,29 +1,16 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const IPC = require("./ipc-channels");
-const { ASPECT_RATIOS, fitSize } = require("./mini-overlay-math");
+const {
+  clampBounds,
+  resolveBounds,
+  recoverBounds,
+} = require("./mini-overlay-math");
 
 /** @typedef {{x:number,y:number,width:number,height:number}} Bounds */
-/** @typedef {Bounds & {aspectRatio?:number}} BoundsRequest */
+/** @typedef {Bounds & {aspectRatio?:number,operation?:"move"|"resize",snapToEdges?:boolean}} BoundsRequest */
 /** @typedef {{active:boolean,locked:boolean,canLock:boolean,openSettings:boolean,error:string|null}} Presentation */
 
-/** @param {Bounds} bounds @param {Bounds} area @returns {Bounds} */
-function clampBounds(bounds, area) {
-  const dimension = (value, limit) =>
-    Math.round(Math.min(limit, Math.max(Math.min(160, limit), value)));
-  const width = dimension(bounds.width, area.width);
-  const height = dimension(bounds.height, area.height);
-  return {
-    width,
-    height,
-    x: Math.round(
-      Math.max(area.x, Math.min(area.x + area.width - width, bounds.x))
-    ),
-    y: Math.round(
-      Math.max(area.y, Math.min(area.y + area.height - height, bounds.y))
-    ),
-  };
-}
 /** @param {unknown} value @returns {value is Bounds} */
 function validBounds(value) {
   return (
@@ -35,6 +22,22 @@ function validBounds(value) {
         Number.isFinite(value[key]) &&
         Math.abs(value[key]) <= 1000000
     )
+  );
+}
+
+/** @param {unknown} value @returns {value is BoundsRequest} */
+function validBoundsRequest(value) {
+  if (!validBounds(value)) return false;
+  const request = /** @type {BoundsRequest} */ (value);
+  return (
+    (request.operation === undefined ||
+      request.operation === "move" ||
+      request.operation === "resize") &&
+    (request.snapToEdges === undefined ||
+      typeof request.snapToEdges === "boolean") &&
+    (request.aspectRatio === undefined ||
+      (typeof request.aspectRatio === "number" &&
+        Number.isFinite(request.aspectRatio)))
   );
 }
 
@@ -157,7 +160,7 @@ function create({
     try {
       if (!overlay) {
         const area = screen.getDisplayMatching(normal.getBounds()).workArea;
-        const bounds = clampBounds(
+        const bounds = recoverBounds(
           saved || {
             width: 320,
             height: 320,
@@ -166,7 +169,8 @@ function create({
           },
           saved
             ? screen.getDisplayMatching(saved).bounds
-            : screen.getDisplayMatching(normal.getBounds()).bounds
+            : screen.getDisplayMatching(normal.getBounds()).bounds,
+          screen.getAllDisplays().map((display) => display.bounds)
         );
         overlay = new BaseWindow({
           ...bounds,
@@ -253,21 +257,28 @@ function create({
   }
   /** @param {BoundsRequest} value */
   function setBounds(value) {
-    if (!active || locked || !overlay || !validBounds(value)) return;
+    if (!active || locked || !overlay || !validBoundsRequest(value)) return;
     const area = screen.getDisplayMatching(value).bounds;
-    const ratio = value.aspectRatio;
-    const size =
-      typeof ratio === "number" && ASPECT_RATIOS.includes(ratio)
-        ? fitSize(value.width, value.height, ratio, area.width, area.height)
-        : { width: value.width, height: value.height };
-    overlay.setBounds(clampBounds({ ...value, ...size }, area));
+    const bounds = resolveBounds(
+      value,
+      area,
+      screen.getAllDisplays().map((display) => display.bounds)
+    );
+    if (!bounds) return;
+    overlay.setBounds(bounds);
     fit();
     persist();
   }
   function recoverDisplay() {
     if (!overlay || !saved) return;
     const area = screen.getDisplayMatching(saved).bounds;
-    overlay.setBounds(clampBounds(saved, area));
+    overlay.setBounds(
+      recoverBounds(
+        saved,
+        area,
+        screen.getAllDisplays().map((display) => display.bounds)
+      )
+    );
     persist();
   }
   function dispose() {
@@ -338,4 +349,10 @@ function registerIpc(ipcMain, getController, canEnter) {
     ipcMain.removeListener(IPC.OVERLAY_SET_BOUNDS, bounds);
   };
 }
-module.exports = { create, clampBounds, validBounds, registerIpc };
+module.exports = {
+  create,
+  clampBounds,
+  validBounds,
+  validBoundsRequest,
+  registerIpc,
+};

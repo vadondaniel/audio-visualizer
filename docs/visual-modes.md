@@ -106,6 +106,14 @@ do not retain their values as history without copying the data needed.
 
 ## Renderer initialization
 
+Mini-overlay gestures send explicit move/resize and edge-snap intent to the native
+controller. Shared placement math permits overhang while retaining a 48 × 48 DIP
+grab area on one monitor. Matching edges snap within 12 DIP; Alt bypasses that
+magnetism while Shift retains aspect-ratio resizing. Resize keeps its top-left
+anchor, raising minimum dimensions when needed; an infeasible ratio is rejected.
+Saved overhang remains in place when recoverable, and lost positions recover fully
+onto an available monitor. Full monitor bounds include taskbar areas.
+
 Renderer adapters are composed in `renderer-entry.js` after all module definitions
 load. Settings, overlay, and tray factories have passive `create(dependencies)`
 methods, guarded `start()` methods, and idempotent `dispose()` methods. The

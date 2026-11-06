@@ -164,16 +164,18 @@
         const dx = event.screenX - gesture.x,
           dy = event.screenY - gesture.y;
         const bounds = gesture.bounds;
-        api.setMiniOverlayBounds(
-          resizing
+        api.setMiniOverlayBounds({
+          ...(resizing
             ? {
                 ...bounds,
                 ...(event.shiftKey
                   ? snapSize(bounds.width + dx, bounds.height + dy)
                   : { width: bounds.width + dx, height: bounds.height + dy }),
               }
-            : { ...bounds, x: bounds.x + dx, y: bounds.y + dy }
-        );
+            : { ...bounds, x: bounds.x + dx, y: bounds.y + dy }),
+          operation: resizing ? "resize" : "move",
+          snapToEdges: !event.altKey,
+        });
       });
       for (const name of /** @type {const} */ ([
         "pointerup",
