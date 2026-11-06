@@ -227,12 +227,56 @@ test("lock cancellation leaves input enabled; confirmation completes before clic
     buttons: ["Cancel", "Lock"],
   });
   const menu = f.tray.setContextMenu.mock.calls.at(-1)[0];
-  menu[0].click();
+  menu.find((item) => item.label === "Unlock mini overlay").click();
   expect(f.controller.snapshot()).toMatchObject({
     active: true,
     locked: false,
   });
   expect(f.windows[1].setIgnoreMouseEvents).toHaveBeenLastCalledWith(false);
+});
+
+test("tray choices reflect enabled order and selection without unlocking or restoring", async () => {
+  const f = setup();
+  const settings = {
+    modes: [
+      { id: "prism", label: "Prism" },
+      { id: "bars", label: "Bars" },
+    ],
+    themes: [
+      { id: "Ice", label: "Ice" },
+      { id: "Neon", label: "Neon" },
+    ],
+    mode: "bars",
+    theme: "Ice",
+  };
+  f.controller.setTraySettings(settings);
+  expect(f.controller.contents.send).not.toHaveBeenCalled();
+  f.controller.enter();
+  f.dialog.showMessageBox.mockResolvedValue({ response: 1 });
+  await f.controller.lock();
+  const menu = () => f.tray.setContextMenu.mock.calls.at(-1)[0];
+  const modes = menu().find((item) => item.label === "Visual mode").submenu;
+  expect(modes.map((item) => [item.label, item.checked])).toEqual([
+    ["Prism", false],
+    ["Bars", true],
+  ]);
+  modes[0].click();
+  expect(f.controller.contents.send).toHaveBeenLastCalledWith("tray-select", {
+    kind: "mode",
+    id: "prism",
+  });
+  menu()
+    .find((item) => item.label === "Color theme")
+    .submenu[1].click();
+  expect(f.controller.contents.send).toHaveBeenLastCalledWith("tray-select", {
+    kind: "theme",
+    id: "Neon",
+  });
+  expect(f.controller.snapshot()).toMatchObject({ active: true, locked: true });
+  const calls = f.tray.setContextMenu.mock.calls.length;
+  f.controller.setTraySettings({ ...settings, mode: "unknown" });
+  f.controller.setTraySettings({ ...settings, themes: null });
+  expect(f.tray.setContextMenu).toHaveBeenCalledTimes(calls);
 });
 test("restoring during a pending confirmation cannot lock the normal window", async () => {
   const f = setup();

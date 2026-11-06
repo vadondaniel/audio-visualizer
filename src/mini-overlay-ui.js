@@ -39,6 +39,7 @@ let miniOverlayActive = false;
     )
       overlayDrawSchedule.resetDeadline();
     miniOverlayActive = value.active;
+    if (typeof syncTraySettings === "function") syncTraySettings();
     locked = value.locked;
     if (!value.active || value.locked) showSize(false);
     document.body.classList.toggle("mini-overlay", value.active);

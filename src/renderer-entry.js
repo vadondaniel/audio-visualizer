@@ -65,6 +65,7 @@
       "ui.js",
       "mini-overlay-math.js",
       "mini-overlay-ui.js",
+      "tray-controls.js",
     ])
       await loadScript(path);
   }

@@ -76,7 +76,7 @@ Click **Mini overlay** beside the settings gear for a small, always-on-top
 visualizer. Drag it to move and hover for controls. Enable **Mini overlay →
 Show background** in Settings to use your configured background instead of
 transparency. If you lock the overlay to click through it, use the Audio Visualizer
-tray icon to unlock it or return to the normal window.
+tray icon to unlock it, change the visual mode or color theme, or return to the normal window.
 
 ## Settings panel
 

@@ -6,6 +6,7 @@ const { ASPECT_RATIOS, fitSize } = require("./mini-overlay-math");
 /** @typedef {{x:number,y:number,width:number,height:number}} Bounds */
 /** @typedef {Bounds & {aspectRatio?:number}} BoundsRequest */
 /** @typedef {{active:boolean,locked:boolean,canLock:boolean,openSettings:boolean,error:string|null}} Presentation */
+/** @typedef {{modes:{id:string,label:string}[],themes:{id:string,label:string}[],mode:string,theme:string}} TraySettings */
 
 /** @param {Bounds} bounds @param {Bounds} area @returns {Bounds} */
 function clampBounds(bounds, area) {
@@ -81,6 +82,46 @@ function create({
   let overlay = null;
   /** @type {import('electron').Tray|null} */
   let tray = null;
+  /** @type {TraySettings} */
+  let traySettings = { modes: [], themes: [], mode: "", theme: "" };
+  /** @param {TraySettings} value */
+  function setTraySettings(value) {
+    const validItems = (items) =>
+      Array.isArray(items) &&
+      items.length > 0 &&
+      items.length <= 100 &&
+      items.every(
+        (item) =>
+          item &&
+          typeof item.id === "string" &&
+          typeof item.label === "string" &&
+          item.id.length <= 100 &&
+          item.label.length <= 100
+      ) &&
+      new Set(items.map((item) => item.id)).size === items.length;
+    if (
+      !value ||
+      !validItems(value.modes) ||
+      !validItems(value.themes) ||
+      !value.modes.some((item) => item.id === value.mode) ||
+      !value.themes.some((item) => item.id === value.theme)
+    )
+      return;
+    traySettings = value;
+    refreshTrayMenu();
+  }
+  /** @param {'mode'|'theme'} kind @param {{id:string,label:string}[]} items */
+  function choices(kind, items) {
+    return items.map(({ id, label }) => ({
+      label,
+      type: /** @type {const} */ ("radio"),
+      checked: traySettings[kind] === id,
+      click: () => {
+        if (!contents.isDestroyed())
+          contents.send(IPC.TRAY_SELECT, { kind, id });
+      },
+    }));
+  }
   /** @type {Bounds|null} */
   let saved = null;
   let active = false,
@@ -104,9 +145,24 @@ function create({
   function publish(openSettings = false, error = null) {
     const result = snapshot(openSettings, error);
     if (!contents.isDestroyed()) contents.send(IPC.OVERLAY_STATE, result);
+    refreshTrayMenu();
+    return result;
+  }
+  function refreshTrayMenu() {
     if (tray)
       tray.setContextMenu(
         Menu.buildFromTemplate([
+          {
+            label: "Visual mode",
+            enabled: traySettings.modes.length > 0,
+            submenu: choices("mode", traySettings.modes),
+          },
+          {
+            label: "Color theme",
+            enabled: traySettings.themes.length > 0,
+            submenu: choices("theme", traySettings.themes),
+          },
+          { type: "separator" },
           {
             label: "Unlock mini overlay",
             enabled: active && locked,
@@ -117,7 +173,6 @@ function create({
           { label: "Quit", click: onQuit },
         ])
       );
-    return result;
   }
   function fit() {
     const host = active ? overlay : normal;
@@ -326,6 +381,7 @@ function create({
     setBounds,
     getBounds: () => overlay?.getBounds() || null,
     snapshot,
+    setTraySettings,
     dispose,
   };
 }
@@ -355,9 +411,14 @@ function registerIpc(ipcMain, getController, canEnter) {
     if (owned(event)) getController()?.setBounds(value);
   };
   ipcMain.on(IPC.OVERLAY_SET_BOUNDS, bounds);
+  const settings = (event, value) => {
+    if (owned(event)) getController()?.setTraySettings(value);
+  };
+  ipcMain.on(IPC.TRAY_SETTINGS, settings);
   return () => {
     for (const channel of Object.keys(handlers)) ipcMain.removeHandler(channel);
     ipcMain.removeListener(IPC.OVERLAY_SET_BOUNDS, bounds);
+    ipcMain.removeListener(IPC.TRAY_SETTINGS, settings);
   };
 }
 module.exports = { create, clampBounds, validBounds, registerIpc };

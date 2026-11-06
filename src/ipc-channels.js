@@ -5,6 +5,8 @@ const IPC = Object.freeze({
   GET_PERFORMANCE_METRICS: "get-performance-metrics",
   SET_MEDIA_METADATA_ENABLED: "set-media-metadata-enabled",
   MEDIA_METADATA: "media-metadata",
+  TRAY_SETTINGS: "tray-settings",
+  TRAY_SELECT: "tray-select",
   OVERLAY_ENTER: "overlay-enter",
   OVERLAY_RESTORE: "overlay-restore",
   OVERLAY_LOCK: "overlay-lock",

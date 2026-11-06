@@ -4,6 +4,14 @@ const IPC = require("./ipc-channels");
 contextBridge.exposeInMainWorld("electronAPI", {
   isPackaged: process.argv.includes("--app-packaged=true"),
   miniOverlaySupported: process.argv.includes("--mini-overlay-supported"),
+  /** @param {import('./mini-overlay').TraySettings} settings */
+  setTraySettings: (settings) => ipcRenderer.send(IPC.TRAY_SETTINGS, settings),
+  /** @param {(selection:{kind:'mode'|'theme',id:string})=>void} callback */
+  onTraySelect: (callback) => {
+    const listener = (_event, selection) => callback(selection);
+    ipcRenderer.on(IPC.TRAY_SELECT, listener);
+    return () => ipcRenderer.removeListener(IPC.TRAY_SELECT, listener);
+  },
   toggleFullscreen: () => ipcRenderer.send(IPC.TOGGLE_FULLSCREEN),
   toggleAlwaysOnTop: () => ipcRenderer.send(IPC.TOGGLE_ALWAYS_ON_TOP),
   quit: () => ipcRenderer.send(IPC.QUIT_APP),

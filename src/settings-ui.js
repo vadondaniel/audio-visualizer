@@ -61,6 +61,22 @@ const settingsControlBindings = {
 
 /** @param {import('./settings-actions').ChangedKeys|'all'} keys */
 function syncSettingsControls(keys) {
+  if (
+    typeof syncTraySettings === "function" &&
+    (keys === "all" ||
+      keys.some((key) =>
+        [
+          "mode",
+          "miniOverlayMode",
+          "theme",
+          "modeOrder",
+          "disabledModes",
+          "themeOrder",
+          "disabledThemes",
+        ].includes(key)
+      ))
+  )
+    syncTraySettings();
   document.body.classList.toggle(
     "overlay-with-background",
     state.miniOverlayShowBackground
