@@ -9,6 +9,21 @@ const {
 } = require("../src/audio-math");
 const { formatAudioCaptureError } = require("../src/audio");
 
+test("overlay background restoration validates booleans and preserves the old default", () => {
+  const defaults = { miniOverlayShowBackground: false };
+  expect(mergeSettings(defaults, {}, 11, 14).miniOverlayShowBackground).toBe(
+    false
+  );
+  expect(
+    mergeSettings(defaults, { miniOverlayShowBackground: "true" }, 11, 14)
+      .miniOverlayShowBackground
+  ).toBe(false);
+  expect(
+    mergeSettings(defaults, { miniOverlayShowBackground: true }, 11, 14)
+      .miniOverlayShowBackground
+  ).toBe(true);
+});
+
 describe("formatAudioCaptureError", () => {
   test.each([
     ["NotAllowedError", "Audio capture was blocked."],

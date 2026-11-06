@@ -4,6 +4,9 @@ function checkActions(dependencies) {
   const actions = Actions.create(dependencies);
   actions.set("sensitivity", 1.5);
   actions.set("valueHandling", "logarithmic");
+  actions.set("miniOverlayShowBackground", true);
+  // @ts-expect-error Background visibility is a boolean setting.
+  actions.set("miniOverlayShowBackground", "transparent");
   actions.selectMode("bars");
   actions.nextMode();
   actions.cycleTheme();

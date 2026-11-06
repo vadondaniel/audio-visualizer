@@ -70,6 +70,14 @@ The 11 visual styles are: **bars**, **radial spectrum**, **waveform**,
 mirrored rope with outward bars), and **prism** (radial bands with connected peaks
 inside and outside a circle).
 
+### Mini overlay
+
+Click **Mini overlay** beside the settings gear for a small, always-on-top
+visualizer. Drag it to move and hover for controls. Enable **Mini overlay →
+Show background** in Settings to use your configured background instead of
+transparency. If you lock the overlay to click through it, use the Audio Visualizer
+tray icon to unlock it or return to the normal window.
+
 ## Settings panel
 
 Click the gear icon (top-right) or press `S` to open it. Like the control

@@ -285,6 +285,7 @@ test("cleanup failures stop further checks and return nonzero", async () => {
 test("benchmark presets are bounded while custom benchmark options remain literal", () => {
   const [smoke] = buildChecks(["benchmark-smoke"]);
   expect(smoke.timeoutMs).toBe(60000);
+  expect(smoke.interactiveOnly).toBe(true);
   expect(smoke.args).toEqual([
     "modes=particles,tunnel,orbit,prism",
     "scenarios=mixed",
@@ -307,4 +308,63 @@ test("benchmark presets are bounded while custom benchmark options remain litera
   expect(() => buildChecks(["electron", "not-a-check"])).toThrow(
     /Unknown Electron/
   );
+});
+
+test("foreground desktop checks require explicit interactive selection", () => {
+  expect(
+    buildChecks(["electron"]).every((check) => check.interactive === false)
+  ).toBe(true);
+  const selected = buildChecks(["electron", "--interactive", "mini-overlay"]);
+  expect(selected).toHaveLength(1);
+  expect(selected[0]).toMatchObject({
+    name: "mini-overlay",
+    interactive: true,
+  });
+  expect(buildChecks(["benchmark-smoke", "--interactive"])[0].interactive).toBe(
+    true
+  );
+});
+test("interactive skips are reported separately and do not count as passes or failures", async () => {
+  const a = launch();
+  a.process.close(77);
+  expect(await a.promise).toMatchObject({
+    status: "skipped",
+    code: 77,
+    skipReason: expect.stringContaining("--interactive"),
+  });
+  expect(runner.exitCode([{ status: "skipped" }, { status: "passed" }])).toBe(
+    0
+  );
+  expect(runner.exitCode([{ status: "skipped" }, { status: "failed" }])).toBe(
+    1
+  );
+});
+
+test("desktop-only checks are skipped before spawning Electron unless explicitly opted in", async () => {
+  const run = jest.fn().mockResolvedValue({ status: "passed", code: 0 });
+  const check = {
+    name: "desktop",
+    entry: "desktop.cjs",
+    args: [],
+    interactiveOnly: true,
+    interactive: false,
+  };
+  const background = await runner.runChecks([check], {
+    executable: "electron",
+    runDirectory: root,
+    run,
+  });
+  expect(run).not.toHaveBeenCalled();
+  expect(background.results[0]).toMatchObject({
+    status: "skipped",
+    skipReason: expect.stringContaining("--interactive"),
+  });
+  const foreground = await runner.runChecks([{ ...check, interactive: true }], {
+    executable: "electron",
+    runDirectory: root,
+    run,
+  });
+  expect(run).toHaveBeenCalledTimes(1);
+  expect(run.mock.calls[0][0].env.AV_VERIFICATION_INTERACTIVE).toBe("1");
+  expect(foreground.exitCode).toBe(0);
 });

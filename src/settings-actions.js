@@ -1,6 +1,6 @@
 // Settings commands own mutation and effects; UI adapters own DOM events and rendering.
 /** @typedef {'auto'|'above'|'below'|'top-left'|'top'|'top-right'|'right'|'bottom-right'|'bottom'|'bottom-left'|'left'} MediaPosition */
-/** @typedef {import('./visual-contracts').AudioSettings & import('./visual-contracts').VisualSettings & {autoCycle:boolean,bgType:'color'|'image'|'nebula'|'stars'|'grid',bgColor:string,bgBrightness:number,bgBlur:number,trailsEnabled:boolean,trailDuration:number,trailMaxFps:number,wakeLockEnabled:boolean,reactiveVignette:boolean,crtFilter:boolean,beatFlash:boolean,mediaMetadataEnabled:boolean,mediaDisplay:'title'|'title-artist'|'cover'|'cover-title'|'cover-title-artist'}} ScalarSettings */
+/** @typedef {import('./visual-contracts').AudioSettings & import('./visual-contracts').VisualSettings & {autoCycle:boolean,miniOverlayShowBackground:boolean,bgType:'color'|'image'|'nebula'|'stars'|'grid',bgColor:string,bgBrightness:number,bgBlur:number,trailsEnabled:boolean,trailDuration:number,trailMaxFps:number,wakeLockEnabled:boolean,reactiveVignette:boolean,crtFilter:boolean,beatFlash:boolean,mediaMetadataEnabled:boolean,mediaDisplay:'title'|'title-artist'|'cover'|'cover-title'|'cover-title-artist'}} ScalarSettings */
 /** @typedef {ScalarSettings & {mode:number,modeOrder:string[],disabledModes:string[],mediaTextPositions:Record<string,string>,bgImageDataUrl:string|null,bgImageName:string|null}} SettingsState */
 /** @typedef {readonly (keyof SettingsState)[]} ChangedKeys */
 /**

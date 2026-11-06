@@ -5,6 +5,10 @@ const settingsControlBindings = {
   bgColor: [bgColorInput, "value"],
   bgBrightness: [brightnessSlider, "value"],
   bgBlur: [blurSlider, "value"],
+  miniOverlayShowBackground: [
+    document.getElementById("miniOverlayBackgroundCheckbox"),
+    "checked",
+  ],
   smoothingEnabled: [smoothingCheckbox, "checked"],
   radialMode: [
     radialMirroredCheckbox,
@@ -45,6 +49,10 @@ const settingsControlBindings = {
 
 /** @param {import('./settings-actions').ChangedKeys|'all'} keys */
 function syncSettingsControls(keys) {
+  document.body.classList.toggle(
+    "overlay-with-background",
+    state.miniOverlayShowBackground
+  );
   for (const key of keys === "all"
     ? Object.keys(settingsControlBindings)
     : keys) {

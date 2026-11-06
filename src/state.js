@@ -17,6 +17,7 @@ const state = {
   bgImageName: null,
   bgBrightness: 1,
   bgBlur: 0,
+  miniOverlayShowBackground: false,
   smoothingEnabled: true,
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
@@ -52,6 +53,7 @@ const PERSISTED_KEYS = [
   "bgImageName",
   "bgBrightness",
   "bgBlur",
+  "miniOverlayShowBackground",
   "mode",
   "modeOrder",
   "disabledModes",

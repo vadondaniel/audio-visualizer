@@ -61,6 +61,8 @@
       "mode-controls.js",
       "settings-ui.js",
       "ui.js",
+      "mini-overlay-math.js",
+      "mini-overlay-ui.js",
     ])
       await loadScript(path);
   }

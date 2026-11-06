@@ -120,6 +120,29 @@ runCheck(async ({ createWindow, loadRenderer, errors, artifactDir }) => {
     );
   }
   if (errors.length) throw Error(errors.join("\n"));
+  // Check overlay toolbar layout without creating or focusing a native overlay.
+  for (const size of [320, 180]) {
+    window.setContentSize(size, size);
+    await window.webContents.executeJavaScript(`(()=>{
+      document.body.classList.add('mini-overlay','overlay-controls-visible');
+      const controls=document.getElementById('miniOverlayControls');controls.hidden=false;
+      const box=controls.getBoundingClientRect();
+      if(Math.abs((box.left+box.right)/2-innerWidth/2)>1||Math.abs((box.top+box.bottom)/2-innerHeight/2)>1)throw Error('Overlay toolbar must be centered');
+      if(box.left<0||box.right>innerWidth||box.top<0||box.bottom>innerHeight)throw Error('Overlay controls clipped');
+      const grip=document.getElementById('miniOverlayResize');grip.hidden=false;
+      const appearance=getComputedStyle(grip);
+      if(appearance.backgroundColor!=='rgb(22, 22, 28)'||appearance.color!=='rgb(255, 255, 255)')throw Error('Resize grip must use opaque high-contrast colors: '+appearance.backgroundColor+' / '+appearance.color);
+      document.getElementById('bgLayer').style.backgroundColor='#fff';
+      document.body.classList.add('overlay-with-background');
+      const size=document.getElementById('miniOverlaySize');size.hidden=false;size.textContent=innerWidth+' × '+innerHeight+' px';
+      document.body.classList.add('overlay-resizing');
+    })()`);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    fs.writeFileSync(
+      path.join(artifactDir, `overlay-resize-light-${size}.png`),
+      (await window.webContents.capturePage()).toPNG()
+    );
+  }
   console.log(
     "PASS: settings controls, shortcut parity, single-save/media effects, legacy restoration, image input/clear, persistence, and desktop/narrow media positions"
   );

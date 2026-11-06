@@ -1,10 +1,9 @@
 const {
   app,
-  BrowserWindow,
+  BaseWindow,
   session,
   desktopCapturer,
   ipcMain,
-  screen,
 } = require("electron");
 const path = require("path");
 const fs = require("fs");
@@ -12,8 +11,11 @@ const IPC = require("./ipc-channels");
 const { toggleAlwaysOnTop } = require("./window-state");
 const { spawn } = require("child_process");
 const { acquireSingleInstance } = require("./single-instance");
+const MiniOverlay = require("./mini-overlay");
 
 let mainWindow;
+let presentation;
+let rendererContents;
 let rendererReady = false;
 let rendererLoadGeneration = 0;
 let mediaWatcher = null;
@@ -78,15 +80,15 @@ function startMediaWatcher() {
         const metadata = JSON.parse(text);
         if (
           !rendererReady ||
-          !mainWindow ||
-          mainWindow.isDestroyed() ||
-          mainWindow.webContents.isLoading()
+          !rendererContents ||
+          rendererContents.isDestroyed() ||
+          rendererContents.isLoading()
         ) {
           pendingMediaMetadata.push(metadata);
           if (pendingMediaMetadata.length > 4) pendingMediaMetadata.shift();
           continue;
         }
-        mainWindow.webContents.send(IPC.MEDIA_METADATA, metadata);
+        rendererContents.send(IPC.MEDIA_METADATA, metadata);
       } catch (err) {
         console.warn("Invalid media watcher JSON:", err.message, text);
       }
@@ -108,19 +110,19 @@ function startMediaWatcher() {
   });
 }
 
-async function finishRendererStartup(window) {
+async function finishRendererStartup(contents) {
   const generation = rendererLoadGeneration;
   try {
-    await window.webContents.executeJavaScript("window.rendererReady");
+    await contents.executeJavaScript("window.rendererReady");
     if (
-      mainWindow !== window ||
-      window.isDestroyed() ||
+      rendererContents !== contents ||
+      contents.isDestroyed() ||
       generation !== rendererLoadGeneration
     )
       return;
     rendererReady = true;
     for (const metadata of pendingMediaMetadata)
-      window.webContents.send(IPC.MEDIA_METADATA, metadata);
+      contents.send(IPC.MEDIA_METADATA, metadata);
     pendingMediaMetadata = [];
   } catch (error) {
     console.error("Renderer initialization failed:", error.message);
@@ -128,49 +130,28 @@ async function finishRendererStartup(window) {
 }
 
 function createWindow() {
-  const displays = screen.getAllDisplays();
-  // If there's a second monitor, open the window there by default.
-  const target = displays.length > 1 ? displays[1] : displays[0];
-
-  mainWindow = new BrowserWindow({
-    x: target.bounds.x + 40,
-    y: target.bounds.y + 40,
-    width: 1280,
-    height: 720,
-    backgroundColor: "#000000",
-    autoHideMenuBar: true,
+  presentation = MiniOverlay.create({
+    electron: require("electron"),
+    preload: path.join(__dirname, "preload.js"),
     icon: path.join(__dirname, "icon.png"),
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      additionalArguments: [`--app-packaged=${app.isPackaged}`],
-      contextIsolation: true,
-      nodeIntegration: false,
-      // Electron defaults this to true since v20. Sandboxed preload scripts
-      // only get a small allowlist of require()-able built-ins — a local
-      // relative-path module like "./ipc-channels" isn't one of them, so it
-      // silently fails, contextBridge.exposeInMainWorld never runs, and
-      // window.electronAPI ends up undefined in the renderer (breaking
-      // fullscreen/always-on-top/quit with no visible error). contextIsolation
-      // + nodeIntegration:false already give the renderer proper isolation,
-      // so turning sandbox off here doesn't weaken that — it just lets the
-      // preload script's own require() calls resolve normally.
-      sandbox: false,
-    },
+    packaged: app.isPackaged,
+    preferencesPath: path.join(app.getPath("userData"), "mini-overlay.json"),
+    onQuit: () => app.quit(),
   });
-
-  mainWindow.loadFile(path.join(__dirname, "index.html"));
-
-  const loadingWindow = mainWindow;
+  mainWindow = presentation.normal;
+  rendererContents = presentation.contents;
+  const loadingContents = rendererContents;
   rendererReady = false;
-  mainWindow.webContents.on("did-start-loading", () => {
-    if (mainWindow === loadingWindow) {
+  rendererContents.on("did-start-loading", () => {
+    if (rendererContents === loadingContents) {
       rendererReady = false;
       rendererLoadGeneration++;
     }
   });
-  mainWindow.webContents.on("did-finish-load", () =>
-    finishRendererStartup(loadingWindow)
+  rendererContents.on("did-finish-load", () =>
+    finishRendererStartup(loadingContents)
   );
+  rendererContents.loadFile(path.join(__dirname, "index.html"));
 
   // This is what lets us grab system-wide desktop audio (WASAPI loopback on
   // Windows) without any virtual-cable software. The renderer calls
@@ -219,7 +200,12 @@ function buildMediaWatcher() {
   });
 }
 
-if (acquireSingleInstance(app, () => mainWindow)) {
+if (
+  acquireSingleInstance(app, () => {
+    presentation?.restore();
+    return mainWindow;
+  })
+) {
   app
     .whenReady()
     .then(async () => {
@@ -236,16 +222,17 @@ if (acquireSingleInstance(app, () => mainWindow)) {
   });
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BaseWindow.getAllWindows().length === 0) createWindow();
+    else presentation?.restore();
   });
 
   ipcMain.on(IPC.TOGGLE_FULLSCREEN, () => {
-    if (!mainWindow) return;
+    if (!mainWindow || presentation?.snapshot().active) return;
     mainWindow.setFullScreen(!mainWindow.isFullScreen());
   });
 
   ipcMain.on(IPC.TOGGLE_ALWAYS_ON_TOP, () => {
-    if (!mainWindow) return;
+    if (!mainWindow || presentation?.snapshot().active) return;
     toggleAlwaysOnTop(mainWindow);
   });
 
@@ -255,10 +242,23 @@ if (acquireSingleInstance(app, () => mainWindow)) {
 
   ipcMain.handle(IPC.GET_PERFORMANCE_METRICS, () => app.getAppMetrics());
 
+  MiniOverlay.registerIpc(
+    ipcMain,
+    () => presentation,
+    async () => {
+      if (!rendererReady || !rendererContents || rendererContents.isDestroyed())
+        return false;
+      return rendererContents.executeJavaScript(
+        "!!analyser && !!audioCtx && audioCtx.state === 'running'"
+      );
+    }
+  );
+
   ipcMain.on(IPC.SET_MEDIA_METADATA_ENABLED, (_event, enabled) => {
     if (enabled) startMediaWatcher();
     else stopMediaWatcher();
   });
 
   app.on("before-quit", stopMediaWatcher);
+  app.on("before-quit", () => presentation?.dispose());
 }

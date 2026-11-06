@@ -78,6 +78,26 @@ test("packaged startup does not rebuild the bundled helper", async () => {
   expect(context.createWindow).toHaveBeenCalledTimes(1);
 });
 
+test("second launch restores the normal presentation before focusing it", async () => {
+  const { app, context, evaluate } = loadMain({ packaged: true });
+  await Promise.resolve();
+  const restore = jest.fn();
+  const window = {
+    isDestroyed: () => false,
+    isMinimized: () => false,
+    show: jest.fn(),
+    focus: jest.fn(),
+  };
+  context.testController = { restore };
+  context.testWindow = window;
+  evaluate("presentation=testController;mainWindow=testWindow;");
+  app.on.mock.calls.find((call) => call[0] === "second-instance")[1]();
+  expect(restore).toHaveBeenCalledTimes(1);
+  expect(restore.mock.invocationCallOrder[0]).toBeLessThan(
+    window.focus.mock.invocationCallOrder[0]
+  );
+});
+
 test.each(["nonzero exit", "spawn error"])(
   "a helper build failure stops startup: %s",
   async (failure) => {
@@ -98,6 +118,7 @@ test("media metadata stays queued until the asynchronous renderer is ready", asy
   const window = {
     isDestroyed: () => false,
     webContents: {
+      isDestroyed: () => false,
       executeJavaScript: jest.fn(
         () =>
           new Promise((resolve) => {
@@ -108,8 +129,10 @@ test("media metadata stays queued until the asynchronous renderer is ready", asy
     },
   };
   context.testWindow = window;
-  evaluate('mainWindow=testWindow;pendingMediaMetadata=[{title:"queued"}];');
-  const pending = context.finishRendererStartup(window);
+  evaluate(
+    'rendererContents=testWindow.webContents;pendingMediaMetadata=[{title:"queued"}];'
+  );
+  const pending = context.finishRendererStartup(window.webContents);
   expect(window.webContents.send).not.toHaveBeenCalled();
   evaluate('pendingMediaMetadata.push({title:"later"});');
   ready();
@@ -124,13 +147,16 @@ test("a failed renderer does not flush queued metadata", async () => {
   const window = {
     isDestroyed: () => false,
     webContents: {
+      isDestroyed: () => false,
       executeJavaScript: jest.fn().mockRejectedValue(Error("load failed")),
       send: jest.fn(),
     },
   };
   context.testWindow = window;
-  evaluate('mainWindow=testWindow;pendingMediaMetadata=[{title:"queued"}];');
-  await context.finishRendererStartup(window);
+  evaluate(
+    'rendererContents=testWindow.webContents;pendingMediaMetadata=[{title:"queued"}];'
+  );
+  await context.finishRendererStartup(window.webContents);
   expect(window.webContents.send).not.toHaveBeenCalled();
   expect(evaluate("rendererReady")).toBe(false);
   expect(context.console.error).toHaveBeenCalled();

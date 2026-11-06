@@ -614,7 +614,8 @@ body {
 }
 
 /* ---------- settings trigger ---------- */
-#settingsBtn {
+#settingsBtn,
+.miniOverlayEntry {
   position: absolute;
   top: var(--edge-gap);
   right: var(--edge-gap);
@@ -644,6 +645,133 @@ body {
 
 #settingsBtn.visible {
   opacity: 1;
+}
+
+.miniOverlayEntry {
+  right: calc(var(--edge-gap) + 46px);
+}
+
+body:has(#settingsBtn.visible) .miniOverlayEntry {
+  opacity: 1;
+}
+
+.miniOverlayEntry[hidden] {
+  display: none;
+}
+
+body.mini-overlay,
+html:has(body.mini-overlay) {
+  background: transparent;
+}
+
+body.mini-overlay #hud,
+body.mini-overlay #settingsBtn,
+body.mini-overlay #miniOverlayBtn,
+body.mini-overlay #settingsPanel,
+body.mini-overlay #mediaOverlay,
+body.mini-overlay #fxOverlay,
+body.mini-overlay #benchmarkHud,
+body.mini-overlay #startOverlay,
+body.mini-overlay #hotkeysOverlay,
+body.mini-overlay #modeManager,
+body.mini-overlay:not(.overlay-with-background) #bgLayer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.miniOverlayControls,
+.miniOverlayResize {
+  position: fixed;
+  z-index: var(--z-panel);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+.miniOverlayControls {
+  display: flex;
+  gap: 4px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--glass-fill-strong);
+  border: 1px solid var(--hairline);
+}
+
+.miniOverlayControls button,
+.miniOverlayResize {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  background: var(--surface-input);
+  color: var(--ink);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.miniOverlayControls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+body.mini-overlay {
+  --overlay-control-fill: #16161c;
+  --overlay-control-ink: #fff;
+  cursor: move;
+  touch-action: none;
+}
+
+body.overlay-resizing::after {
+  content: "";
+  position: fixed;
+  inset: 1px;
+  z-index: var(--z-panel);
+  border: 2px solid #fff;
+  box-shadow:
+    inset 0 0 0 1px #000,
+    0 0 0 1px #000;
+  pointer-events: none;
+}
+
+.miniOverlaySize {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-panel);
+  padding: 4px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--overlay-control-fill);
+  color: var(--overlay-control-ink);
+  font: var(--fs-xs) var(--font-mono);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.miniOverlayResize {
+  bottom: 6px;
+  right: 6px;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: var(--overlay-control-fill);
+  color: var(--overlay-control-ink);
+  border-color: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.75);
+}
+
+body.mini-overlay.overlay-controls-visible .miniOverlayControls,
+body.mini-overlay.overlay-controls-visible .miniOverlayResize,
+body.mini-overlay .miniOverlayControls:focus-within,
+body.mini-overlay .miniOverlayResize:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.miniOverlayControls[hidden],
+.miniOverlayResize[hidden] {
+  display: none;
 }
 
 #settingsBtn:hover {

@@ -4,6 +4,21 @@ Run commands from the repository root after installing the existing development
 dependencies. No release build or media-watcher rebuild is required for these
 JavaScript and Electron checks.
 
+Electron checks run in hidden, non-focusable windows by default. Checks that
+require native foreground windows are reported as **skipped**, not passed. Use
+`npm run test:electron -- --interactive mode-manager mini-overlay` when desktop
+interaction is convenient. The flag is required even when selecting a native
+check explicitly; it is never enabled by an inherited environment variable.
+Desktop-only entrypoints start with `// @verification-interactive` and also
+declare `requiresDesktop` to the harness. The runner records their skip before
+launching Electron; the harness independently guards direct invocations.
+
+`npm run test:electron -- --interactive mini-overlay` checks the shared live renderer across
+normal and transparent native hosts, synthetic audio continuity, overlay layers,
+window bounds, lock confirmation, tray recovery, and background preferences.
+Native desktop interaction should also be checked over another window when
+changing the overlay's window or input policy.
+
 | Command                   | Coverage                                                    |
 | ------------------------- | ----------------------------------------------------------- |
 | `npm test`                | Existing Jest entrypoint; normal Jest arguments still work. |
@@ -18,8 +33,8 @@ JavaScript and Electron checks.
 
 Desktop checks are separate from `check`: they need a working graphical Windows
 session and GPU. Bass-sensitivity checks use muted synthetic Web Audio; they do
-not take over playback or require a microphone. Some checks briefly show a window
-to exercise native input. The single-instance check launches its own secondary
+not take over playback or require a microphone. Only explicitly interactive
+checks may show windows or take focus. The single-instance check launches its own secondary
 process and does not interact with an existing application instance.
 
 Select Electron checks by their entrypoint basename, for example:
@@ -70,11 +85,15 @@ synthetic audio, one repeat, 250 ms warmup and 1 second measurement per mode.
 Tracing and operation counting are disabled. It always closes its window and has
 a 60-second process timeout. This verifies execution and output, not a performance
 budget: display refresh, GPU load, and scheduling affect short timing samples.
+Benchmarks require a visible window to collect meaningful frame timings, so the
+runner skips them unless `--interactive` is explicitly supplied. Use
+`npm run benchmark:smoke -- --interactive` when a foreground run is convenient.
+Hidden execution is not reported as a successful performance measurement.
 
 Custom measurements retain the normal benchmark's options and measurement logic:
 
 ```powershell
-npm run benchmark -- modes=orbit,prism scenarios=mixed repeats=2 duration=3000 trace=false
+npm run benchmark -- --interactive modes=orbit,prism scenarios=mixed repeats=2 duration=3000 trace=false
 ```
 
 Use `key=value` arguments for reliable forwarding through npm on Windows. Normal

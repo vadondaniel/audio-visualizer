@@ -1,3 +1,4 @@
+// @verification-interactive
 const { runCheck } = require("./helpers/electron-harness.cjs");
 // Run with: npm run test:electron -- mode-manager
 
@@ -231,5 +232,6 @@ runCheck(
         if (modeManager.open) throw Error("Backdrop closes the dialog");
       })()`);
     }
-  }
+  },
+  { requiresDesktop: true }
 );

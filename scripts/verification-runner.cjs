@@ -18,6 +18,9 @@ function discoverChecks(directory = path.join(projectRoot, "__tests__")) {
       entry: path.join(directory, file),
       args: [],
       timeoutMs: 45000,
+      interactiveOnly: fs
+        .readFileSync(path.join(directory, file), "utf8")
+        .startsWith("// @verification-interactive"),
     }));
 }
 function selectChecks(checks, names) {
@@ -110,7 +113,19 @@ function runProcess(
       signal?.removeEventListener("abort", abort);
       resolve({
         pid: child?.pid,
-        status: reason || (error || code !== 0 ? "failed" : "passed"),
+        status:
+          reason ||
+          (error
+            ? "failed"
+            : code === 77
+              ? "skipped"
+              : code !== 0
+                ? "failed"
+                : "passed"),
+        skipReason:
+          code === 77
+            ? "Requires explicit --interactive desktop verification"
+            : undefined,
         code,
         error: error?.message,
         cleanupError,
@@ -163,7 +178,9 @@ function exitCode(results, interrupted = false) {
     results.some((result) => result.status === "interrupted")
     ? 130
     : results.some(
-          (result) => result.status !== "passed" || result.cleanupError
+          (result) =>
+            !["passed", "skipped"].includes(result.status) ||
+            result.cleanupError
         )
       ? 1
       : 0;
@@ -191,7 +208,22 @@ async function runChecks(
     fs.mkdirSync(artifacts, { recursive: true });
     const log = path.join(directory, "output.log");
     fs.writeFileSync(log, "");
+    if (check.interactiveOnly && !check.interactive) {
+      const skipReason = "Requires explicit --interactive desktop verification";
+      fs.writeFileSync(log, `SKIP: ${skipReason}\n`);
+      results.push({
+        name: check.name,
+        status: "skipped",
+        skipReason,
+        elapsedMs: 0,
+        log,
+        artifacts,
+      });
+      console.log(`\n${check.name}: skipped (${skipReason})`);
+      continue;
+    }
     const childEnv = electronEnvironment(env, directory);
+    childEnv.AV_VERIFICATION_INTERACTIVE = check.interactive ? "1" : "0";
     console.log(`\nRunning ${check.name}`);
     const start = Date.now();
     const result = await run({
@@ -236,7 +268,7 @@ async function runChecks(
     JSON.stringify(summary, null, 2)
   );
   console.log(
-    `\n${results.filter((result) => result.status === "passed").length}/${checks.length} passed. Results: ${runDirectory}`
+    `\n${results.filter((result) => result.status === "passed").length}/${checks.length} passed; ${results.filter((result) => result.status === "skipped").length} skipped. Results: ${runDirectory}`
   );
   return summary;
 }

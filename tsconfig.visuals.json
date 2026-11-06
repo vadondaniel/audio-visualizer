@@ -19,6 +19,9 @@
     "src/mode-registry.js",
     "src/mode-runtime.js",
     "src/settings-actions.js",
+    "src/mini-overlay.js",
+    "src/mini-overlay-math.js",
+    "src/preload.js",
     "src/visuals/*.js",
     "__tests__/types/*.cjs",
     "types/visual-globals.d.ts"

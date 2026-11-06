@@ -162,6 +162,8 @@ test("loader waits for each module, caches readiness and starts dependents only 
     "mode-controls.js",
     "settings-ui.js",
     "ui.js",
+    "mini-overlay-math.js",
+    "mini-overlay-ui.js",
   ]);
 });
 test("missing modules and missing registrations prevent dependent startup", async () => {

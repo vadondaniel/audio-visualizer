@@ -43,6 +43,26 @@ function setup(overrides = {}) {
   return { state, actions, effects, save, order, timers };
 }
 
+test("overlay background is one persisted action without changing normal visual settings", () => {
+  const a = setup({
+    miniOverlayShowBackground: false,
+    bgType: "grid",
+    bgColor: "#123456",
+  });
+  a.actions.set("miniOverlayShowBackground", true);
+  expect(a.state).toMatchObject({
+    miniOverlayShowBackground: true,
+    bgType: "grid",
+    bgColor: "#123456",
+  });
+  expect(a.effects.syncControls).toHaveBeenCalledWith([
+    "miniOverlayShowBackground",
+  ]);
+  expect(a.effects.background).not.toHaveBeenCalled();
+  expect(a.effects.resetTrails).not.toHaveBeenCalled();
+  expect(a.save).toHaveBeenCalledTimes(1);
+});
+
 test("state is complete before targeted synchronization and persistence runs last", () => {
   const a = setup();
   a.effects.syncControls.mockImplementation((keys) => {

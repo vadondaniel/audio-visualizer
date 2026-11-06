@@ -379,16 +379,18 @@ window.addEventListener("mousemove", flashHud);
 
 // Pause the auto-hide countdown while hovering the HUD, gear button, or
 // open settings panel, and resume a fresh countdown on mouse-leave.
-[settingsBtn, settingsPanel].forEach((el) => {
-  el.addEventListener("mouseenter", () => {
-    hoveringPersistentUI = true;
-    flashHud();
-  });
-  el.addEventListener("mouseleave", () => {
-    hoveringPersistentUI = false;
-    flashHud();
-  });
-});
+[settingsBtn, settingsPanel, document.getElementById("miniOverlayBtn")].forEach(
+  (el) => {
+    el.addEventListener("mouseenter", () => {
+      hoveringPersistentUI = true;
+      flashHud();
+    });
+    el.addEventListener("mouseleave", () => {
+      hoveringPersistentUI = false;
+      flashHud();
+    });
+  }
+);
 
 // ---------- hotkeys modal ----------
 function openHotkeys() {
@@ -422,6 +424,15 @@ const KEY_ACTIONS = {
 };
 
 window.addEventListener("keydown", (e) => {
+  if (typeof miniOverlayActive !== "undefined" && miniOverlayActive) {
+    const key = e.key.toLowerCase();
+    if (["escape", "s", "f", "t"].includes(key)) {
+      e.preventDefault();
+      if (key === "escape" || key === "s")
+        window.electronAPI.restoreNormalWindow(key === "s");
+      return;
+    }
+  }
   // Let Escape close the hotkeys modal first before potentially quitting.
   if (e.key === "Escape" && hotkeysOverlay.classList.contains("visible")) {
     closeHotkeys();

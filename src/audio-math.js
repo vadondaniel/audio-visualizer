@@ -177,6 +177,8 @@
     if (typeof saved.autoCycle === "boolean") state.autoCycle = saved.autoCycle;
     if (typeof saved.smoothingEnabled === "boolean")
       state.smoothingEnabled = saved.smoothingEnabled;
+    if (typeof saved.miniOverlayShowBackground === "boolean")
+      state.miniOverlayShowBackground = saved.miniOverlayShowBackground;
     if (saved.radialMode === "mirrored" || saved.radialMode === "full")
       state.radialMode = saved.radialMode;
     if (typeof saved.kaleidoClipEnabled === "boolean")

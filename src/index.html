@@ -186,6 +186,73 @@
       </div>
     </div>
 
+    <button
+      id="miniOverlayBtn"
+      class="miniOverlayEntry"
+      title="Mini overlay"
+      aria-label="Mini overlay"
+    >
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.8"
+      >
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <rect x="12" y="11" width="7" height="6" rx="1" />
+      </svg>
+    </button>
+    <div
+      id="miniOverlayControls"
+      class="miniOverlayControls"
+      aria-label="Mini overlay controls"
+      hidden
+    >
+      <button id="miniOverlaySettings" title="Settings" aria-label="Settings">
+        ⚙
+      </button>
+      <button
+        id="miniOverlayLock"
+        title="Lock overlay"
+        aria-label="Lock overlay"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+        >
+          <rect x="5" y="10" width="14" height="11" rx="2" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+        </svg>
+      </button>
+      <button
+        id="miniOverlayReturn"
+        title="Return to normal"
+        aria-label="Return to normal"
+      >
+        ↗
+      </button>
+    </div>
+    <button
+      id="miniOverlayResize"
+      class="miniOverlayResize"
+      aria-label="Resize overlay"
+      title="Resize overlay (hold Shift to snap aspect ratio)"
+      hidden
+    >
+      ◢
+    </button>
+    <output
+      id="miniOverlaySize"
+      class="miniOverlaySize"
+      aria-label="Overlay dimensions"
+      hidden
+    ></output>
     <button id="settingsBtn" data-tooltip="Settings">
       <svg
         width="18"
@@ -593,6 +660,18 @@
         </div>
       </div>
 
+      <div id="miniOverlaySection" class="settingsSection collapsed">
+        <div class="settingsSectionTitle">Mini overlay</div>
+        <div class="sectionContent">
+          <div class="toggleRow">
+            <label for="miniOverlayBackgroundCheckbox">Show background</label>
+            <input id="miniOverlayBackgroundCheckbox" type="checkbox" />
+          </div>
+          <p class="bassSensitivityHint">
+            Use your configured background in the mini overlay.
+          </p>
+        </div>
+      </div>
       <!-- ── Effects & Post-Processing ── -->
       <div class="settingsSection collapsed">
         <div class="settingsSectionTitle">

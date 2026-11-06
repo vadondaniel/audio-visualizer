@@ -7,7 +7,9 @@ const {
 } = require("./verification-runner.cjs");
 
 function buildChecks(argv) {
-  const [command, ...args] = argv;
+  const [command, ...provided] = argv;
+  const interactive = provided.includes("--interactive");
+  const args = provided.filter((value) => value !== "--interactive");
   let checks;
   if (command === "electron") checks = selectChecks(discoverChecks(), args);
   else if (command === "benchmark" || command === "benchmark-smoke") {
@@ -21,6 +23,7 @@ function buildChecks(argv) {
         name: command,
         entry: path.join(projectRoot, "benchmarks/benchmark.js"),
         timeoutMs: smoke ? 60000 : null,
+        interactiveOnly: true,
         args: smoke
           ? [
               "modes=particles,tunnel,orbit,prism",
@@ -36,7 +39,7 @@ function buildChecks(argv) {
       },
     ];
   } else throw Error("Expected electron, benchmark, or benchmark-smoke");
-  return checks;
+  return checks.map((check) => ({ ...check, interactive }));
 }
 async function main(argv = process.argv.slice(2)) {
   const checks = buildChecks(argv);

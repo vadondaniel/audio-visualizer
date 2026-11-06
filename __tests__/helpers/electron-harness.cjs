@@ -6,7 +6,17 @@ const {
 } = require("../../scripts/verification-paths.cjs");
 // This also sets inherited profile variables for the single-instance secondary.
 const paths = configureProfile(app);
-function runCheck(check) {
+const interactive =
+  process.env.AV_VERIFICATION_INTERACTIVE === "1" ||
+  process.argv.includes("--interactive");
+function runCheck(check, { requiresDesktop = false } = {}) {
+  if (requiresDesktop && !interactive) {
+    console.log(
+      "SKIP: this check opens native windows; rerun with --interactive when convenient."
+    );
+    app.whenReady().then(() => app.quit());
+    return;
+  }
   const windows = new Set(),
     errors = [],
     allowances = new Map();
@@ -16,11 +26,15 @@ function runCheck(check) {
     withRenderer = true,
     ...options
   } = {}) {
+    if (!interactive && options.show)
+      throw Error("Visible verification windows require --interactive");
     const window = new BrowserWindow({
       show: false,
       width: 1280,
       height: 720,
       ...options,
+      show: interactive && options.show === true,
+      focusable: interactive,
       webPreferences: {
         ...(withRenderer
           ? {
@@ -34,6 +48,20 @@ function runCheck(check) {
         ...options.webPreferences,
       },
     });
+    if (!interactive) {
+      for (const method of [
+        "show",
+        "showInactive",
+        "focus",
+        "moveTop",
+        "restore",
+        "maximize",
+        "setFullScreen",
+      ])
+        window[method] = () => {
+          throw Error(`${method} requires --interactive verification`);
+        };
+    }
     windows.add(window);
     window.webContents.on("console-message", (event) => {
       if (
@@ -105,6 +133,7 @@ function runCheck(check) {
           throw Error(`Unexpected renderer errors:\n${errors.join("\n")}`);
       } catch (error) {
         console.error(error);
+        if (errors.length) console.error(errors.join("\n"));
         failed = true;
       } finally {
         cleaning = true;
