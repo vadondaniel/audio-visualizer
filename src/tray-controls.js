@@ -1,12 +1,17 @@
-/** @typedef {{setTraySettings:(value:import('./tray-controller').TraySettings)=>void,onTraySelect:(callback:(selection:import('./tray-controller').Selection)=>void)=>()=>void}} NativeApi */
-/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],settingsActions:ReturnType<typeof import('./settings-actions').create>,isActive:()=>boolean,api:NativeApi}} Dependencies */
+// Typed renderer boundary; no legacy capture globals are available here.
+/** @typedef {{setTraySettings:(value:import('./tray-controller').TraySettings)=>void,onTraySelect:(callback:(selection:import('./tray-controller').Selection)=>void)=>()=>void}} TrayNativeApi */
+/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],settingsActions:ReturnType<typeof import('./settings-actions').create>,isActive:()=>boolean,api:TrayNativeApi}} Dependencies */
+/** @typedef {{start:()=>void,dispose:()=>void,sync:()=>void}} Adapter */
 
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.TrayControls = api;
 })(globalThis, function () {
-  /** @param {Dependencies} dependencies */
+  /** @param {Dependencies} dependencies @returns {Adapter} */
   function create({
     state,
     registry,
@@ -17,17 +22,19 @@
     api,
   }) {
     let started = false,
-      disposed = false,
-      unsubscribe;
+      disposed = false;
+    /** @type {(()=>void)|undefined} */
+    let unsubscribe;
     function sync() {
       if (!started || disposed) return;
       api.setTraySettings({
         modes: modeList
           .enabled(state.modeOrder, state.disabledModes)
-          .map((id) => ({
-            id,
-            label: registry.get(id).label,
-          })),
+          .map((id) => {
+            const entry = registry.get(id);
+            if (!entry) throw Error(`Unknown visual mode: ${id}`);
+            return { id, label: entry.label };
+          }),
         themes: modeList
           .enabled(state.themeOrder, state.disabledThemes)
           .map((id) => ({

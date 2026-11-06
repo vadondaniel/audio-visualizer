@@ -213,8 +213,8 @@ test("settings adapter construction does not touch DOM, effects, or persistence"
     element = { value: 0 };
   const adapter = SettingsUI.create({
     state: { sensitivity: 1.8 },
-    document: { body: { classList: { toggle } } },
-    bindings: { sensitivity: [element, "value"] },
+    elements: { body: { classList: { toggle } } },
+    bindings: [SettingsUI.valueBinding("sensitivity", element, String)],
     resetDrawDeadline: reset,
     effects: {},
   });
@@ -223,7 +223,7 @@ test("settings adapter construction does not touch DOM, effects, or persistence"
   adapter.start();
   adapter.start();
   adapter.sync(["sensitivity"]);
-  expect(element.value).toBe(1.8);
+  expect(element.value).toBe("1.8");
   expect(toggle).toHaveBeenCalledTimes(1);
   adapter.dispose();
   adapter.dispose();
@@ -231,4 +231,59 @@ test("settings adapter construction does not touch DOM, effects, or persistence"
   adapter.sync(["sensitivity"]);
   expect(toggle).toHaveBeenCalledTimes(1);
   expect(reset).not.toHaveBeenCalled();
+});
+
+test("typed bindings preserve conversions and synchronize only affected controls", () => {
+  const state = {
+    sensitivity: 1.8,
+    smoothingEnabled: true,
+    radialMode: "full",
+    miniOverlayScale: 1.5,
+    miniOverlayOpacity: 0.5,
+    miniOverlayShowBackground: false,
+  };
+  const gain = { value: "" },
+    smooth = { checked: false },
+    mirror = { checked: false };
+  const setProperty = jest.fn(),
+    resetDrawDeadline = jest.fn();
+  const elements = {
+    body: { classList: { toggle: jest.fn() }, style: { setProperty } },
+    scaleLabel: { textContent: "" },
+    opacityLabel: { textContent: "" },
+  };
+  const controls = SettingsUI.create({
+    state,
+    elements,
+    resetDrawDeadline,
+    effects: {},
+    bindings: [
+      SettingsUI.valueBinding("sensitivity", gain, (value) => value.toFixed(1)),
+      SettingsUI.checkboxBinding("smoothingEnabled", smooth, (value) => value),
+      SettingsUI.checkboxBinding(
+        "radialMode",
+        mirror,
+        (value) => value === "mirrored"
+      ),
+    ],
+  });
+  controls.start();
+  controls.sync("all");
+  expect(gain.value).toBe("1.8");
+  expect(smooth.checked).toBe(true);
+  expect(mirror.checked).toBe(false);
+  expect(elements.scaleLabel.textContent).toBe("150%");
+  expect(elements.opacityLabel.textContent).toBe("50%");
+  expect(setProperty).toHaveBeenCalledWith("--mini-overlay-scale", "1.5");
+  expect(setProperty).toHaveBeenCalledWith("--mini-overlay-opacity", "0.5");
+  state.sensitivity = 2.2;
+  state.smoothingEnabled = false;
+  state.radialMode = "mirrored";
+  controls.sync(["sensitivity"]);
+  expect(gain.value).toBe("2.2");
+  expect(smooth.checked).toBe(true);
+  controls.sync(["smoothingEnabled", "radialMode"]);
+  expect(smooth.checked).toBe(false);
+  expect(mirror.checked).toBe(true);
+  expect(resetDrawDeadline).toHaveBeenCalledTimes(1);
 });

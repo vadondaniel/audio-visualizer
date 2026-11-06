@@ -1,10 +1,16 @@
-/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').NativeApi & import('./tray-controls').NativeApi>,restore:()=>void,save:()=>void,bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
+// Typed renderer boundary; no legacy capture globals are available here.
+/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>,restore:()=>void,save:()=>void,bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
 
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else {
-    const button = document.getElementById("startBtn");
+    const button = /** @type {HTMLButtonElement} */ (
+      document.getElementById("startBtn")
+    );
     button.disabled = true;
     root.rendererReady = api
       .initialize(root.ModeRegistry, api.scriptLoader(document), () =>
@@ -21,27 +27,32 @@
       () => {
         button.disabled = false;
       },
-      (error) => {
-        const message = document.getElementById("errorMsg");
-        message.textContent = `Could not initialize visualizer: ${error.message}`;
+      /** @param {unknown} error */ (error) => {
+        const message = /** @type {HTMLElement} */ (
+          document.getElementById("errorMsg")
+        );
+        message.textContent = `Could not initialize visualizer: ${error instanceof Error ? error.message : String(error)}`;
         message.classList.add("startupError");
         console.error(error);
       }
     );
   }
 })(globalThis, function () {
+  /** @param {Document} document @returns {(src:string)=>Promise<void>} */
   function scriptLoader(document) {
+    const view = document.defaultView;
+    if (!view) throw Error("Renderer document has no window");
     return (src) =>
       new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = src;
         script.async = false;
-        const view = document.defaultView;
         const cleanup = () => {
           view.removeEventListener("error", onError);
           script.onload = null;
           script.onerror = null;
         };
+        /** @param {ErrorEvent} event */
         const onError = (event) => {
           if (event.filename === script.src) {
             cleanup();
@@ -60,6 +71,8 @@
         document.body.appendChild(script);
       });
   }
+  /** @param {import('./visual-contracts').Registry} registry
+   * @param {(src:string)=>Promise<void>} loadScript @param {()=>unknown} [start] */
   async function initialize(registry, loadScript, start = () => {}) {
     await registry.loadFactories(loadScript);
     for (const path of [
@@ -81,8 +94,11 @@
     return start();
   }
   // Optional desktop capabilities are selected once, outside the adapters.
+  /** @param {Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>} [api]
+   * @returns {import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi} */
   function nativeCapabilities(api) {
     const noop = () => {};
+    /** @returns {Promise<import('./mini-overlay').Presentation>} */
     const normal = () =>
       Promise.resolve({
         active: false,
@@ -135,6 +151,7 @@
     SettingsActions,
     bridge,
   }) {
+    /** @type {Array<{dispose:()=>void}>} */
     const owned = [];
     let disposed = false;
     function dispose() {
@@ -154,10 +171,11 @@
       bridge.restore();
       const settings = SettingsUI.create(bridge.settings);
       owned.push(settings);
-      let tray,
-        presentationReady = false;
+      /** @type {ReturnType<typeof TrayControls.create>|undefined} */
+      let tray;
+      let presentationReady = false;
       const syncTray = () => {
-        if (presentationReady && !disposed) tray.sync();
+        if (presentationReady && !disposed && tray) tray.sync();
       };
       const actions = SettingsActions.create({
         state: bridge.state,
@@ -167,7 +185,9 @@
         save: bridge.save,
         timers: {
           setInterval: (fn, delay) => bridge.window.setInterval(fn, delay),
-          clearInterval: (id) => bridge.window.clearInterval(id),
+          clearInterval: (id) => {
+            if (typeof id === "number") bridge.window.clearInterval(id);
+          },
         },
         effects: {
           ...settings.effects,

@@ -1,8 +1,16 @@
-/** @typedef {import('./mini-overlay').Presentation} Presentation */
-/** @typedef {{miniOverlaySupported:boolean,onMiniOverlayState:(callback:(state:Presentation)=>void)=>()=>void,getMiniOverlayState:()=>Promise<Presentation>,enterMiniOverlay:()=>Promise<Presentation>,restoreNormalWindow:(settings?:boolean)=>Promise<Presentation>,lockMiniOverlay:()=>Promise<Presentation>,getMiniOverlayBounds:()=>Promise<import('./mini-overlay').Bounds|null>,setMiniOverlayBounds:(bounds:import('./mini-overlay').BoundsRequest)=>void}} NativeApi */
+// Typed renderer boundary; no legacy capture globals are available here.
+/** @typedef {{body:HTMLElement,entry:HTMLButtonElement,controls:HTMLElement,grip:HTMLElement,lock:HTMLButtonElement,size:HTMLElement,settings:HTMLButtonElement,returnButton:HTMLButtonElement,background:HTMLInputElement,mode:HTMLSelectElement,scale:HTMLInputElement,opacity:HTMLInputElement,fps:HTMLSelectElement}} Elements */
+/** @typedef {{x:number,y:number,bounds:import('./mini-overlay').Bounds|null}} Gesture */
+/** @typedef {number} TimerHandle Browser window timer, not a Node timeout. */
+/** @typedef {{setTimeout:(callback:()=>void,delay:number)=>TimerHandle,clearTimeout:(id:TimerHandle|undefined)=>void}} Timers */
+/** @typedef {import('./mini-overlay').Presentation} OverlayPresentation */
+/** @typedef {{miniOverlaySupported:boolean,onMiniOverlayState:(callback:(state:OverlayPresentation)=>void)=>()=>void,getMiniOverlayState:()=>Promise<OverlayPresentation>,enterMiniOverlay:()=>Promise<OverlayPresentation>,restoreNormalWindow:(settings?:boolean)=>Promise<OverlayPresentation>,lockMiniOverlay:()=>Promise<OverlayPresentation>,getMiniOverlayBounds:()=>Promise<import('./mini-overlay').Bounds|null>,setMiniOverlayBounds:(bounds:import('./mini-overlay').BoundsRequest)=>void}} OverlayNativeApi */
 /** @typedef {{start:()=>void,dispose:()=>void,isActive:()=>boolean,initialize:()=>Promise<void>,enter:()=>Promise<void>,restore:(settings?:boolean)=>Promise<void>,lock:()=>Promise<void>}} Adapter */
-/** @typedef {{window:Window,document:Document,api:NativeApi,actions:ReturnType<typeof import('./settings-actions').create>,timers:{setTimeout:(callback:()=>void,delay:number)=>unknown,clearTimeout:(id:unknown)=>void},snapSize:typeof import('./mini-overlay-math').snapSize,canCapture:()=>boolean,resetDrawDeadline:()=>void,showStart:()=>void,closePanels:()=>void,openSettings:()=>void,reportError:(message:string)=>void,onPresentationChange:()=>void}} Dependencies */
+/** @typedef {{window:Window,elements:Elements,api:OverlayNativeApi,actions:ReturnType<typeof import('./settings-actions').create>,timers:Timers,snapSize:typeof import('./mini-overlay-math').snapSize,canCapture:()=>boolean,resetDrawDeadline:()=>void,showStart:()=>void,closePanels:()=>void,openSettings:()=>void,reportError:(message:string)=>void,onPresentationChange:()=>void}} Dependencies */
 
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -12,7 +20,7 @@
    * @returns {Adapter} */
   function create({
     window,
-    document,
+    elements,
     api,
     actions,
     timers,
@@ -27,39 +35,48 @@
   }) {
     let active = false,
       started = false,
-      disposed = false,
-      unsubscribe;
+      disposed = false;
+    /** @type {(()=>void)|undefined} */
+    let unsubscribe;
+    /** @type {Array<()=>void>} */
     const cleanup = [];
+    /** @type {Array<()=>void>} */
     const gestures = [];
+    /** @template {keyof HTMLElementEventMap} K
+     * @param {HTMLElement} target @param {K} name @param {(event:HTMLElementEventMap[K])=>void} callback */
     function listen(target, name, callback) {
       target.addEventListener(name, callback);
       cleanup.push(() => target.removeEventListener(name, callback));
     }
-    const entry = document.getElementById("miniOverlayBtn");
-    const controls = document.getElementById("miniOverlayControls");
-    const grip = document.getElementById("miniOverlayResize");
-    const lock = document.getElementById("miniOverlayLock");
-    const size = document.getElementById("miniOverlaySize");
+    /** @template {keyof WindowEventMap} K
+     * @param {K} name @param {(event:WindowEventMap[K])=>void} callback */
+    function listenWindow(name, callback) {
+      window.addEventListener(name, callback);
+      cleanup.push(() => window.removeEventListener(name, callback));
+    }
+    const { entry, controls, grip, lock, size } = elements;
     let resizing = false;
     function updateSize() {
       if (resizing)
         size.textContent = `${window.innerWidth} × ${window.innerHeight} px`;
     }
+    /** @param {boolean} enabled */
     function showSize(enabled) {
       resizing = enabled;
       size.hidden = !enabled;
-      document.body.classList.toggle("overlay-resizing", enabled);
+      elements.body.classList.toggle("overlay-resizing", enabled);
       updateSize();
     }
 
     let locked = false;
+    /** @type {TimerHandle|undefined} */
     let idleTimer;
     function showControls() {
       if (disposed || !active || locked) return;
-      document.body.classList.add("overlay-controls-visible");
+      elements.body.classList.add("overlay-controls-visible");
       timers.clearTimeout(idleTimer);
       idleTimer = timers.setTimeout(
-        () => document.body.classList.remove("overlay-controls-visible"),
+        () => elements.body.classList.remove("overlay-controls-visible"),
         2000
       );
     }
@@ -74,8 +91,8 @@
         for (const end of gestures) end();
         showSize(false);
       }
-      document.body.classList.toggle("mini-overlay", value.active);
-      document.body.classList.toggle("overlay-locked", value.locked);
+      elements.body.classList.toggle("mini-overlay", value.active);
+      elements.body.classList.toggle("overlay-locked", value.locked);
       controls.hidden = grip.hidden = !value.active || value.locked;
       lock.disabled = !value.canLock;
       lock.title = value.canLock
@@ -89,6 +106,7 @@
       if (value.error) reportError(value.error);
     }
 
+    /** @param {()=>Promise<OverlayPresentation>} operation */
     async function invoke(operation) {
       if (disposed) return;
       try {
@@ -101,13 +119,16 @@
           locked: false,
           canLock: false,
           openSettings: false,
-          error: error.message,
+          error: error instanceof Error ? error.message : String(error),
         });
       }
     }
+    /** @param {HTMLElement} element @param {boolean} resizing */
     function drag(element, resizing) {
-      let gesture = null,
-        pointerId = null;
+      /** @type {Gesture|null} */
+      let gesture = null;
+      /** @type {number|null} */
+      let pointerId = null;
       const endGesture = () => {
         gesture = null;
         const id = pointerId;
@@ -119,11 +140,16 @@
       gestures.push(endGesture);
       listen(element, "pointerdown", async (event) => {
         if (disposed || event.button !== 0 || locked || !active) return;
-        if (!resizing && event.target.closest("button, input, select, a"))
+        if (
+          !resizing &&
+          event.target instanceof Element &&
+          event.target.closest("button, input, select, a")
+        )
           return;
         element.setPointerCapture(event.pointerId);
         pointerId = event.pointerId;
         if (resizing) showSize(true);
+        /** @type {Gesture} */
         const pending = { x: event.screenX, y: event.screenY, bounds: null };
         gesture = pending;
         try {
@@ -149,7 +175,11 @@
             : { ...bounds, x: bounds.x + dx, y: bounds.y + dy }
         );
       });
-      for (const name of ["pointerup", "pointercancel", "lostpointercapture"])
+      for (const name of /** @type {const} */ ([
+        "pointerup",
+        "pointercancel",
+        "lostpointercapture",
+      ]))
         listen(element, name, () => {
           endGesture();
         });
@@ -158,7 +188,7 @@
     function start() {
       if (started || disposed) return;
       started = true;
-      listen(window, "resize", updateSize);
+      listenWindow("resize", updateSize);
       entry.hidden = !api.miniOverlaySupported;
       listen(entry, "click", () => {
         if (!canCapture()) {
@@ -167,45 +197,34 @@
         }
         invoke(() => api.enterMiniOverlay());
       });
-      listen(document.getElementById("miniOverlaySettings"), "click", () =>
+      listen(elements.settings, "click", () =>
         invoke(() => api.restoreNormalWindow(true))
       );
-      listen(document.getElementById("miniOverlayReturn"), "click", () =>
+      listen(elements.returnButton, "click", () =>
         invoke(() => api.restoreNormalWindow())
       );
       listen(lock, "click", () => invoke(() => api.lockMiniOverlay()));
-      listen(
-        document.getElementById("miniOverlayBackgroundCheckbox"),
-        "change",
-        (event) =>
-          actions.set("miniOverlayShowBackground", event.target.checked)
+      listen(elements.background, "change", (event) =>
+        actions.set("miniOverlayShowBackground", elements.background.checked)
       );
-      listen(
-        document.getElementById("miniOverlayModeSelect"),
-        "change",
-        (event) => actions.selectOverlayMode(event.target.value)
+      listen(elements.mode, "change", (event) =>
+        actions.selectOverlayMode(elements.mode.value)
       );
-      listen(
-        document.getElementById("miniOverlayScaleSlider"),
-        "input",
-        (event) =>
-          actions.set("miniOverlayScale", Number(event.target.value) / 100)
+      listen(elements.scale, "input", (event) =>
+        actions.set("miniOverlayScale", Number(elements.scale.value) / 100)
       );
-      listen(
-        document.getElementById("miniOverlayOpacitySlider"),
-        "input",
-        (event) =>
-          actions.set("miniOverlayOpacity", Number(event.target.value) / 100)
+      listen(elements.opacity, "input", (event) =>
+        actions.set("miniOverlayOpacity", Number(elements.opacity.value) / 100)
       );
-      listen(
-        document.getElementById("miniOverlayFpsSelect"),
-        "change",
-        (event) => actions.set("miniOverlayMaxFps", Number(event.target.value))
-      );
-      listen(window, "mousemove", showControls);
+      listen(elements.fps, "change", () => {
+        const fps = Number(elements.fps.value);
+        if (fps === 0 || fps === 15 || fps === 30 || fps === 60 || fps === 120)
+          actions.set("miniOverlayMaxFps", fps);
+      });
+      listenWindow("mousemove", showControls);
       listen(controls, "focusin", showControls);
 
-      drag(document.body, false);
+      drag(elements.body, false);
       drag(grip, true);
       unsubscribe = api.onMiniOverlayState(receive);
     }

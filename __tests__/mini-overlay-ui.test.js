@@ -1,10 +1,18 @@
+class FakeElement {}
+const originalElement = global.Element;
+beforeAll(() => {
+  global.Element = FakeElement;
+});
+afterAll(() => {
+  global.Element = originalElement;
+});
 const OverlayUI = require("../src/mini-overlay-ui");
 function setup({ start = true } = {}) {
   const nodes = new Map();
   function node(id, button = false) {
     const listeners = new Map();
     const classes = new Set();
-    return {
+    return Object.assign(new FakeElement(), {
       id,
       hidden: false,
       disabled: false,
@@ -28,7 +36,7 @@ function setup({ start = true } = {}) {
       emit: async (name, event) => {
         for (const listener of listeners.get(name) || []) await listener(event);
       },
-    };
+    });
   }
   for (const id of [
     "miniOverlayBtn",
@@ -82,7 +90,21 @@ function setup({ start = true } = {}) {
   };
   const dependencies = {
     window: context.window,
-    document: context.document,
+    elements: {
+      body,
+      entry: nodes.get("miniOverlayBtn"),
+      controls: nodes.get("miniOverlayControls"),
+      grip: nodes.get("miniOverlayResize"),
+      lock: nodes.get("miniOverlayLock"),
+      size: nodes.get("miniOverlaySize"),
+      settings: nodes.get("miniOverlaySettings"),
+      returnButton: nodes.get("miniOverlayReturn"),
+      background: nodes.get("miniOverlayBackgroundCheckbox"),
+      mode: nodes.get("miniOverlayModeSelect"),
+      scale: nodes.get("miniOverlayScaleSlider"),
+      opacity: nodes.get("miniOverlayOpacitySlider"),
+      fps: nodes.get("miniOverlayFpsSelect"),
+    },
     api,
     actions: { set: jest.fn(), selectOverlayMode: jest.fn() },
     timers: {

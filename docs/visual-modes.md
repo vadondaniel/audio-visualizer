@@ -122,7 +122,14 @@ initialization/reset; `prepareVisualFrame` resolves them before returning a vali
 The check covers every mode module, the registry, lifecycle runtime, audio
 pipeline, and referenced math utilities. Browser namespace declarations provide
 the script APIs without exposing legacy capture globals. The host adapter is
-annotated for editors, but broad checking of capture/UI/settings code is deferred.
+annotated for editors, but broad checking of legacy capture and UI code is deferred.
+Settings, tray, overlay adapters, and their bootstrap composition are also checked.
+Their DOM references and native APIs are explicit dependencies. Settings binding
+helpers capture each key's value type and require string or boolean converters
+for the corresponding DOM property. The legacy renderer bridge remains outside
+the checked scope; only its typed composition entrypoint is declared globally.
+Compile-only adapter fixtures verify invalid bindings, payloads, dependencies,
+and lifecycle calls are rejected without exposing capture globals.
 Null checking is enabled; implicit types remain permitted in unrelated helpers.
 Prepared render records rely on the existing update-before-draw lifecycle, and
 their initialization assertions are documented beside their reusable storage.

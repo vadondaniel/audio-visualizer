@@ -1,16 +1,45 @@
-/** @typedef {import('./settings-actions').SettingsState} SettingsState */
-/** @typedef {Partial<{[K in keyof SettingsState]: readonly [HTMLInputElement|HTMLSelectElement,'value'|'checked',((value:SettingsState[K])=>number|string|boolean)?]}>} Bindings */
-/** @typedef {{state:SettingsState,document:Document,bindings:Bindings,resetDrawDeadline:()=>void,effects:Omit<import('./settings-actions').Effects,'syncControls'>}} Dependencies */
+// Typed renderer boundary; no legacy capture globals are available here.
+/** @typedef {import('./settings-actions').SettingsState} UISettingsState */
+/** @typedef {{key:keyof UISettingsState,sync:(state:UISettingsState)=>void}} Binding */
+/** @typedef {readonly Binding[]} Bindings */
+/** @typedef {{body:HTMLElement,scaleLabel:HTMLElement,opacityLabel:HTMLElement}} Elements */
+/** @typedef {{state:UISettingsState,elements:Elements,bindings:Bindings,resetDrawDeadline:()=>void,effects:Omit<import('./settings-actions').Effects,'syncControls'>}} Dependencies */
+/** @typedef {{start:()=>void,dispose:()=>void,sync:(keys:import('./settings-actions').ChangedKeys|'all')=>void,effects:import('./settings-actions').Effects}} Adapter */
 
+/** @template T
+ * @param {typeof globalThis} root
+ * @param {()=>T} build */
 (function (root, build) {
   const api = build();
   if (typeof module === "object" && module.exports) module.exports = api;
   else root.SettingsUI = api;
 })(globalThis, function () {
-  /** @param {Dependencies} dependencies */
+  /** @template {keyof UISettingsState} K
+   * @param {K} key @param {HTMLInputElement|HTMLSelectElement} element
+   * @param {(value:UISettingsState[K])=>string} convert @returns {Binding} */
+  function valueBinding(key, element, convert) {
+    return {
+      key,
+      sync(state) {
+        element.value = convert(state[key]);
+      },
+    };
+  }
+  /** @template {keyof UISettingsState} K
+   * @param {K} key @param {HTMLInputElement} element
+   * @param {(value:UISettingsState[K])=>boolean} convert @returns {Binding} */
+  function checkboxBinding(key, element, convert) {
+    return {
+      key,
+      sync(state) {
+        element.checked = convert(state[key]);
+      },
+    };
+  }
+  /** @param {Dependencies} dependencies @returns {Adapter} */
   function create({
     state,
-    document,
+    elements,
     bindings: settingsControlBindings,
     resetDrawDeadline,
     effects,
@@ -19,34 +48,26 @@
       disposed = false;
     /** @param {import('./settings-actions').ChangedKeys|'all'} keys */
     function syncSettingsControls(keys) {
-      document.body.classList.toggle(
+      elements.body.classList.toggle(
         "overlay-with-background",
         state.miniOverlayShowBackground
       );
       if (keys === "all" || keys.some((key) => key.startsWith("miniOverlay"))) {
-        document.body.style.setProperty(
+        elements.body.style.setProperty(
           "--mini-overlay-scale",
-          state.miniOverlayScale
+          String(state.miniOverlayScale)
         );
-        document.body.style.setProperty(
+        elements.body.style.setProperty(
           "--mini-overlay-opacity",
-          state.miniOverlayOpacity
+          String(state.miniOverlayOpacity)
         );
-        document.getElementById("miniOverlayScaleVal").textContent =
-          `${Math.round(state.miniOverlayScale * 100)}%`;
-        document.getElementById("miniOverlayOpacityVal").textContent =
-          `${Math.round(state.miniOverlayOpacity * 100)}%`;
+        elements.scaleLabel.textContent = `${Math.round(state.miniOverlayScale * 100)}%`;
+        elements.opacityLabel.textContent = `${Math.round(state.miniOverlayOpacity * 100)}%`;
         if (keys === "all" || keys.includes("miniOverlayMaxFps"))
           resetDrawDeadline();
       }
-      for (const key of keys === "all"
-        ? Object.keys(settingsControlBindings)
-        : keys) {
-        const binding = settingsControlBindings[key];
-        if (!binding) continue;
-        const [element, property, convert] = binding;
-        if (element)
-          element[property] = convert ? convert(state[key]) : state[key];
+      for (const binding of settingsControlBindings) {
+        if (keys === "all" || keys.includes(binding.key)) binding.sync(state);
       }
     }
 
@@ -69,5 +90,5 @@
       },
     };
   }
-  return { create };
+  return { create, valueBinding, checkboxBinding };
 });
