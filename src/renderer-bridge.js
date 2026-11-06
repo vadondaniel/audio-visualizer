@@ -225,6 +225,7 @@ function createRendererBridge() {
         },
       },
     },
+    refreshMediaColors: () => syncMediaThemeColors(),
     overlay: {
       window,
       elements: {

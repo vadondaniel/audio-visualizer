@@ -46,6 +46,14 @@ function setup(overrides = {}) {
   return { state, actions, effects, save, order, timers };
 }
 
+test("glow changes refresh visible media without relying on active capture", () => {
+  const a = setup();
+  a.actions.set("glowIntensity", 0.5);
+  expect(a.effects.media).toHaveBeenCalledTimes(1);
+  expect(a.effects.labels).toHaveBeenCalledTimes(1);
+  expect(a.save).toHaveBeenCalledTimes(1);
+});
+
 test("overlay background is one persisted action without changing normal visual settings", () => {
   const a = setup({
     miniOverlayShowBackground: false,

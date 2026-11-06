@@ -82,21 +82,23 @@ function loop(timestamp = performance.now()) {
   diagnosticCall("endClear", clearTimer);
 
   const backgroundTimer = diagnosticCall("beginBackground");
-  if (typeof renderProceduralBackground === "function") {
-    renderProceduralBackground(
-      overlayActive ? Math.min(100, presentation.elapsedMs) / 1000 : dtSec,
+  updateProceduralBackground(
+    overlayActive ? Math.min(100, presentation.elapsedMs) / 1000 : dtSec,
+    motion.bass,
+    beatPulse
+  );
+  if (!overlayActive || state.miniOverlayShowBackground) {
+    drawProceduralBackground(
       levels.bass,
       levels.mid,
       levels.treble,
-      beatIntensity,
-      motion.bass,
-      beatPulse
+      beatIntensity
     );
   }
   diagnosticCall("endBackground", backgroundTimer);
 
   const fxTimer = diagnosticCall("beginFx");
-  if (typeof updateFxLive === "function") {
+  if (!overlayActive && typeof updateFxLive === "function") {
     updateFxLive(levels.bass, levels.mid, levels.treble, beatIntensity);
   }
   diagnosticCall("endFx", fxTimer);

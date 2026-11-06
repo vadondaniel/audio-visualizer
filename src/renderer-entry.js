@@ -1,5 +1,5 @@
 // Typed renderer boundary; no legacy capture globals are available here.
-/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>,restore:()=>void,save:()=>void,bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
+/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>,restore:()=>void,save:()=>void,refreshMediaColors:()=>void,bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
 
 /** @template T
  * @param {typeof globalThis} root
@@ -220,7 +220,11 @@
           setTimeout: (fn, delay) => bridge.window.setTimeout(fn, delay),
           clearTimeout: (id) => bridge.window.clearTimeout(id),
         },
-        onPresentationChange: syncTray,
+        onPresentationChange: () => {
+          if (disposed) return;
+          syncTray();
+          bridge.refreshMediaColors();
+        },
       });
       owned.push(overlay);
       tray = TrayControls.create({

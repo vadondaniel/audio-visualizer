@@ -120,7 +120,8 @@ function loopFixture({
     requestAnimationFrame: jest.fn(),
     checkSilence: jest.fn(),
     updateBeat: jest.fn(),
-    renderProceduralBackground: jest.fn(),
+    updateProceduralBackground: jest.fn(),
+    drawProceduralBackground: jest.fn(),
     updateFxLive: jest.fn(),
     recoverAudioCapture: jest.fn(),
     visualModeController: { update: jest.fn(), draw: jest.fn() },
@@ -176,14 +177,16 @@ test("actual loop keeps acquisition, beat/silence checks, and simulation running
   ])
     expect(action).toHaveBeenCalledTimes(288);
   expect(f.ctx.visualModeController.draw).toHaveBeenCalledTimes(60);
-  expect(f.ctx.renderProceduralBackground).toHaveBeenCalledTimes(60);
+  expect(f.ctx.updateProceduralBackground).toHaveBeenCalledTimes(60);
+  expect(f.ctx.drawProceduralBackground).not.toHaveBeenCalled();
+  expect(f.ctx.updateFxLive).not.toHaveBeenCalled();
   expect(
     f.ctx.visualModeController.update.mock.calls.every(([id]) => id === "orbit")
   ).toBe(true);
   expect(f.frame().signals.bands.length).toBe(
     Registry.get("orbit").audio.count
   );
-  expect(f.ctx.renderProceduralBackground.mock.calls[1][0]).toBeCloseTo(
+  expect(f.ctx.updateProceduralBackground.mock.calls[1][0]).toBeCloseTo(
     5 / 144
   );
   f.ctx.overlayActive = false;
@@ -191,6 +194,23 @@ test("actual loop keeps acquisition, beat/silence checks, and simulation running
   f.tick(2001);
   expect(f.ctx.visualModeController.draw.mock.calls.at(-1)[0]).toBe("bars");
   expect(f.ctx.visualModeController.draw).toHaveBeenCalledTimes(62);
+  expect(f.ctx.drawProceduralBackground).toHaveBeenCalledTimes(2);
+  expect(f.ctx.updateFxLive).toHaveBeenCalledTimes(2);
+});
+test("overlay background visibility changes drawing only, at the existing capped cadence", () => {
+  const f = loopFixture();
+  for (let i = 0; i < 144; i++) f.tick((i * 1000) / 144);
+  expect(f.ctx.updateProceduralBackground).toHaveBeenCalledTimes(30);
+  expect(f.ctx.drawProceduralBackground).not.toHaveBeenCalled();
+  f.settings.miniOverlayShowBackground = true;
+  for (let i = 144; i < 288; i++) f.tick((i * 1000) / 144);
+  expect(f.ctx.updateProceduralBackground).toHaveBeenCalledTimes(60);
+  expect(f.ctx.drawProceduralBackground).toHaveBeenCalledTimes(30);
+  expect(f.ctx.updateFxLive).not.toHaveBeenCalled();
+  f.settings.miniOverlayShowBackground = false;
+  f.tick(50000);
+  expect(f.ctx.updateProceduralBackground.mock.calls.at(-1)[0]).toBe(0.1);
+  expect(f.ctx.drawProceduralBackground).toHaveBeenCalledTimes(30);
 });
 test("capped actual loop expires trails by real timestamps with bounded canvas retention and no pause burst", () => {
   const f = loopFixture({ trails: true });

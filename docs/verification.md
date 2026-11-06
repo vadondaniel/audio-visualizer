@@ -118,3 +118,9 @@ so it cannot accidentally become an unbounded interactive run.
 See [rendering fixture provenance](rendering-fixtures.md) before changing a
 geometry expectation. Run focused formatting checks on changed files as well;
 the existing whole-project formatting commands remain available.
+
+`render-visibility` is a hidden Electron check for background/FX visibility gates
+and media text invalidation, including return without capture. Its operation
+counters report eliminated canvas calls and character-style writes, not GPU or
+FPS gains. Seeded background unit tests compare visible and hidden/resumed
+simulation, random consumption, and drawing after respawns and resize.

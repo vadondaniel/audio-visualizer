@@ -128,6 +128,57 @@ const warpStars = Array.from({ length: STAR_COUNT }, () => ({
 // 3. Synthwave Grid
 let gridOffset = 0;
 
+// Projection storage belongs to the simulation; drawing only consumes it.
+const warpProjections = Array.from({ length: STAR_COUNT }, () => ({
+  visible: false,
+  x: 0,
+  y: 0,
+  previousX: 0,
+  previousY: 0,
+}));
+
+function updateProceduralBackground(dtSec, motionBass, motionBeat) {
+  if (!bgCtx || !bgCanvas) return;
+  if (state.bgType === "nebula") {
+    nebulaSwirlTime += dtSec * (0.25 + motionBass * 0.5);
+    for (const star of nebulaProtostars) star.twinkle += dtSec * star.speed;
+  } else if (state.bgType === "grid") {
+    const speed = (0.45 + motionBass * 1.2 + motionBeat * 0.8) * dtSec;
+    gridOffset = (gridOffset + speed) % 1;
+  } else if (state.bgType === "stars") {
+    const W = bgCanvas.width,
+      H = bgCanvas.height;
+    const cx = W / 2,
+      cy = H / 2;
+    const warpSpeed = (0.28 + motionBass * 1.8 + motionBeat * 1.5) * dtSec;
+    for (let i = 0; i < warpStars.length; i++) {
+      const s = warpStars[i],
+        projection = warpProjections[i];
+      s.pz = s.z;
+      s.z -= warpSpeed;
+      if (s.z <= 0.02) {
+        s.x = (Math.random() - 0.5) * 2;
+        s.y = (Math.random() - 0.5) * 2;
+        s.z = 1;
+        s.pz = 1;
+      }
+      const k = 1 / s.z;
+      projection.x = cx + s.x * k * cx;
+      projection.y = cy + s.y * k * cy;
+      const prevK = 1 / s.pz;
+      projection.previousX = cx + s.x * prevK * cx;
+      projection.previousY = cy + s.y * prevK * cy;
+      projection.visible = !(
+        projection.x < 0 ||
+        projection.x > W ||
+        projection.y < 0 ||
+        projection.y > H
+      );
+      if (!projection.visible) s.z = 1;
+    }
+  }
+}
+
 function renderProceduralBackground(
   dtSec,
   bassLevel,
@@ -137,6 +188,11 @@ function renderProceduralBackground(
   motionBass = bassLevel,
   motionBeat = beatPulse
 ) {
+  updateProceduralBackground(dtSec, motionBass, motionBeat);
+  drawProceduralBackground(bassLevel, midLevel, trebleLevel, beatPulse);
+}
+
+function drawProceduralBackground(bassLevel, midLevel, trebleLevel, beatPulse) {
   if (!bgCtx || !bgCanvas) return;
   const isProcedural =
     state.bgType === "nebula" ||
@@ -152,7 +208,6 @@ function renderProceduralBackground(
   bgCtx.fillRect(0, 0, W, H);
 
   if (state.bgType === "nebula") {
-    nebulaSwirlTime += dtSec * (0.25 + motionBass * 0.5);
     const cx = W * 0.5;
     const cy = H * 0.48;
 
@@ -230,7 +285,6 @@ function renderProceduralBackground(
     // 3. Embedded protostars & stellar nursery
     bgCtx.globalCompositeOperation = "lighter";
     for (const s of nebulaProtostars) {
-      s.twinkle += dtSec * s.speed;
       const starAlpha = 0.25 + Math.sin(s.twinkle) * 0.3 + trebleLevel * 0.45;
       if (starAlpha <= 0.05) continue;
 
@@ -279,40 +333,17 @@ function renderProceduralBackground(
   } else if (state.bgType === "stars") {
     // Render 3D hyperspace warp stars accelerating with audio
     bgCtx.save();
-    const cx = W / 2;
-    const cy = H / 2;
-    const warpSpeed = (0.28 + motionBass * 1.8 + motionBeat * 1.5) * dtSec;
     const starHue = currentHue(0.2);
-
-    for (const s of warpStars) {
-      s.pz = s.z;
-      s.z -= warpSpeed;
-      if (s.z <= 0.02) {
-        s.x = (Math.random() - 0.5) * 2;
-        s.y = (Math.random() - 0.5) * 2;
-        s.z = 1;
-        s.pz = 1;
-      }
-
-      const k = 1 / s.z;
-      const px = cx + s.x * k * cx;
-      const py = cy + s.y * k * cy;
-
-      const prevK = 1 / s.pz;
-      const prevX = cx + s.x * prevK * cx;
-      const prevY = cy + s.y * prevK * cy;
-
-      if (px < 0 || px > W || py < 0 || py > H) {
-        s.z = 1;
-        continue;
-      }
-
+    for (let i = 0; i < warpStars.length; i++) {
+      const s = warpStars[i],
+        projection = warpProjections[i];
+      if (!projection.visible) continue;
       const alpha = Math.min(1, (1 - s.z) * 1.3 + trebleLevel * 0.3);
       bgCtx.strokeStyle = `hsla(${starHue}, 90%, 80%, ${alpha})`;
       bgCtx.lineWidth = Math.max(1, (1 - s.z) * 2.8);
       bgCtx.beginPath();
-      bgCtx.moveTo(prevX, prevY);
-      bgCtx.lineTo(px, py);
+      bgCtx.moveTo(projection.previousX, projection.previousY);
+      bgCtx.lineTo(projection.x, projection.y);
       bgCtx.stroke();
     }
     bgCtx.restore();
@@ -320,9 +351,6 @@ function renderProceduralBackground(
     // Render retro 80s synthwave perspective grid
     bgCtx.save();
     const horizonY = H * 0.55;
-    const speed = (0.45 + motionBass * 1.2 + motionBeat * 0.8) * dtSec;
-    gridOffset = (gridOffset + speed) % 1;
-
     // Horizon glow
     const horizGrad = bgCtx.createLinearGradient(
       0,

@@ -260,7 +260,8 @@ test.each([0, 255])(
       updateBeat,
       clearFrame: () => {},
       renderTrailHistory: () => {},
-      renderProceduralBackground: background,
+      updateProceduralBackground: jest.fn(),
+      drawProceduralBackground: background,
       updateFxLive: fx,
       syncMediaThemeColors: () => {},
       visualModeController: { update: jest.fn(), draw: render },
@@ -287,11 +288,13 @@ test.each([0, 255])(
       signals.levels.treble,
       signals.beatIntensity,
     ]);
-    expect(background.mock.calls[0].slice(1)).toEqual([
+    expect(background.mock.calls[0]).toEqual([
       signals.levels.bass,
       signals.levels.mid,
       signals.levels.treble,
       signals.beatIntensity,
+    ]);
+    expect(context.updateProceduralBackground.mock.calls[0].slice(1)).toEqual([
       signals.motion.bass,
       0,
     ]);

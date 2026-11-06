@@ -121,6 +121,7 @@
         theme ||
         has(
           "colorGradientEnabled",
+          "glowIntensity",
           "mediaMetadataEnabled",
           "mediaDisplay",
           "mediaTextPositions"

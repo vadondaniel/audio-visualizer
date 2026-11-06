@@ -34,54 +34,83 @@ const mediaTitle = mediaOverlay.querySelector(".mediaTitle");
 // renderer palette at each position. CSS text-stroke itself cannot consume a
 // gradient, so a single solid stroke color can never reproduce the renderer's
 // spatial/rainbow coloring.
-const mediaTextCache = { title: "", artist: "" };
+const mediaTextCache = {
+  title: { text: "", chars: [], palette: null, glowBlur: null },
+  artist: { text: "", chars: [], palette: null, glowBlur: null },
+};
 
 function setMediaText(element, text, cacheKey) {
   const value = String(text || "");
-  if (mediaTextCache[cacheKey] === value) return;
-  mediaTextCache[cacheKey] = value;
+  const cache = mediaTextCache[cacheKey];
+  if (cache.text === value) return;
+  cache.text = value;
+  cache.chars.length = 0;
+  cache.palette = null;
+  cache.glowBlur = null;
   element.replaceChildren();
   for (const char of Array.from(value)) {
     const span = document.createElement("span");
     span.className = "mediaTextChar";
     span.textContent = char;
+    span.style.setProperty("--media-char-index", cache.chars.length);
+    cache.chars.push(span);
     element.appendChild(span);
   }
 }
 
 function updateMediaRendererColors() {
+  if (!mediaHasContent() || isMiniOverlayActive()) return;
   if (typeof currentHue !== "function" || typeof themeCssColor !== "function")
     return;
-
-  const paintText = (element, text, kind) => {
-    const chars = element.querySelectorAll(".mediaTextChar");
-    if (!chars.length) return;
-    const last = Math.max(1, chars.length - 1);
-    chars.forEach((char, index) => {
-      // This is deliberately the renderer's own spatial hue function.
-      // Rainbow therefore traverses the same full ROYGBIV arc, Color Cycle
-      // follows the same hueShift/spread, and regular themes use their stops.
-      const offset = index / last;
-      const stroke = themeCssColor(currentHue(offset), 95, 68, 1);
-      const glow = themeCssColor(currentHue(offset), 95, 72, 0.48);
-      const glowBlur =
-        typeof getGlowBlur === "function"
-          ? getGlowBlur(kind === "title" ? 10 : 7)
-          : kind === "title"
-            ? 10
-            : 7;
-      char.style.setProperty("--media-char-stroke", stroke);
-      char.style.setProperty("--media-char-glow", glow);
-      char.style.setProperty(
-        "--media-char-glow-blur",
-        `${glowBlur.toFixed(1)}px`
-      );
-      char.style.setProperty("--media-char-index", index);
+  const display =
+    MEDIA_DISPLAYS[state.mediaDisplay] || MEDIA_DISPLAYS["cover-title-artist"];
+  const theme = THEMES[state.theme];
+  const hueShift = theme.colorCycle || theme.cycle ? state.hueShift : 0;
+  for (const kind of ["title", "artist"]) {
+    const cache = mediaTextCache[kind];
+    if (!display[kind] || !mediaState.metadata?.[kind] || !cache.chars.length)
+      continue;
+    const glowBlur =
+      typeof getGlowBlur === "function"
+        ? getGlowBlur(kind === "title" ? 10 : 7)
+        : kind === "title"
+          ? 10
+          : 7;
+    const palette = cache.palette;
+    const repaint =
+      !palette ||
+      palette.theme !== state.theme ||
+      palette.gradient !== state.colorGradientEnabled ||
+      palette.hueShift !== hueShift;
+    const updateBlur = cache.glowBlur !== glowBlur;
+    if (!repaint && !updateBlur) continue;
+    const last = Math.max(1, cache.chars.length - 1);
+    cache.chars.forEach((char, index) => {
+      if (repaint) {
+        // Use the renderer's exact hue and palette, including its current cycle clock.
+        const hue = currentHue(index / last);
+        char.style.setProperty(
+          "--media-char-stroke",
+          themeCssColor(hue, 95, 68, 1)
+        );
+        char.style.setProperty(
+          "--media-char-glow",
+          themeCssColor(hue, 95, 72, 0.48)
+        );
+      }
+      if (updateBlur)
+        char.style.setProperty(
+          "--media-char-glow-blur",
+          `${glowBlur.toFixed(1)}px`
+        );
     });
-  };
-
-  paintText(mediaTitle, mediaTitle.textContent, "title");
-  paintText(mediaArtist, mediaArtist.textContent, "artist");
+    cache.palette = {
+      theme: state.theme,
+      gradient: state.colorGradientEnabled,
+      hueShift,
+    };
+    cache.glowBlur = glowBlur;
+  }
 }
 
 const MEDIA_DISPLAYS = {
@@ -91,8 +120,6 @@ const MEDIA_DISPLAYS = {
   "cover-title": { cover: true, title: true, artist: false },
   "cover-title-artist": { cover: true, title: true, artist: true },
 };
-
-let lastMediaThemeKey = null;
 
 function syncMediaThemeColors() {
   // The media outline is intentionally painted per character from the exact
@@ -175,7 +202,6 @@ function setMediaMetadataEnabled(enabled) {
 }
 
 function updateMediaLayout() {
-  syncMediaThemeColors();
   const mode = MODES[state.mode] || "bars";
   const media = ModeRegistry.get(mode).media;
   mediaOverlay.className = `mode-${mode}`;
@@ -207,6 +233,7 @@ function updateMediaLayout() {
     "enabled",
     Boolean(state.mediaMetadataEnabled && mediaHasContent())
   );
+  syncMediaThemeColors();
 }
 
 function updateMediaArtAspectRatio(image) {

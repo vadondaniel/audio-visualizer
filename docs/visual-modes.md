@@ -44,6 +44,23 @@ settings changes do not reset modes. Capture teardown/recovery resets all modes.
 Drawing is enclosed in canvas save/restore by the controller; modes must balance
 their own save/restore calls too. Draw requires an update after creation or reset.
 
+## Host presentation work
+
+Procedural backgrounds have a separate update/draw lifecycle. Updates run on
+eligible drawing frames with the existing elapsed time and unmodulated motion
+inputs, including when the mini overlay hides its background. Drawing consumes
+prepared state; Starfield projections are reused and respawns remain in update.
+The compatibility `renderProceduralBackground` calls both. Overlay presentation
+skips hidden background drawing and all live FX style updates without pausing
+simulation or accumulating a catch-up step.
+
+External media text caches its character nodes and painted palette inputs.
+Static frames do no repeated character writes; cycling themes use the renderer's
+current hue on every animation frame. Visibility gates preserve pending changes.
+Layout synchronizes colors after visibility flags, and the injected presentation
+callback refreshes text on return even without capture. Internal artwork is
+independent of this text cache.
+
 ## Frame inputs
 
 The host reuses the frame object and its nested records. Treat them as read-only;

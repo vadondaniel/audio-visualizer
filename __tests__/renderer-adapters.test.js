@@ -57,6 +57,7 @@ function composition({ fail, initial } = {}) {
       restore: () => log.push("restore"),
       bind: jest.fn(),
       save: jest.fn(),
+      refreshMediaColors: jest.fn(),
       settings: {},
       overlay: {},
     },
@@ -99,6 +100,7 @@ test("bootstrap restores first, wires all instances, then starts once and waits 
   f.effects().syncControls(["theme"]);
   f.changed();
   expect(f.instances.tray.sync).toHaveBeenCalledTimes(3);
+  expect(f.dependencies.bridge.refreshMediaColors).toHaveBeenCalledTimes(2);
   controller.dispose();
   controller.dispose();
   expect(f.log.slice(-4)).toEqual([
@@ -111,6 +113,7 @@ test("bootstrap restores first, wires all instances, then starts once and waits 
     expect(instance.dispose).toHaveBeenCalledTimes(1);
   f.changed();
   expect(f.instances.tray.sync).toHaveBeenCalledTimes(3);
+  expect(f.dependencies.bridge.refreshMediaColors).toHaveBeenCalledTimes(2);
 });
 
 test.each(["settings", "tray", "overlay"])(
