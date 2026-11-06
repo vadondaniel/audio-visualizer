@@ -122,7 +122,7 @@
       id: "orbit",
       label: "Orbit",
       modulePath: "visuals/orbit.js",
-      audio: { sampler: "orbit", count: 41, release: 8, domain: "amplitude" },
+      audio: { sampler: "orbit", count: 41, release: 8, domain: "db" },
       media: {
         group: "free",
         defaultPosition: "bottom-left",

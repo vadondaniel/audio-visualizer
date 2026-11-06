@@ -260,12 +260,12 @@ test("inactive profiles hold smoothing state, while the reference follows audio 
   expect(Array.from(waves.bands)).not.toEqual(before);
   expect(f.pipeline.forMode("prism").referenceDb).toBe(-20);
 });
-test("profile exceptions retain contrast, threshold and distinct Prism bins", () => {
+test("Orbit shares the display range while Cascade retains its threshold and Prism distinct bins", () => {
   const f = fixture();
   const prism = f.step("prism"),
     orbit = f.pipeline.forMode("orbit"),
     cascade = f.pipeline.forMode("cascade");
-  expect(orbit.bands[20]).toBeLessThan(prism.bands[20]);
+  expect(orbit.bands[20]).toBeCloseTo(prism.bands[20]);
   expect(cascade.bands[20]).toBeLessThan(prism.bands[20]);
   for (const end of [98, 150, 512])
     for (let i = 0; i < 96; i++)
@@ -273,6 +273,24 @@ test("profile exceptions retain contrast, threshold and distinct Prism bins", ()
         Pipeline.prismBandEdge(i, 1024, end)
       );
 });
+
+test.each([5, 20, 34])(
+  "Orbit exponential retains quieter-band detail at spectral position %s",
+  (index) => {
+    const values = [-50, -40, -30].map((db) => {
+      const f = fixture({ valueHandling: "exponential" });
+      f.input.spectrumDb.fill(db);
+      // A stronger peak outside Orbit's sampled range still sets the shared reference.
+      f.input.spectrumDb[500] = -20;
+      const value = f.step("orbit").bands[index];
+      expect(value).toBeCloseTo(((45 + db + 20) / 45) ** 2.5);
+      return value;
+    });
+    expect(values[0]).toBeGreaterThan(0.05);
+    expect(values[1] - values[0]).toBeGreaterThan(0.1);
+    expect(values[2] - values[1]).toBeGreaterThan(0.2);
+  }
+);
 test("Prism contracts gradually, reopens for treble and holds range during silence", () => {
   const f = fixture();
   f.input.spectrumDb.fill(-Infinity);

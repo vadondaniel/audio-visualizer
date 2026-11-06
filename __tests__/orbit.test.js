@@ -234,11 +234,11 @@ test("loud audio retains band detail at logarithmic handling and maximum sensiti
 
 test("input headroom preserves gain control without amplifying silence or quiet noise", () => {
   const app = setup();
-  const low = Pipeline.controlled(Pipeline.normalize(-50, -35, "amplitude"), {
+  const low = Pipeline.controlled(Pipeline.normalize(-50, -35), {
     sensitivity: 1,
     valueHandling: "logarithmic",
   });
-  const high = Pipeline.controlled(Pipeline.normalize(-50, -35, "amplitude"), {
+  const high = Pipeline.controlled(Pipeline.normalize(-50, -35), {
     sensitivity: 2.5,
     valueHandling: "logarithmic",
   });

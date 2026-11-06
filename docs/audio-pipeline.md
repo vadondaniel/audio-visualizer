@@ -55,7 +55,9 @@ fall. Its input never includes Sensitivity or processed output.
 Registry definitions' `audio` records are the source of truth for band counts,
 release rates, and sampling behavior; `AudioPipeline.PROFILES` is a derived view.
 The explicit `sampler` selects the algorithm independently of a mode's ID.
-Orbit keeps amplitude-ratio contrast. Prism keeps distinct
+Orbit uses the common 45 dB display range so exponential response preserves
+quieter mid/high bands; its logarithmic sampling layout and rope physics remain
+mode-specific. Prism keeps distinct
 bins and its adaptive upper cutoff (fast reopening, hold, slow contraction, no
 remapping during silence). Cascade keeps its 0.4 threshold before controls; spatial
 exclusion, coupling, ripples, and peak dots remain geometry/physics in the mode.
