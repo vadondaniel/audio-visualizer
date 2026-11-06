@@ -7,6 +7,9 @@ const {
   recoverBounds,
 } = require("./mini-overlay-math");
 
+// Windows can restack its topmost taskbar after our initial topmost placement.
+const TASKBAR_REFRESH_MS = 1000;
+
 /** @typedef {{x:number,y:number,width:number,height:number}} Bounds */
 /** @typedef {Bounds & {aspectRatio?:number,operation?:"move"|"resize",snapToEdges?:boolean}} BoundsRequest */
 /** @typedef {{active:boolean,locked:boolean,canLock:boolean,openSettings:boolean,error:string|null}} Presentation */
@@ -42,7 +45,7 @@ function validBoundsRequest(value) {
 }
 
 /** One renderer, two native hosts. Only the main process can move or lock them.
- * @param {{electron:typeof import('electron'),preload:string,icon:string,packaged:boolean,preferencesPath:string,onQuit:()=>void,ensureTray:()=>boolean,isTrayAvailable:()=>boolean,onPresentationChange:(presentation:Presentation)=>void}} options */
+ * @param {{electron:typeof import('electron'),preload:string,icon:string,packaged:boolean,preferencesPath:string,onQuit:()=>void,ensureTray:()=>boolean,isTrayAvailable:()=>boolean,onPresentationChange:(presentation:Presentation)=>void,platform?:NodeJS.Platform}} options */
 function create({
   electron,
   preload,
@@ -53,6 +56,7 @@ function create({
   ensureTray,
   isTrayAvailable,
   onPresentationChange,
+  platform = process.platform,
 }) {
   const { BaseWindow, WebContentsView, screen, dialog } = electron;
   const displays = screen.getAllDisplays();
@@ -93,6 +97,64 @@ function create({
     confirming = false;
   let transition = 0;
   let restoreFullscreen = false;
+  /** @type {ReturnType<typeof setInterval>|null} */
+  let stackingTimer = null;
+  function stopStackingRefresh() {
+    if (stackingTimer !== null) clearInterval(stackingTimer);
+    stackingTimer = null;
+  }
+  function overlapsTaskbarArea() {
+    if (!overlay || overlay.isDestroyed()) return false;
+    const bounds = overlay.getBounds();
+    return screen.getAllDisplays().some(({ bounds: display, workArea }) => {
+      const left = Math.max(bounds.x, display.x),
+        top = Math.max(bounds.y, display.y),
+        right = Math.min(bounds.x + bounds.width, display.x + display.width),
+        bottom = Math.min(bounds.y + bounds.height, display.y + display.height);
+      return (
+        right > left &&
+        bottom > top &&
+        // Auto-hide taskbars may reserve no work area; any edge may reveal it.
+        ((workArea.x === display.x &&
+          workArea.y === display.y &&
+          workArea.width === display.width &&
+          workArea.height === display.height) ||
+          left < workArea.x ||
+          top < workArea.y ||
+          right > workArea.x + workArea.width ||
+          bottom > workArea.y + workArea.height)
+      );
+    });
+  }
+  function refreshStacking() {
+    if (
+      platform !== "win32" ||
+      disposed ||
+      !active ||
+      confirming ||
+      !overlay ||
+      overlay.isDestroyed() ||
+      !overlay.isVisible() ||
+      !overlapsTaskbarArea() ||
+      overlay
+        .getChildWindows()
+        .some((child) => !child.isDestroyed() && child.isVisible())
+    )
+      return;
+    // HWND_TOP with SWP_NOACTIVATE on Windows: never focus or show a hidden host.
+    overlay.moveTop();
+  }
+  function updateStackingRefresh() {
+    if (platform !== "win32" || disposed || !active || !overlapsTaskbarArea()) {
+      stopStackingRefresh();
+      return;
+    }
+    if (stackingTimer === null) {
+      stackingTimer = setInterval(refreshStacking, TASKBAR_REFRESH_MS);
+      stackingTimer.unref();
+    }
+    refreshStacking();
+  }
   try {
     const value = JSON.parse(fs.readFileSync(preferencesPath, "utf8"));
     if (validBounds(value)) saved = value;
@@ -136,6 +198,7 @@ function create({
   function unlock() {
     locked = false;
     if (overlay && !overlay.isDestroyed()) overlay.setIgnoreMouseEvents(false);
+    updateStackingRefresh();
     return publish();
   }
   function restore(openSettings = false) {
@@ -145,6 +208,7 @@ function create({
       transition++;
       persist();
       active = false;
+      stopStackingRefresh();
       attach(normal);
       overlay?.hide();
       normal.setFullScreen(restoreFullscreen);
@@ -191,11 +255,14 @@ function create({
         overlay.on("resize", () => {
           fit();
           if (active) persist();
+          updateStackingRefresh();
         });
         overlay.on("resized", fit);
         overlay.on("move", () => {
           if (active) persist();
+          updateStackingRefresh();
         });
+        overlay.on("blur", refreshStacking);
         overlay.on("close", (event) => {
           if (!disposed) {
             event.preventDefault();
@@ -211,6 +278,7 @@ function create({
       attach(overlay);
       normal.hide();
       overlay.show();
+      updateStackingRefresh();
       contents.focus();
       return publish();
     } catch (error) {
@@ -252,6 +320,7 @@ function create({
       }
     } finally {
       confirming = false;
+      updateStackingRefresh();
     }
     return publish();
   }
@@ -266,11 +335,15 @@ function create({
     );
     if (!bounds) return;
     overlay.setBounds(bounds);
+    updateStackingRefresh();
     fit();
     persist();
   }
   function recoverDisplay() {
-    if (!overlay || !saved) return;
+    if (!overlay || !saved) {
+      updateStackingRefresh();
+      return;
+    }
     const area = screen.getDisplayMatching(saved).bounds;
     overlay.setBounds(
       recoverBounds(
@@ -280,11 +353,13 @@ function create({
       )
     );
     persist();
+    updateStackingRefresh();
   }
   function dispose() {
     if (disposed) return;
     persist();
     disposed = true;
+    stopStackingRefresh();
     screen.removeListener("display-removed", recoverDisplay);
     screen.removeListener("display-metrics-changed", recoverDisplay);
     if (!contents.isDestroyed()) contents.close();

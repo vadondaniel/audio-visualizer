@@ -112,7 +112,11 @@ grab area on one monitor. Matching edges snap within 12 DIP; Alt bypasses that
 magnetism while Shift retains aspect-ratio resizing. Resize keeps its top-left
 anchor, raising minimum dimensions when needed; an infeasible ratio is rejected.
 Saved overhang remains in place when recoverable, and lost positions recover fully
-onto an available monitor. Full monitor bounds include taskbar areas.
+onto an available monitor. Full monitor bounds include taskbar areas. On Windows,
+taskbar overlap enables a one-second, non-activating stacking refresh, including
+while locked; auto-hide displays with no reserved work area also need it. The
+refresh stops outside that area or on return/disposal and pauses for the lock
+dialog and visible owned Settings windows. It never requests keyboard focus.
 
 Renderer adapters are composed in `renderer-entry.js` after all module definitions
 load. Settings, overlay, and tray factories have passive `create(dependencies)`

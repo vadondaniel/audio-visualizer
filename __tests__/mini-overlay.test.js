@@ -10,7 +10,10 @@ const fs = require("node:fs");
 const TrayController = require("../src/tray-controller");
 const { create, clampBounds, validBounds } = require("../src/mini-overlay");
 
-function setup({ trayFails = false, saved } = {}) {
+beforeEach(() => jest.useFakeTimers());
+afterEach(() => jest.useRealTimers());
+
+function setup({ trayFails = false, saved, platform = "win32" } = {}) {
   jest.clearAllMocks();
   fs.readFileSync.mockImplementation(() => {
     if (!saved) throw Error("First run");
@@ -43,10 +46,25 @@ function setup({ trayFails = false, saved } = {}) {
         "focus",
         "restore",
         "setAlwaysOnTop",
+        "moveTop",
         "setIgnoreMouseEvents",
       ])
         this[name] = jest.fn();
+      this.visible = false;
+      this.show.mockImplementation(() => {
+        this.visible = true;
+      });
+      this.hide.mockImplementation(() => {
+        this.visible = false;
+      });
+      this.childWindows = [];
       windows.push(this);
+    }
+    isVisible() {
+      return this.visible;
+    }
+    getChildWindows() {
+      return this.childWindows;
     }
     isDestroyed() {
       return this.dead;
@@ -127,6 +145,7 @@ function setup({ trayFails = false, saved } = {}) {
     ensureTray: nativeTray.ensure,
     isTrayAvailable: nativeTray.isAvailable,
     onPresentationChange: nativeTray.setPresentation,
+    platform,
   });
   return {
     nativeTray,
@@ -280,6 +299,93 @@ test("placement may overlap the taskbar and restores there without being pushed 
     width: 200,
     height: 180,
   });
+});
+
+test("taskbar stacking refresh survives focus loss and locking without taking focus", async () => {
+  const f = setup();
+  f.controller.enter();
+  const overlay = f.windows[1];
+  expect(jest.getTimerCount()).toBe(0);
+  f.controller.setBounds({ x: 100, y: 900, width: 200, height: 180 });
+  expect(jest.getTimerCount()).toBe(1);
+  overlay.moveTop.mockClear();
+  overlay.focus.mockClear();
+  f.contents.focus.mockClear();
+  overlay.show.mockClear();
+  overlay.emit("blur");
+  expect(overlay.moveTop).toHaveBeenCalledTimes(1);
+  jest.advanceTimersByTime(2000);
+  expect(overlay.moveTop).toHaveBeenCalledTimes(3);
+  let confirm;
+  f.dialog.showMessageBox.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        confirm = resolve;
+      })
+  );
+  const lock = f.controller.lock();
+  jest.advanceTimersByTime(2000);
+  expect(overlay.moveTop).toHaveBeenCalledTimes(3);
+  confirm({ response: 1 });
+  await lock;
+  expect(f.controller.snapshot().locked).toBe(true);
+  expect(overlay.setIgnoreMouseEvents).toHaveBeenLastCalledWith(true);
+  const afterLock = overlay.moveTop.mock.calls.length;
+  jest.advanceTimersByTime(1000);
+  expect(overlay.moveTop).toHaveBeenCalledTimes(afterLock + 1);
+  expect(overlay.focus).not.toHaveBeenCalled();
+  expect(f.contents.focus).not.toHaveBeenCalled();
+  expect(overlay.show).not.toHaveBeenCalled();
+  f.controller.unlock();
+  expect(jest.getTimerCount()).toBe(1);
+  f.controller.restore();
+  expect(jest.getTimerCount()).toBe(0);
+  const before = overlay.moveTop.mock.calls.length;
+  jest.advanceTimersByTime(3000);
+  overlay.emit("blur");
+  expect(overlay.moveTop).toHaveBeenCalledTimes(before);
+  f.controller.dispose();
+});
+test("stacking refresh protects visible settings, skips hidden hosts and cleans up on movement/disposal", () => {
+  const f = setup();
+  f.controller.enter();
+  const overlay = f.windows[1];
+  f.controller.setBounds({ x: 100, y: 900, width: 200, height: 180 });
+  overlay.moveTop.mockClear();
+  const child = { isDestroyed: () => false, isVisible: () => true };
+  overlay.childWindows = [child];
+  jest.advanceTimersByTime(2000);
+  overlay.emit("blur");
+  expect(overlay.moveTop).not.toHaveBeenCalled();
+  overlay.childWindows = [];
+  jest.advanceTimersByTime(1000);
+  expect(overlay.moveTop).toHaveBeenCalledTimes(1);
+  overlay.hide();
+  overlay.moveTop.mockClear();
+  jest.advanceTimersByTime(2000);
+  expect(overlay.moveTop).not.toHaveBeenCalled();
+  overlay.show();
+  f.controller.setBounds({ x: 100, y: 100, width: 200, height: 180 });
+  expect(jest.getTimerCount()).toBe(0);
+  f.controller.setBounds({ x: 100, y: 900, width: 200, height: 180 });
+  expect(jest.getTimerCount()).toBe(1);
+  f.controller.dispose();
+  expect(jest.getTimerCount()).toBe(0);
+});
+test("taskbar refresh handles auto-hide displays and is Windows-only", () => {
+  const f = setup();
+  f.controller.enter();
+  f.screen.getAllDisplays = () => [{ bounds: f.area, workArea: f.area }];
+  f.screen.emit("display-metrics-changed");
+  expect(jest.getTimerCount()).toBe(1);
+  f.controller.dispose();
+  const other = setup({ platform: "darwin" });
+  other.controller.enter();
+  other.controller.setBounds({ x: 100, y: 900, width: 200, height: 180 });
+  other.windows[1].emit("blur");
+  expect(other.windows[1].moveTop).not.toHaveBeenCalled();
+  expect(jest.getTimerCount()).toBe(0);
+  other.controller.dispose();
 });
 
 test("snapped resizing preserves the selected ratio when constrained by the display", () => {
