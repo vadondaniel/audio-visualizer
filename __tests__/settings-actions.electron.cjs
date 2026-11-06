@@ -99,6 +99,8 @@ runCheck(
       );
       const slider = await window.webContents.executeJavaScript(`(async()=>{
       document.getElementById('startOverlay').style.display='none';
+      // Keep the hovered panel open while a hidden renderer waits for paint.
+      settingsPanel.dispatchEvent(new MouseEvent('mouseenter'));
       panelOpen=true;flashHud();
       bassSensitivityAmountSlider.closest('.settingsSection').classList.remove('collapsed');
       settingsActions.set('bassSensitivityEnabled',true);

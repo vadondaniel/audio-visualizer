@@ -14,6 +14,7 @@ function rebuildThemeOptions() {
   themeSelect.value = state.theme;
 }
 const themeManagerController = createPreferenceManager({
+  flashHud: () => flashHud(),
   manageModesBtn: manageThemesBtn,
   modeManager: themeManager,
   modeManagerList: themeManagerList,

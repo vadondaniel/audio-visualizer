@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Settings — Audio Visualizer</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="settings-window.css" />
+  </head>
+  <body class="settings-window">
+    <p id="settingsError" role="alert" hidden></p>
+    <script src="mode-registry.js"></script>
+    <script src="audio-math.js"></script>
+    <script src="constants.js"></script>
+    <script src="mode-list.js"></script>
+    <script src="settings-view.js"></script>
+    <script src="settings-ui.js"></script>
+    <script src="settings-protocol.js"></script>
+    <script src="settings-panel.js"></script>
+    <script src="preference-manager.js"></script>
+    <script src="settings-client.js"></script>
+    <script>
+      window.settingsReady = SettingsClient.create({
+        document,
+        window,
+        api: window.settingsAPI,
+        registry: ModeRegistry,
+        themes: THEMES,
+        modeList: ModeList,
+        createManager: createPreferenceManager,
+        cycleSpeed: VISUAL_TUNING.hueCycle.baseDegPerSec,
+      }).start();
+    </script>
+  </body>
+</html>

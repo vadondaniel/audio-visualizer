@@ -13,3 +13,8 @@ declare var TrayControls: typeof import("../src/tray-controls");
 declare var rendererReady: Promise<void>;
 // Only this composition boundary is visible; legacy UI/capture globals stay out.
 declare function createRendererBridge(): import("../src/renderer-entry").Bridge;
+
+declare var SettingsProtocol: typeof import("../src/settings-protocol");
+declare var SettingsPanel: typeof import("../src/settings-panel");
+declare var SettingsView: typeof import("../src/settings-view");
+declare var SettingsClient: typeof import("../src/settings-client");

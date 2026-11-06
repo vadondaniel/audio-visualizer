@@ -1,6 +1,8 @@
 // The only adapter bridge to legacy renderer globals. Bootstrap owns instances.
 let settingsActions;
 let overlayUI;
+let settingsOwner;
+let settingsPanelUi;
 function isMiniOverlayActive() {
   return overlayUI ? overlayUI.isActive() : false;
 }
@@ -18,138 +20,15 @@ function createRendererBridge() {
     /** @type {HTMLElement} */ (document.getElementById(id));
   const button = (id) =>
     /** @type {HTMLButtonElement} */ (document.getElementById(id));
-  const settingsControlBindings = [
-    SettingsUI.valueBinding("mode", modeSelect, (value) => String(value)),
-    SettingsUI.valueBinding("theme", themeSelect, (value) => String(value)),
-    SettingsUI.valueBinding("bgColor", bgColorInput, (value) => String(value)),
-    SettingsUI.valueBinding("bgBrightness", brightnessSlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("bgBlur", blurSlider, (value) => String(value)),
-    SettingsUI.checkboxBinding(
-      "miniOverlayShowBackground",
-      input("miniOverlayBackgroundCheckbox"),
-      (value) => value
-    ),
-    SettingsUI.valueBinding(
-      "miniOverlayMode",
-      select("miniOverlayModeSelect"),
-      (value) => String(value)
-    ),
-    SettingsUI.valueBinding(
-      "miniOverlayScale",
-      input("miniOverlayScaleSlider"),
-      (value) => String(value * 100)
-    ),
-    SettingsUI.valueBinding(
-      "miniOverlayOpacity",
-      input("miniOverlayOpacitySlider"),
-      (value) => String(value * 100)
-    ),
-    SettingsUI.valueBinding(
-      "miniOverlayMaxFps",
-      select("miniOverlayFpsSelect"),
-      (value) => String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "smoothingEnabled",
-      smoothingCheckbox,
-      (value) => value
-    ),
-    SettingsUI.checkboxBinding(
-      "radialMode",
-      radialMirroredCheckbox,
-      (value) => value === "mirrored"
-    ),
-    SettingsUI.checkboxBinding(
-      "kaleidoClipEnabled",
-      kaleidoClipCheckbox,
-      (value) => value
-    ),
-    SettingsUI.valueBinding("barsAlignment", barsAlignmentSelect, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("waveformStyle", waveformStyleSelect, (value) =>
-      String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "cascadeFrequencyOrder",
-      cascadeFrequencyCheckbox,
-      (value) => value === "treble-to-bass"
-    ),
-    SettingsUI.valueBinding("cascadeFillStyle", cascadeFillSelect, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("sensitivity", sensitivitySlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "bassSensitivityEnabled",
-      bassSensitivityCheckbox,
-      (value) => value
-    ),
-    SettingsUI.valueBinding(
-      "bassSensitivityAmount",
-      bassSensitivityAmountSlider,
-      (value) => String(value * 100)
-    ),
-    SettingsUI.valueBinding("valueHandling", valueHandlingSelect, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("glowIntensity", glowSlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "colorGradientEnabled",
-      colorGradientCheckbox,
-      (value) => value
-    ),
-    SettingsUI.checkboxBinding(
-      "trailsEnabled",
-      trailsCheckbox,
-      (value) => value
-    ),
-    SettingsUI.valueBinding("trailDuration", trailDurationSlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("trailMaxFps", trailFpsSlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "wakeLockEnabled",
-      wakeLockCheckbox,
-      (value) => value
-    ),
-    SettingsUI.checkboxBinding(
-      "reactiveVignette",
-      reactiveVignetteCheckbox,
-      (value) => value
-    ),
-    SettingsUI.checkboxBinding(
-      "crtFilter",
-      crtFilterCheckbox,
-      (value) => value
-    ),
-    SettingsUI.checkboxBinding(
-      "beatFlash",
-      beatFlashCheckbox,
-      (value) => value
-    ),
-    SettingsUI.valueBinding("particleDensity", particleDensitySlider, (value) =>
-      String(value)
-    ),
-    SettingsUI.valueBinding("particleStyle", particleStyleSelect, (value) =>
-      String(value)
-    ),
-    SettingsUI.checkboxBinding(
-      "mediaMetadataEnabled",
-      mediaMetadataCheckbox,
-      (value) => value
-    ),
-    SettingsUI.valueBinding("mediaDisplay", mediaDisplaySelect, (value) =>
-      String(value)
-    ),
-  ];
+  const panel = (settingsPanelUi = SettingsPanel.create({
+    document,
+    state,
+    registry: ModeRegistry,
+    themes: THEMES,
+    currentMode: () => MODES[state.mode],
+    submit: (command) => settingsOwner.dispatch(command),
+    reportError: (message) => console.warn(message),
+  }));
 
   return {
     state,
@@ -164,6 +43,38 @@ function createRendererBridge() {
       settingsActions = actions;
       overlayUI = overlay;
     },
+    createSettingsOwner(actions, overlay) {
+      settingsOwner = SettingsProtocol.createOwner({
+        state,
+        keys: PERSISTED_KEYS,
+        actions,
+        math: AudioMath,
+        registry: ModeRegistry,
+        themes: themeIds,
+        effectiveMode: () =>
+          OverlayDisplay.effectiveMode(state, overlay.isActive(), MODES),
+        isActive: overlay.isActive,
+        packaged: !!window.electronAPI?.isPackaged,
+        api: {
+          onRequest: (callback) =>
+            window.electronAPI?.onSettingsRequest?.(callback) || (() => {}),
+          reply: (value) => window.electronAPI?.replySettings?.(value),
+          publish: (value) => window.electronAPI?.publishSettings?.(value),
+        },
+        diagnostics: readSettingsDiagnostics,
+      });
+      return {
+        start() {
+          settingsOwner.start();
+          panel.start();
+        },
+        notify: settingsOwner.notify,
+        dispose() {
+          panel.dispose();
+          settingsOwner.dispose();
+        },
+      };
+    },
     settings: {
       state,
       elements: {
@@ -171,7 +82,7 @@ function createRendererBridge() {
         scaleLabel: element("miniOverlayScaleVal"),
         opacityLabel: element("miniOverlayOpacityVal"),
       },
-      bindings: settingsControlBindings,
+      bindings: panel.bindings,
       resetDrawDeadline: () => overlayDrawSchedule.resetDeadline(),
       effects: {
         modeOptions: () => {
@@ -279,5 +190,29 @@ function createRendererBridge() {
         startOverlay.style.display = "flex";
       },
     },
+  };
+}
+
+/** @param {import('./settings-protocol').DiagnosticOperation} operation @returns {import('./settings-protocol').DiagnosticView} */
+function readSettingsDiagnostics(operation) {
+  if (!diagnostics) throw Error("Diagnostics unavailable");
+  let clipboard = null;
+  if (operation === "reset") diagnostics.reset();
+  if (operation === "report") clipboard = diagnostics.buildReport();
+  if (operation === "profile") {
+    if (diagnostics.profileActive()) diagnostics.stopProfile();
+    else diagnostics.startProfile();
+  }
+  if (operation === "copy-profile")
+    clipboard = JSON.stringify(diagnostics.buildProfile(), null, 2);
+  diagnostics.refresh();
+  const rows = [...document.querySelectorAll("#diagnosticsSection [id]")]
+    .filter((el) => !el.children.length && el.tagName !== "BUTTON")
+    .map((el) => ({ id: el.id, text: el.textContent || "" }));
+  return {
+    rows,
+    profileActive: diagnostics.profileActive(),
+    copyEnabled: !document.getElementById("copyProfileBtn")?.disabled,
+    clipboard,
   };
 }

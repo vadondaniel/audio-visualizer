@@ -4,8 +4,8 @@
 /** @typedef {number} TimerHandle Browser window timer, not a Node timeout. */
 /** @typedef {{setTimeout:(callback:()=>void,delay:number)=>TimerHandle,clearTimeout:(id:TimerHandle|undefined)=>void}} Timers */
 /** @typedef {import('./mini-overlay').Presentation} OverlayPresentation */
-/** @typedef {{miniOverlaySupported:boolean,onMiniOverlayState:(callback:(state:OverlayPresentation)=>void)=>()=>void,getMiniOverlayState:()=>Promise<OverlayPresentation>,enterMiniOverlay:()=>Promise<OverlayPresentation>,restoreNormalWindow:(settings?:boolean)=>Promise<OverlayPresentation>,lockMiniOverlay:()=>Promise<OverlayPresentation>,getMiniOverlayBounds:()=>Promise<import('./mini-overlay').Bounds|null>,setMiniOverlayBounds:(bounds:import('./mini-overlay').BoundsRequest)=>void}} OverlayNativeApi */
-/** @typedef {{start:()=>void,dispose:()=>void,isActive:()=>boolean,initialize:()=>Promise<void>,enter:()=>Promise<void>,restore:(settings?:boolean)=>Promise<void>,lock:()=>Promise<void>}} Adapter */
+/** @typedef {{miniOverlaySupported:boolean,openSettingsWindow:()=>Promise<void>,onMiniOverlayState:(callback:(state:OverlayPresentation)=>void)=>()=>void,getMiniOverlayState:()=>Promise<OverlayPresentation>,enterMiniOverlay:()=>Promise<OverlayPresentation>,restoreNormalWindow:(settings?:boolean)=>Promise<OverlayPresentation>,lockMiniOverlay:()=>Promise<OverlayPresentation>,getMiniOverlayBounds:()=>Promise<import('./mini-overlay').Bounds|null>,setMiniOverlayBounds:(bounds:import('./mini-overlay').BoundsRequest)=>void}} OverlayNativeApi */
+/** @typedef {{start:()=>void,dispose:()=>void,isActive:()=>boolean,openSettings:()=>Promise<void>,initialize:()=>Promise<void>,enter:()=>Promise<void>,restore:(settings?:boolean)=>Promise<void>,lock:()=>Promise<void>}} Adapter */
 /** @typedef {{window:Window,elements:Elements,api:OverlayNativeApi,actions:ReturnType<typeof import('./settings-actions').create>,timers:Timers,snapSize:typeof import('./mini-overlay-math').snapSize,canCapture:()=>boolean,resetDrawDeadline:()=>void,showStart:()=>void,closePanels:()=>void,openSettings:()=>void,reportError:(message:string)=>void,onPresentationChange:()=>void}} Dependencies */
 
 /** @template T
@@ -187,6 +187,15 @@
         });
     }
 
+    async function showSettings() {
+      if (disposed || !active) return;
+      try {
+        await api.openSettingsWindow();
+      } catch (error) {
+        if (!disposed)
+          reportError(error instanceof Error ? error.message : String(error));
+      }
+    }
     function start() {
       if (started || disposed) return;
       started = true;
@@ -199,30 +208,11 @@
         }
         invoke(() => api.enterMiniOverlay());
       });
-      listen(elements.settings, "click", () =>
-        invoke(() => api.restoreNormalWindow(true))
-      );
+      listen(elements.settings, "click", showSettings);
       listen(elements.returnButton, "click", () =>
         invoke(() => api.restoreNormalWindow())
       );
       listen(lock, "click", () => invoke(() => api.lockMiniOverlay()));
-      listen(elements.background, "change", (event) =>
-        actions.set("miniOverlayShowBackground", elements.background.checked)
-      );
-      listen(elements.mode, "change", (event) =>
-        actions.selectOverlayMode(elements.mode.value)
-      );
-      listen(elements.scale, "input", (event) =>
-        actions.set("miniOverlayScale", Number(elements.scale.value) / 100)
-      );
-      listen(elements.opacity, "input", (event) =>
-        actions.set("miniOverlayOpacity", Number(elements.opacity.value) / 100)
-      );
-      listen(elements.fps, "change", () => {
-        const fps = Number(elements.fps.value);
-        if (fps === 0 || fps === 15 || fps === 30 || fps === 60 || fps === 120)
-          actions.set("miniOverlayMaxFps", fps);
-      });
       listenWindow("mousemove", showControls);
       listen(controls, "focusin", showControls);
 
@@ -252,6 +242,7 @@
       start,
       dispose,
       isActive: () => active,
+      openSettings: showSettings,
       initialize,
       enter: () => invoke(() => api.enterMiniOverlay()),
       restore: (settings = false) =>

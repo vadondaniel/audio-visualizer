@@ -854,6 +854,8 @@ const diagnostics = (() => {
     beginPresent,
     endPresent,
     current,
+    reset,
+    refresh: renderUi,
     buildReport,
     copyReport,
     pause,

@@ -1,0 +1,791 @@
+// Shared settings markup. Definitions are passive; each UI entrypoint mounts once.
+/** @template T @param {typeof globalThis} root @param {()=>T} build */
+(function (root, build) {
+  const api = build();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else root.SettingsView = api;
+})(globalThis, function () {
+  const markup = `    <dialog
+      id="modeManager"
+      class="modeManager"
+      aria-labelledby="modeManagerTitle"
+      aria-describedby="modeManagerHint"
+    >
+      <div class="modeManagerHeader">
+        <h2 id="modeManagerTitle">Visual modes</h2>
+        <button
+          id="closeModeManagerBtn"
+          class="modeDialogClose"
+          type="button"
+          aria-label="Close visual modes"
+        >
+          &#x2715;
+        </button>
+      </div>
+      <p id="modeManagerHint" class="modeManagerHint">
+        Drag to reorder. Choose which modes appear in your list.
+      </p>
+      <ul
+        id="modeManagerList"
+        class="modeManagerList"
+        aria-label="Visual mode order"
+      ></ul>
+      <div class="modeManagerFooter">
+        <span class="modeManagerHint"
+          >Number keys and auto-cycle follow this order.</span
+        >
+        <button id="doneModeManagerBtn" class="modeDoneButton" type="button">
+          Done
+        </button>
+      </div>
+      <span
+        id="modeManagerStatus"
+        class="modeManagerStatus"
+        role="status"
+        aria-live="polite"
+      ></span>
+    </dialog>
+
+    <dialog
+      id="themeManager"
+      class="modeManager"
+      aria-labelledby="themeManagerTitle"
+      aria-describedby="themeManagerHint"
+    >
+      <div class="modeManagerHeader">
+        <h2 id="themeManagerTitle">Color themes</h2>
+        <button
+          id="closeThemeManagerBtn"
+          class="modeDialogClose"
+          type="button"
+          aria-label="Close color themes"
+        >
+          &#x2715;
+        </button>
+      </div>
+      <p id="themeManagerHint" class="modeManagerHint">
+        Drag to reorder. Choose which themes appear in your list.
+      </p>
+      <ul
+        id="themeManagerList"
+        class="modeManagerList"
+        aria-label="Color theme order"
+      ></ul>
+      <div class="modeManagerFooter">
+        <span class="modeManagerHint"
+          >C cycles through enabled themes in this order.</span
+        >
+        <button id="doneThemeManagerBtn" class="modeDoneButton" type="button">
+          Done
+        </button>
+      </div>
+      <span
+        id="themeManagerStatus"
+        class="modeManagerStatus"
+        role="status"
+        aria-live="polite"
+      ></span>
+    </dialog>
+    <!-- hotkeys modal -->
+    <div
+      id="hotkeysOverlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="hotkeysModalTitle"
+    >
+      <div id="hotkeysModal">
+        <div class="modalHeader">
+          <div class="modalTitle" id="hotkeysModalTitle">
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="2" y="4" width="20" height="16" rx="2" />
+              <path
+                d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"
+              />
+            </svg>
+            Keyboard Shortcuts
+          </div>
+          <button class="modalClose" id="hotkeysCloseBtn" aria-label="Close">
+            &#x2715;
+          </button>
+        </div>
+        <div class="modalBody">
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Switch visual style</span>
+            <span class="hotkeyKeys" id="modeHotkeyKeys"
+              ><kbd>1</kbd>–<kbd>9</kbd></span
+            >
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Next color theme</span>
+            <span class="hotkeyKeys"><kbd>C</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle auto-cycle visuals</span>
+            <span class="hotkeyKeys"><kbd>Space</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle settings panel</span>
+            <span class="hotkeyKeys"><kbd>S</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle fullscreen</span>
+            <span class="hotkeyKeys"><kbd>F</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Toggle always on top</span>
+            <span class="hotkeyKeys"><kbd>T</kbd></span>
+          </div>
+          <div class="hotkeyRow">
+            <span class="hotkeyDesc">Quit</span>
+            <span class="hotkeyKeys"><kbd>Esc</kbd></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="settingsPanel">
+      <div class="settingsHeader">
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        Settings
+        <button
+          id="closeSettingsWindowBtn"
+          class="settingsWindowClose"
+          type="button"
+          aria-label="Close settings"
+          title="Close settings (Escape)"
+          hidden
+        >
+          ×
+        </button>
+      </div>
+      <!-- ── Style ── -->
+      <div class="settingsSection">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="2 12 6 12 9 5 14 19 17 12 22 12" />
+          </svg>
+          Style
+        </div>
+        <div class="sectionContent">
+          <div class="field">
+            <div class="modeFieldHeader">
+              <label for="modeSelect">Visual mode</label>
+              <button
+                id="manageModesBtn"
+                class="modeManageButton"
+                type="button"
+                aria-expanded="false"
+                aria-controls="modeManager"
+                aria-haspopup="dialog"
+              >
+                Manage
+              </button>
+            </div>
+            <select id="modeSelect"></select>
+          </div>
+          <div id="barsAlignmentRow" class="field">
+            <label for="barsAlignmentSelect">Bars alignment</label>
+            <select id="barsAlignmentSelect">
+              <option value="bottom">Bottom</option>
+              <option value="center">Center split</option>
+            </select>
+          </div>
+          <div id="radialModeRow" class="toggleRow">
+            <label for="radialMirroredCheckbox">Mirrored</label>
+            <input type="checkbox" id="radialMirroredCheckbox" checked />
+          </div>
+          <div id="waveformStyleRow" class="field">
+            <label for="waveformStyleSelect">Waveform style</label>
+            <select id="waveformStyleSelect">
+              <option value="line">Single line</option>
+              <option value="filled">Filled ribbon</option>
+              <option value="prism">Prism</option>
+            </select>
+          </div>
+          <div id="cascadeFrequencyRow" class="toggleRow">
+            <label for="cascadeFrequencyCheckbox"
+              >Reverse frequency order</label
+            >
+            <input type="checkbox" id="cascadeFrequencyCheckbox" />
+          </div>
+          <div id="cascadeFillRow" class="field">
+            <label for="cascadeFillSelect">Cascade fill</label>
+            <select id="cascadeFillSelect">
+              <option value="dark">Dark fill</option>
+              <option value="light">Light fill</option>
+              <option value="theme">Follow theme colors</option>
+            </select>
+          </div>
+          <div id="kaleidoClipRow" class="toggleRow">
+            <label for="kaleidoClipCheckbox">Clip to circle</label>
+            <input type="checkbox" id="kaleidoClipCheckbox" checked />
+          </div>
+          <div id="particleDensityRow" class="field">
+            <label for="particleDensitySlider"
+              ><span>Particle density</span
+              ><span class="val" id="particleDensityVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="particleDensitySlider"
+              min="0.5"
+              max="1.8"
+              step="0.05"
+              value="1.0"
+            />
+          </div>
+          <div id="particleStyleRow" class="field">
+            <label for="particleStyleSelect">Particle behavior</label>
+            <select id="particleStyleSelect">
+              <option value="flow">Flow</option>
+              <option value="burst">Burst</option>
+              <option value="vortex">Vortex</option>
+            </select>
+          </div>
+          <div class="field">
+            <div class="modeFieldHeader">
+              <label for="themeSelect">Color theme</label>
+              <button
+                id="manageThemesBtn"
+                class="modeManageButton"
+                type="button"
+                aria-expanded="false"
+                aria-controls="themeManager"
+                aria-haspopup="dialog"
+              >
+                Manage
+              </button>
+            </div>
+            <select id="themeSelect"></select>
+          </div>
+          <div id="colorGradientRow" class="toggleRow">
+            <label for="colorGradientCheckbox">Color gradient</label>
+            <input type="checkbox" id="colorGradientCheckbox" checked />
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Audio ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+          Audio
+        </div>
+        <div class="sectionContent">
+          <div class="field">
+            <label for="sensitivitySlider"
+              ><span>Sensitivity</span
+              ><span class="val" id="sensitivityVal">1.0x</span></label
+            >
+            <input
+              type="range"
+              id="sensitivitySlider"
+              min="0.4"
+              max="2.4"
+              step="0.1"
+              value="1.0"
+            />
+          </div>
+          <div class="field">
+            <label for="valueHandlingSelect">Response curve</label>
+            <select id="valueHandlingSelect">
+              <option value="exponential">Exponential (Punchy)</option>
+              <option value="logarithmic">Logarithmic (Perceptual)</option>
+              <option value="linear">Linear (Direct)</option>
+            </select>
+          </div>
+          <div class="toggleRow">
+            <label for="bassSensitivityCheckbox">Bass-driven sensitivity</label>
+            <input
+              type="checkbox"
+              id="bassSensitivityCheckbox"
+              aria-controls="bassSensitivityAmountRow"
+            />
+          </div>
+          <div
+            id="bassSensitivityAmountRow"
+            class="field bassSensitivityAmount"
+            hidden
+          >
+            <label for="bassSensitivityAmountSlider"
+              ><span>Amount</span
+              ><span class="val" id="bassSensitivityAmountVal">50%</span></label
+            >
+            <input
+              type="range"
+              id="bassSensitivityAmountSlider"
+              min="0"
+              max="100"
+              step="5"
+              value="50"
+              aria-describedby="bassSensitivityRange"
+            />
+            <p id="bassSensitivityRange" class="bassSensitivityHint">
+              No bass: 0.5× · Strong bass: 1.5×
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Appearance ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="13.5" cy="6.5" r="2.5" />
+            <path
+              d="M17.08 3.87A9.96 9.96 0 0 1 22 12c0 5.52-4.48 10-10 10S2 17.52 2 12 6.48 2 12 2"
+            />
+            <path d="M12 12l-4.5 4.5" />
+            <path d="M12 12l4.5-1.5" />
+          </svg>
+          Appearance
+        </div>
+        <div class="sectionContent">
+          <div id="smoothingRow" class="toggleRow">
+            <label for="smoothingCheckbox">Smooth motion</label>
+            <input type="checkbox" id="smoothingCheckbox" checked />
+          </div>
+          <div class="field">
+            <label for="glowSlider"
+              ><span>Glow intensity</span
+              ><span class="val" id="glowVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="glowSlider"
+              min="0"
+              max="2.0"
+              step="0.1"
+              value="1.0"
+            />
+          </div>
+          <div class="toggleRow">
+            <label for="trailsCheckbox">Trails</label>
+            <input type="checkbox" id="trailsCheckbox" checked />
+          </div>
+          <div id="trailDurationRow" class="field">
+            <label for="trailDurationSlider"
+              ><span>Trail length</span
+              ><span class="val" id="trailDurationVal">220ms</span></label
+            >
+            <input
+              type="range"
+              id="trailDurationSlider"
+              min="80"
+              max="600"
+              step="10"
+              value="220"
+            />
+          </div>
+          <div id="trailFpsRow" class="field">
+            <label for="trailFpsSlider"
+              ><span>Trail max FPS</span
+              ><span class="val" id="trailFpsVal">60 FPS</span></label
+            >
+            <input
+              type="range"
+              id="trailFpsSlider"
+              min="15"
+              max="240"
+              step="15"
+              value="60"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Background ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
+          </svg>
+          Background
+        </div>
+        <div class="sectionContent">
+          <div class="field">
+            <label for="bgTypeSelect">Type</label>
+            <select id="bgTypeSelect">
+              <option value="color">Solid color</option>
+              <option value="nebula">Cosmic Nebula</option>
+              <option value="stars">Warp Starfield</option>
+              <option value="grid">Synthwave Grid</option>
+              <option value="image">Custom Image</option>
+            </select>
+          </div>
+          <div id="bgColorRow" class="field">
+            <label for="bgColorInput">Color</label>
+            <input type="color" id="bgColorInput" value="#0f0f1a" />
+          </div>
+          <div id="bgImageRow" class="field">
+            <label for="bgImageInput"
+              ><span>Image</span
+              ><span class="val" id="bgImageName">none chosen</span></label
+            >
+            <input type="file" id="bgImageInput" accept="image/*" />
+            <button id="clearBgImageBtn">Clear image</button>
+          </div>
+          <div id="brightnessRow" class="field">
+            <label for="brightnessSlider"
+              ><span>Brightness</span
+              ><span class="val" id="brightnessVal">100%</span></label
+            >
+            <input
+              type="range"
+              id="brightnessSlider"
+              min="0.2"
+              max="1.6"
+              step="0.05"
+              value="1"
+            />
+          </div>
+          <div id="blurRow" class="field">
+            <label for="blurSlider"
+              ><span>Blur</span><span class="val" id="blurVal">0px</span></label
+            >
+            <input
+              type="range"
+              id="blurSlider"
+              min="0"
+              max="20"
+              step="1"
+              value="0"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Media ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <circle cx="8" cy="12" r="2" />
+            <path d="M13 9h5M13 13h5M13 17h3" />
+          </svg>
+          Media
+        </div>
+        <div class="sectionContent">
+          <div class="toggleRow">
+            <label for="mediaMetadataCheckbox">Show currently playing</label>
+            <input type="checkbox" id="mediaMetadataCheckbox" />
+          </div>
+          <div id="mediaDisplayRow" class="field">
+            <label for="mediaDisplaySelect">Media content</label>
+            <select id="mediaDisplaySelect">
+              <option value="title">Title only</option>
+              <option value="title-artist">Title + artist</option>
+              <option value="cover">Album cover</option>
+              <option value="cover-title">Cover + title</option>
+              <option value="cover-title-artist">Cover + title + artist</option>
+            </select>
+          </div>
+          <div id="mediaTextPositionRow" class="field">
+            <label for="mediaTextPositionSelect">Text position</label>
+            <select id="mediaTextPositionSelect">
+              <option value="auto">Automatic</option>
+              <option value="above">Above focus</option>
+              <option value="below">Below focus</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div id="miniOverlaySection" class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="3" y="4" width="18" height="16" rx="2" />
+            <rect x="12" y="11" width="7" height="6" rx="1" />
+          </svg>
+          Mini overlay
+        </div>
+        <div class="sectionContent">
+          <div class="field">
+            <label for="miniOverlayModeSelect">Visual mode</label>
+            <select id="miniOverlayModeSelect"></select>
+            <p class="bassSensitivityHint">
+              Choose a separate style to keep it fixed while the normal window
+              auto-cycles.
+            </p>
+          </div>
+          <div class="field">
+            <label for="miniOverlayScaleSlider"
+              >Visualizer scale
+              <span class="val" id="miniOverlayScaleVal">100%</span></label
+            >
+            <input
+              id="miniOverlayScaleSlider"
+              type="range"
+              min="50"
+              max="200"
+              step="5"
+              value="100"
+            />
+          </div>
+          <div class="field">
+            <label for="miniOverlayOpacitySlider"
+              >Opacity
+              <span class="val" id="miniOverlayOpacityVal">100%</span></label
+            >
+            <input
+              id="miniOverlayOpacitySlider"
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value="100"
+            />
+          </div>
+          <div class="field">
+            <label for="miniOverlayFpsSelect">FPS limit</label>
+            <select id="miniOverlayFpsSelect">
+              <option value="15">15 FPS</option>
+              <option value="30">30 FPS</option>
+              <option value="60" selected>60 FPS</option>
+              <option value="120">120 FPS</option>
+              <option value="0">Unlimited</option>
+            </select>
+          </div>
+          <div class="toggleRow">
+            <label for="miniOverlayBackgroundCheckbox">Show background</label>
+            <input id="miniOverlayBackgroundCheckbox" type="checkbox" />
+          </div>
+          <p class="bassSensitivityHint">
+            Use your configured background in the mini overlay.
+          </p>
+        </div>
+      </div>
+      <!-- ── Effects & Post-Processing ── -->
+      <div class="settingsSection collapsed">
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polygon
+              points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+            />
+          </svg>
+          Effects
+        </div>
+        <div class="sectionContent">
+          <div class="toggleRow">
+            <label for="reactiveVignetteCheckbox">Reactive Edge Vignette</label>
+            <input type="checkbox" id="reactiveVignetteCheckbox" checked />
+          </div>
+          <div class="toggleRow">
+            <label for="crtFilterCheckbox">Retro CRT & Scanlines</label>
+            <input type="checkbox" id="crtFilterCheckbox" />
+          </div>
+          <div class="toggleRow">
+            <label for="beatFlashCheckbox">Beat Flash & Flares</label>
+            <input type="checkbox" id="beatFlashCheckbox" checked />
+          </div>
+          <div class="toggleRow">
+            <label for="wakeLockCheckbox">Keep screen awake</label>
+            <input type="checkbox" id="wakeLockCheckbox" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Diagnostics ── -->
+      <div id="diagnosticsSection" class="settingsSection collapsed" hidden>
+        <div class="settingsSectionTitle">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M4 19V5" />
+            <path d="M4 19h16" />
+            <path d="m7 15 3-4 3 2 4-7" />
+          </svg>
+          Diagnostics
+        </div>
+        <div class="sectionContent">
+          <div id="diagnosticsStatus" class="diagnosticsGrid">
+            <div class="diagnosticMetric">
+              <span>FPS</span><strong id="diagFps">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Frame</span><strong id="diagFrame">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Render P95</span><strong id="diagRender">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Trail P95</span><strong id="diagTrail">—</strong>
+            </div>
+            <div class="diagnosticMetric diagnosticMetricWide">
+              <span>Layers · BG / FX</span><strong id="diagLayers">—</strong>
+            </div>
+            <div class="diagnosticMetric">
+              <span>Load</span><strong id="diagLoad">—</strong>
+            </div>
+          </div>
+          <div id="diagDetail" class="diagnosticDetail">
+            Collecting live frame data…
+          </div>
+          <div class="diagnosticActions">
+            <button id="copyDiagnosticsBtn" class="diagnosticButton">
+              Copy snapshot
+            </button>
+            <button
+              id="resetDiagnosticsBtn"
+              class="diagnosticButton diagnosticButtonSecondary"
+            >
+              Reset
+            </button>
+          </div>
+          <div class="diagnosticProfile">
+            <div class="diagnosticProfileHeader">
+              <span>Profiler</span>
+              <span id="profileStatus"
+                >Record while switching modes/settings, then copy the
+                profile.</span
+              >
+            </div>
+            <div class="diagnosticActions">
+              <button id="recordProfileBtn" class="diagnosticButton">
+                Record profile
+              </button>
+              <button
+                id="copyProfileBtn"
+                class="diagnosticButton diagnosticButtonSecondary"
+                disabled
+              >
+                Copy profile
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- hotkeys button at the bottom of the settings panel -->
+      <div class="settingsSection">
+        <button id="hotkeysBtn">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="2" y="4" width="20" height="16" rx="2" />
+            <path
+              d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"
+            />
+          </svg>
+          Keyboard Shortcuts
+        </button>
+      </div>
+    </div>
+
+`;
+  /** @param {Document} document */
+  function mount(document) {
+    if (document.getElementById("settingsPanel")) return;
+    const template = document.createElement("template");
+    template.innerHTML = markup;
+    document.body.appendChild(template.content.cloneNode(true));
+  }
+  return { mount };
+});

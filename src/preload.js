@@ -2,6 +2,17 @@ const { contextBridge, ipcRenderer } = require("electron");
 const IPC = require("./ipc-channels");
 
 contextBridge.exposeInMainWorld("electronAPI", {
+  openSettingsWindow: () => ipcRenderer.invoke(IPC.SETTINGS_OPEN),
+  /** @param {(request:import('./settings-protocol').Request)=>void} callback */
+  onSettingsRequest(callback) {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on(IPC.SETTINGS_REQUEST, listener);
+    return () => ipcRenderer.removeListener(IPC.SETTINGS_REQUEST, listener);
+  },
+  /** @param {import('./settings-protocol').Reply} value */
+  replySettings: (value) => ipcRenderer.send(IPC.SETTINGS_REPLY, value),
+  /** @param {import('./settings-protocol').Patch} value */
+  publishSettings: (value) => ipcRenderer.send(IPC.SETTINGS_PATCH, value),
   isPackaged: process.argv.includes("--app-packaged=true"),
   miniOverlaySupported: process.argv.includes("--mini-overlay-supported"),
   /** @param {import('./tray-controller').TraySettings} settings */

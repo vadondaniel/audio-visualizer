@@ -143,3 +143,11 @@ in a hidden renderer with a simulated native host. It covers magnetic release,
 Alt, Shift+Alt, off-screen anchors, cleanup, and lock rejection. Native placement
 and overhang/re-entry remain part of `mini-overlay --interactive`; hidden results
 do not establish foreground behavior on a particular Windows/DPI configuration.
+
+`floating-settings` runs both renderers hidden through the real restricted
+preloads and IPC controller. It checks shared controls/managers, independent-mode
+context, image composites, single saves, external updates, lock-safe editing,
+Escape/return behavior, and retention of the visualizer's live resources. Unit
+checks cover request ownership, readiness/failure, revision ordering, disposal,
+and late replies. Native Windows stacking and focus still require an explicit
+interactive check; hidden results do not establish those foreground behaviors.

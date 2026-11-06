@@ -1,5 +1,5 @@
 // Typed renderer boundary; no legacy capture globals are available here.
-/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>,restore:()=>void,save:()=>void,refreshMediaColors:()=>void,bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
+/** @typedef {{state:import('./settings-actions').SettingsState,registry:import('./visual-contracts').Registry,modeList:typeof import('./mode-list'),themeIds:readonly string[],window:Window,nativeApi?:Partial<import('./mini-overlay-ui').OverlayNativeApi & import('./tray-controls').TrayNativeApi>,restore:()=>void,save:()=>void,refreshMediaColors:()=>void,createSettingsOwner:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>{start:()=>void,notify:(keys:import('./settings-actions').ChangedKeys|'all')=>void,dispose:()=>void},bind:(actions:ReturnType<typeof import('./settings-actions').create>,overlay:import('./mini-overlay-ui').Adapter)=>void,settings:import('./settings-ui').Dependencies,overlay:Omit<import('./mini-overlay-ui').Dependencies,'api'|'actions'|'timers'|'onPresentationChange'>}} Bridge */
 
 /** @template T
  * @param {typeof globalThis} root
@@ -76,6 +76,8 @@
   async function initialize(registry, loadScript, start = () => {}) {
     await registry.loadFactories(loadScript);
     for (const path of [
+      "settings-protocol.js",
+      "settings-panel.js",
       "renderer-bridge.js",
       "visual-mode-host.js",
       "visuals/loop.js",
@@ -109,6 +111,7 @@
       });
     const unavailable = {
       miniOverlaySupported: false,
+      openSettingsWindow: () => Promise.resolve(),
       onMiniOverlayState: () => noop,
       onTraySelect: () => noop,
       setTraySettings: noop,
@@ -123,6 +126,7 @@
     if (api.miniOverlaySupported) {
       for (const method of [
         "onMiniOverlayState",
+        "openSettingsWindow",
         "getMiniOverlayState",
         "enterMiniOverlay",
         "restoreNormalWindow",
@@ -173,6 +177,8 @@
       owned.push(settings);
       /** @type {ReturnType<typeof TrayControls.create>|undefined} */
       let tray;
+      /** @type {ReturnType<Bridge['createSettingsOwner']>|undefined} */
+      let settingsOwner;
       let presentationReady = false;
       const syncTray = () => {
         if (presentationReady && !disposed && tray) tray.sync();
@@ -193,6 +199,7 @@
           ...settings.effects,
           syncControls(keys) {
             settings.sync(keys);
+            settingsOwner?.notify(keys);
             if (
               keys === "all" ||
               keys.some((key) =>
@@ -224,6 +231,7 @@
           if (disposed) return;
           syncTray();
           bridge.refreshMediaColors();
+          settingsOwner?.notify([]);
         },
       });
       owned.push(overlay);
@@ -238,6 +246,9 @@
       });
       owned.push(tray);
       bridge.bind(actions, overlay);
+      settingsOwner = bridge.createSettingsOwner(actions, overlay);
+      owned.push(settingsOwner);
+      settingsOwner.start();
       bridge.window.addEventListener("unload", dispose);
       settings.start();
       tray.start();

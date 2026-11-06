@@ -54,6 +54,11 @@ function composition({ fail, initial } = {}) {
         setTimeout: jest.fn(),
         clearTimeout: jest.fn(),
       },
+      createSettingsOwner: () => ({
+        start: jest.fn(),
+        notify: jest.fn(),
+        dispose: jest.fn(),
+      }),
       restore: () => log.push("restore"),
       bind: jest.fn(),
       save: jest.fn(),

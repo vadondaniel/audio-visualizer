@@ -1,6 +1,9 @@
 const {
   app,
   BaseWindow,
+  BrowserWindow,
+  screen,
+  dialog,
   session,
   desktopCapturer,
   ipcMain,
@@ -13,6 +16,8 @@ const { spawn } = require("child_process");
 const { acquireSingleInstance } = require("./single-instance");
 const MiniOverlay = require("./mini-overlay");
 const TrayController = require("./tray-controller");
+const SettingsWindow = require("./settings-window");
+let floatingSettings;
 
 let mainWindow;
 let presentation;
@@ -154,10 +159,38 @@ function createWindow() {
     onQuit: () => app.quit(),
     ensureTray: nativeTray.ensure,
     isTrayAvailable: nativeTray.isAvailable,
-    onPresentationChange: nativeTray.setPresentation,
+    onPresentationChange(value) {
+      nativeTray.setPresentation(value);
+      floatingSettings?.presentationChanged(value);
+    },
   });
   mainWindow = presentation.normal;
   rendererContents = presentation.contents;
+  floatingSettings = SettingsWindow.create({
+    createWindow: (options) => new BrowserWindow(options),
+    present: (window) => {
+      window.show();
+      window.focus();
+    },
+    ipc: ipcMain,
+    screen,
+    getOwner: () => rendererContents,
+    waitForOwner: () =>
+      rendererContents.executeJavaScript("window.rendererReady"),
+    getOverlay: () => presentation.getOverlayWindow(),
+    isActive: () => presentation.snapshot().active,
+    htmlPath: path.join(__dirname, "settings.html"),
+    preload: path.join(__dirname, "settings-preload.js"),
+    reportError: (message) => {
+      dialog
+        .showMessageBox(presentation.getOverlayWindow() || mainWindow, {
+          type: "error",
+          title: "Settings",
+          message,
+        })
+        .catch(console.error);
+    },
+  });
   const loadingContents = rendererContents;
   rendererReady = false;
   rendererContents.on("did-start-loading", () => {
@@ -284,6 +317,7 @@ if (
 
   app.on("before-quit", stopMediaWatcher);
   app.on("before-quit", () => {
+    floatingSettings?.dispose();
     removeTrayIpc();
     removeOverlayIpc();
     try {

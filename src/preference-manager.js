@@ -1,5 +1,8 @@
 // Shared modal interaction for ordered, enabled preference lists.
 function createPreferenceManager({
+  document = globalThis.document,
+  modeList = ModeList,
+  flashHud = () => {},
   manageModesBtn,
   modeManager,
   modeManagerList,
@@ -13,8 +16,13 @@ function createPreferenceManager({
   closeIds,
   shortcut,
 }) {
+  const cleanup = [];
+  function listen(target, type, fn) {
+    target.addEventListener(type, fn);
+    cleanup.push(() => target.removeEventListener(type, fn));
+  }
   function render() {
-    const enabled = ModeList.enabled(ordered(), disabled());
+    const enabled = modeList.enabled(ordered(), disabled());
     const focused = document.activeElement;
     const focusId = focused?.dataset[key];
     const focusAction = focused?.dataset.action;
@@ -82,8 +90,8 @@ function createPreferenceManager({
     }
   }
 
-  manageModesBtn.addEventListener("click", () => setOpen(true));
-  modeManagerList.addEventListener("change", (e) => {
+  listen(manageModesBtn, "click", () => setOpen(true));
+  listen(modeManagerList, "change", (e) => {
     const control = e.target.closest('input[data-action="enable"]');
     if (!control) return;
     const id = control.dataset[key];
@@ -103,7 +111,7 @@ function createPreferenceManager({
     statusElement.textContent = `${modeLabel(id)} moved to position ${to + 1}`;
   }
 
-  modeManagerList.addEventListener("keydown", (e) => {
+  listen(modeManagerList, "keydown", (e) => {
     const handle = e.target.closest('[data-action="reorder"]');
     if (!handle || !["ArrowUp", "ArrowDown"].includes(e.key)) return;
     e.preventDefault();
@@ -116,7 +124,7 @@ function createPreferenceManager({
 
   let draggedMode = null;
   let dragPlacement = null;
-  modeManagerList.addEventListener("dragstart", (e) => {
+  listen(modeManagerList, "dragstart", (e) => {
     const row = e.target.closest(".modeManagerRow");
     if (!row || e.target.closest("input")) {
       e.preventDefault();
@@ -128,7 +136,7 @@ function createPreferenceManager({
     e.dataTransfer.setData("text/plain", draggedMode);
     row.dataset.dragging = "true";
   });
-  modeManagerList.addEventListener("dragover", (e) => {
+  listen(modeManagerList, "dragover", (e) => {
     if (!draggedMode) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
@@ -144,7 +152,7 @@ function createPreferenceManager({
     if (e.clientY < bounds.top + 28) modeManagerList.scrollBy(0, -12);
     else if (e.clientY > bounds.bottom - 28) modeManagerList.scrollBy(0, 12);
   });
-  modeManagerList.addEventListener("drop", (e) => {
+  listen(modeManagerList, "drop", (e) => {
     if (!draggedMode) return;
     e.preventDefault();
     const id = draggedMode;
@@ -165,18 +173,18 @@ function createPreferenceManager({
       ?.focus();
     statusElement.textContent = `${modeLabel(id)} moved to position ${ordered().indexOf(id) + 1}`;
   });
-  modeManagerList.addEventListener("dragend", () => {
+  listen(modeManagerList, "dragend", () => {
     draggedMode = null;
     dragPlacement = null;
     render(); // Cancelled drags restore the saved order.
   });
   for (const id of closeIds)
-    document.getElementById(id).addEventListener("click", () => setOpen(false));
-  modeManager.addEventListener("cancel", (e) => {
+    listen(document.getElementById(id), "click", () => setOpen(false));
+  listen(modeManager, "cancel", (e) => {
     e.preventDefault();
     setOpen(false);
   });
-  modeManager.addEventListener("click", (e) => {
+  listen(modeManager, "click", (e) => {
     if (e.target !== modeManager) return;
     const bounds = modeManager.getBoundingClientRect();
     if (
@@ -188,5 +196,14 @@ function createPreferenceManager({
       setOpen(false);
   });
 
-  return { render, setOpen, move };
+  return {
+    render,
+    setOpen,
+    move,
+    dispose() {
+      for (const release of cleanup.splice(0)) release();
+      draggedMode = null;
+      dragPlacement = null;
+    },
+  };
 }

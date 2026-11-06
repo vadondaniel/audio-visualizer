@@ -106,14 +106,20 @@ test("second launch restores the normal presentation before focusing it", async 
 test("quit removes tray IPC and disposes tray before closing the presentation", async () => {
   const { app, context, evaluate, electron } = loadMain({ packaged: true });
   await Promise.resolve();
+  context.testSettings = { dispose: jest.fn() };
   context.testTray = { dispose: jest.fn() };
   context.testPresentation = { dispose: jest.fn() };
-  evaluate("nativeTray=testTray;presentation=testPresentation;");
+  evaluate(
+    "floatingSettings=testSettings;nativeTray=testTray;presentation=testPresentation;"
+  );
   for (const [event, handler] of app.on.mock.calls)
     if (event === "before-quit") handler();
   expect(electron.ipcMain.removeListener).toHaveBeenCalledWith(
     "tray-settings",
     expect.any(Function)
+  );
+  expect(context.testSettings.dispose.mock.invocationCallOrder[0]).toBeLessThan(
+    context.testTray.dispose.mock.invocationCallOrder[0]
   );
   expect(context.testTray.dispose.mock.invocationCallOrder[0]).toBeLessThan(
     context.testPresentation.dispose.mock.invocationCallOrder[0]

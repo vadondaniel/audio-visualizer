@@ -26,14 +26,7 @@ function applyBackground() {
 }
 
 function updateBgRowsVisibility() {
-  bgTypeSelect.value = state.bgType;
-  const isImage = state.bgType === "image";
-  const isColor = state.bgType === "color";
-  bgColorRow.style.display = isColor ? "" : "none";
-  bgImageRow.style.display = isImage ? "" : "none";
-  brightnessRow.style.display = isImage ? "" : "none";
-  blurRow.style.display = isImage ? "" : "none";
-  bgImageName.textContent = state.bgImageName || "none chosen";
+  settingsPanelUi.backgroundRows();
 }
 
 function applyFxOverlay() {
@@ -68,16 +61,6 @@ function updateFxLive(bassLevel, midLevel, trebleLevel, beatPulse) {
       `hsla(${flashHue}, 95%, 85%, 0.45)`
     );
   }
-}
-
-// Reads the chosen image file without re-encoding to preserve animated GIF/WEBP
-function readImageFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error("Could not read that image file"));
-    reader.readAsDataURL(file);
-  });
 }
 
 // ---------- procedural background systems ----------
@@ -399,22 +382,7 @@ function drawProceduralBackground(bassLevel, midLevel, trebleLevel, beatPulse) {
 // ---------- settings panel sync helpers ----------
 
 function updateVisualOptionRows() {
-  const currentMode = MODES[state.mode];
-  barsAlignmentRow.style.display = currentMode === "bars" ? "" : "none";
-  radialModeRow.style.display = currentMode === "radial" ? "" : "none";
-  waveformStyleRow.style.display = currentMode === "waveform" ? "" : "none";
-  kaleidoClipRow.style.display = currentMode === "kaleidoscope" ? "" : "none";
-  cascadeFrequencyRow.style.display = currentMode === "cascade" ? "" : "none";
-  cascadeFillRow.style.display = currentMode === "cascade" ? "" : "none";
-  const particleMode = currentMode === "particles";
-  particleDensityRow.style.display = particleMode ? "" : "none";
-  particleStyleRow.style.display = particleMode ? "" : "none";
-  const theme = THEMES[state.theme];
-  const gradientAvailable = !theme.rainbow && !theme.alwaysGradient;
-  colorGradientRow.style.display = gradientAvailable ? "" : "none";
-  colorGradientCheckbox.disabled = !gradientAvailable;
-  smoothingRow.style.display =
-    currentMode === "particles" || currentMode === "waveform" ? "none" : "";
+  settingsPanelUi.rows();
 }
 
 function syncSelectsToState() {
@@ -426,15 +394,5 @@ function syncSelectsToState() {
 }
 
 function updateSliderLabels() {
-  brightnessVal.textContent = `${Math.round(state.bgBrightness * 100)}%`;
-  blurVal.textContent = `${state.bgBlur}px`;
-  sensitivityVal.textContent = `${state.sensitivity.toFixed(1)}x`;
-  bassSensitivityAmountVal.textContent = `${Math.round(state.bassSensitivityAmount * 100)}%`;
-  const amount = state.bassSensitivityAmount;
-  const formatMultiplier = (value) => `${Number(value.toFixed(2))}×`;
-  bassSensitivityRange.textContent = `No bass: ${formatMultiplier(1 - amount)} · Strong bass: ${formatMultiplier(1 + amount)}`;
-  glowVal.textContent = `${Math.round(state.glowIntensity * 100)}%`;
-  trailDurationVal.textContent = `${state.trailDuration}ms`;
-  trailFpsVal.textContent = `${state.trailMaxFps} FPS`;
-  particleDensityVal.textContent = `${Math.round(state.particleDensity * 100)}%`;
+  settingsPanelUi.labels();
 }

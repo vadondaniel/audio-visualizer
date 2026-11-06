@@ -314,6 +314,7 @@ function create({
     unlock,
     setBounds,
     getBounds: () => overlay?.getBounds() || null,
+    getOverlayWindow: () => overlay || null,
     snapshot,
     dispose,
   };

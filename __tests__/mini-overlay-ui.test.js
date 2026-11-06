@@ -358,3 +358,24 @@ test("initial native state failure recovers and rejects startup rather than reso
   expect(f.dependencies.reportError).toHaveBeenCalledWith("state unavailable");
   expect(f.api.restoreNormalWindow).toHaveBeenCalledTimes(1);
 });
+
+test("settings requests stay in the overlay, including locked state and load failures", async () => {
+  const f = setup();
+  f.api.openSettingsWindow = jest.fn().mockResolvedValue(undefined);
+  f.api.restoreNormalWindow = jest.fn();
+  f.state({ active: true, locked: true, canLock: true });
+  await f.nodes.get("miniOverlaySettings").emit("click");
+  expect(f.api.openSettingsWindow).toHaveBeenCalledTimes(1);
+  expect(f.adapter.isActive()).toBe(true);
+  expect(f.api.restoreNormalWindow).not.toHaveBeenCalled();
+  f.api.openSettingsWindow.mockRejectedValue(Error("settings load failed"));
+  await f.adapter.openSettings();
+  expect(f.dependencies.reportError).toHaveBeenCalledWith(
+    "settings load failed"
+  );
+  expect(f.adapter.isActive()).toBe(true);
+  expect(f.api.restoreNormalWindow).not.toHaveBeenCalled();
+  f.adapter.dispose();
+  await f.adapter.openSettings();
+  expect(f.api.openSettingsWindow).toHaveBeenCalledTimes(2);
+});

@@ -29,6 +29,7 @@ function rebuildModeOptions() {
 }
 
 const modeManagerController = createPreferenceManager({
+  flashHud: () => flashHud(),
   manageModesBtn,
   modeManager,
   modeManagerList,

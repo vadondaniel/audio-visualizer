@@ -158,7 +158,6 @@ test.each([
   "%s resets the capture deadline through its actual input handler",
   (slider, field, value) => {
     const app = setup();
-    const handlers = {};
     app.context.settingsActions = require("../src/settings-actions").create({
       state: app.context.state,
       registry: require("../src/mode-registry"),
@@ -180,23 +179,41 @@ test.each([
       ),
       timers: { setInterval, clearInterval },
     });
-    for (const name of ["trailDurationSlider", "trailFpsSlider"]) {
-      app.context[name] = {
-        addEventListener: (_event, callback) => {
-          handlers[name] = callback;
-        },
-      };
+    class Input {
+      constructor() {
+        this.value = "";
+        this.type = "range";
+      }
+      addEventListener(_event, callback) {
+        this.callback = callback;
+      }
+      removeEventListener() {}
     }
-    const source = readSource("ui.js");
-    vm.runInContext(
-      source.slice(
-        source.indexOf("trailDurationSlider.addEventListener"),
-        source.indexOf("wakeLockCheckbox.addEventListener")
-      ),
-      app.context
-    );
+    const nodes = new Map();
+    app.context.HTMLInputElement = Input;
+    app.context.document = {
+      ...app.context.document,
+      getElementById(id) {
+        if (!nodes.has(id)) nodes.set(id, new Input());
+        return nodes.get(id);
+      },
+    };
+    app.context.SettingsUI = require("../src/settings-ui");
+    vm.runInContext(readSource("settings-panel.js"), app.context);
+    const panel = app.context.SettingsPanel.create({
+      document: app.context.document,
+      state: app.context.state,
+      registry: require("../src/mode-registry"),
+      themes: [],
+      currentMode: () => "bars",
+      submit: (c) => app.context.settingsActions.set(c.key, c.value),
+      reportError: () => {},
+    });
+    panel.start();
     app.render(0);
-    handlers[slider]({ target: { value } });
+    nodes.get(slider).value = value;
+    nodes.get(slider).callback();
+    panel.dispose();
     expect(app.context.state[field]).toBe(Number(value));
     expect(app.context.updateSliderLabels).toHaveBeenCalledTimes(1);
     expect(app.context.saveSettings).toHaveBeenCalledTimes(1);

@@ -133,6 +133,27 @@ renderer and overlay controller, creates the tray lazily on overlay entry, and
 disposes it before the window hosts. Overlay locking queries tray availability;
 choice updates refresh menus without publishing presentation events.
 
+Floating Settings uses the same `settings-view.js` markup, `settings-panel.js`
+control bindings/labels/conditional rows, palette painter, and preference managers
+as the normal sidebar. `settings-client.js` is a UI mirror: it loads metadata but
+no visual modes, capture, settings actions, or preference storage. The persistent
+renderer remains the only settings owner. `settings-protocol.js` validates typed
+commands using existing setting validation; the owner applies each through its
+existing actions and publishes revisioned patches with effective-mode context.
+Snapshots omit background image data, and patches contain only affected settings.
+
+`settings-window.js` owns the singleton frameless, resizable settings window
+and separately authenticates its sender and the owner renderer. It waits for owner readiness and initial UI
+synchronization before an explicit open can show/focus the window. State patches
+never raise it. Closing retains applied settings; return to normal, owner reload,
+or quit closes it and cancels pending requests. Bounds last only for the session.
+The existing Settings header is draggable, with a close button outside its drag
+region.
+Overlay gear/S opens the window; floating Escape dismisses a manager/shortcut
+dialog first, then closes Settings. Opening and closing Settings never changes
+overlay locking. Development diagnostics use owner-backed requests at 500 ms
+only while their section is expanded.
+
 ## Injected services
 
 Factories receive `constants`, `palette.currentHue`,
