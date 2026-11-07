@@ -158,6 +158,8 @@
     const trailsCheckbox = input("trailsCheckbox");
     const valueHandlingSelect = select("valueHandlingSelect");
     const wakeLockCheckbox = input("wakeLockCheckbox");
+    const prismLayoutSelect = select("prismLayoutSelect");
+    const prismLayoutRow = element("prismLayoutRow");
     const waveformStyleSelect = select("waveformStyleSelect");
     const barsAlignmentRow = element("barsAlignmentRow");
     const bassSensitivityAmountVal = element("bassSensitivityAmountVal");
@@ -239,6 +241,11 @@
       ),
       SettingsUI.valueBinding("barsAlignment", barsAlignmentSelect, (value) =>
         String(value)
+      ),
+      SettingsUI.valueBinding(
+        "prismLayout",
+        prismLayoutSelect,
+        (value) => value
       ),
       SettingsUI.valueBinding("waveformStyle", waveformStyleSelect, (value) =>
         String(value)
@@ -360,6 +367,7 @@
       const mode = currentMode();
       barsAlignmentRow.style.display = mode === "bars" ? "" : "none";
       radialModeRow.style.display = mode === "radial" ? "" : "none";
+      prismLayoutRow.style.display = mode === "prism" ? "" : "none";
       waveformStyleRow.style.display = mode === "waveform" ? "" : "none";
       kaleidoClipRow.style.display = mode === "kaleidoscope" ? "" : "none";
       cascadeFrequencyRow.style.display = mode === "cascade" ? "" : "none";
@@ -458,6 +466,14 @@
         barsAlignmentSelect,
         (v) =>
           /** @type {import('./settings-actions').SettingsState['barsAlignment']} */ (
+            v
+          )
+      );
+      bindValue(
+        "prismLayout",
+        prismLayoutSelect,
+        (v) =>
+          /** @type {import('./settings-actions').SettingsState['prismLayout']} */ (
             v
           )
       );

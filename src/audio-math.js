@@ -211,8 +211,10 @@
       state.kaleidoClipEnabled = saved.kaleidoClipEnabled;
     if (saved.barsAlignment === "bottom" || saved.barsAlignment === "center")
       state.barsAlignment = saved.barsAlignment;
-    if (["line", "filled", "prism"].includes(saved.waveformStyle))
+    if (["line", "filled"].includes(saved.waveformStyle))
       state.waveformStyle = saved.waveformStyle;
+    if (["circular", "straight"].includes(saved.prismLayout))
+      state.prismLayout = saved.prismLayout;
     if (
       saved.cascadeFrequencyOrder === "bass-to-treble" ||
       saved.cascadeFrequencyOrder === "treble-to-bass"

@@ -8,13 +8,13 @@ const legacy = {
   glowBlur: 8,
   glowBlurGain: 7,
 };
-test.each(["prism", "waveform"])(
+test.each(["circular", "straight"])(
   "%s has stronger strokes without changing paths or audio",
-  (mode) => {
+  (layout) => {
     for (const size of [320, 800])
       for (const glow of [0, 1]) {
-        const f = setup(mode);
-        f.settings.waveformStyle = "prism";
+        const f = setup("prism");
+        f.settings.prismLayout = layout;
         f.settings.glowIntensity = glow;
         f.frame.width = f.frame.height = size;
         f.process();

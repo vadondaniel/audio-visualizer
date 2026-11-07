@@ -380,3 +380,16 @@ describe("timer ownership and restoration", () => {
     expect(a.timers.clearInterval).toHaveBeenCalledWith(0);
   });
 });
+
+test("Prism layout is one saved scalar action without resetting rendering or audio history", () => {
+  const f = setup();
+  const before = f.state.mode;
+  f.actions.set("prismLayout", "straight");
+  expect(f.state.prismLayout).toBe("straight");
+  expect(f.state.mode).toBe(before);
+  expect(f.effects.syncControls).toHaveBeenCalledWith(["prismLayout"]);
+  expect(f.save).toHaveBeenCalledTimes(1);
+  expect(f.effects.resetTrails).not.toHaveBeenCalled();
+  expect(f.effects.modeOptions).not.toHaveBeenCalled();
+  expect(f.effects.mediaWatching).not.toHaveBeenCalled();
+});

@@ -1,8 +1,8 @@
 const { setup } = require("./helpers/mode-fixture.cjs");
 
 test("straight Prism connects neighboring peaks in both directions without closing the ends", () => {
-  const f = setup("waveform");
-  f.settings.waveformStyle = "prism";
+  const f = setup("prism");
+  f.settings.prismLayout = "straight";
   f.process();
   f.frame.signals = { ...f.frame.signals, bands: [0, 0.5, 1, 0.25] };
   f.mode.draw(f.canvas.ctx, f.frame);
@@ -33,8 +33,8 @@ test.each([
 ])(
   "straight Prism handles silence, resize and reset at %s × %s",
   (width, height) => {
-    const f = setup("waveform");
-    f.settings.waveformStyle = "prism";
+    const f = setup("prism");
+    f.settings.prismLayout = "straight";
     f.frame.width = width;
     f.frame.height = height;
     f.process();
@@ -47,3 +47,18 @@ test.each([
       for (const [, , y] of stroke[2]) expect(y).toBe(height / 2);
   }
 );
+
+test("only circular Prism supplies cropped history and fitted-overlay bounds", () => {
+  const f = setup("prism");
+  f.process();
+  const circle = f.mode.getRenderBounds(f.frame),
+    fit = f.mode.getOverlayBounds(f.frame);
+  expect(circle.width).toBeGreaterThan(0);
+  expect(fit.width).toBeGreaterThan(0);
+  f.settings.prismLayout = "straight";
+  expect(f.mode.getRenderBounds(f.frame)).toBeNull();
+  expect(f.mode.getOverlayBounds(f.frame)).toBeNull();
+  f.settings.prismLayout = "circular";
+  expect(f.mode.getRenderBounds(f.frame)).toBe(circle);
+  expect(f.mode.getOverlayBounds(f.frame)).toBe(fit);
+});

@@ -231,7 +231,13 @@
             <select id="waveformStyleSelect">
               <option value="line">Single line</option>
               <option value="filled">Filled ribbon</option>
-              <option value="prism">Prism</option>
+            </select>
+          </div>
+          <div id="prismLayoutRow" class="field">
+            <label for="prismLayoutSelect">Prism layout</label>
+            <select id="prismLayoutSelect">
+              <option value="circular">Circular</option>
+              <option value="straight">Straight</option>
             </select>
           </div>
           <div id="cascadeFrequencyRow" class="toggleRow">

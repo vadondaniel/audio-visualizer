@@ -2,7 +2,7 @@ const Pipeline = require("../src/audio-pipeline");
 const MathAudio = require("../src/audio-math");
 const Registry = require("../src/mode-registry");
 const { setup, names } = require("./helpers/mode-fixture.cjs");
-function fixture(overrides = {}) {
+function fixture(overrides = {}, registry = Registry) {
   const settings = {
     sensitivity: 1,
     valueHandling: "linear",
@@ -23,7 +23,7 @@ function fixture(overrides = {}) {
     beatPulse: 0.7,
   };
   input.spectrumDb[500] = -20;
-  const pipeline = Pipeline.create();
+  const pipeline = Pipeline.create({ registry });
   const step = (mode = "bars") => {
     pipeline.update(input, settings, { dtSec: 0.1 });
     return pipeline.forMode(mode);
@@ -31,80 +31,97 @@ function fixture(overrides = {}) {
   return { input, settings, pipeline, step };
 }
 
-test("Waveform Prism shares Prism's finished bands and adaptive range", () => {
-  const f = fixture({ waveformStyle: "prism" });
-  const line = f.step("waveform");
-  const circle = f.pipeline.forMode("prism");
-  expect(line.bands).toHaveLength(96);
-  expect([...line.bands]).toEqual([...circle.bands]);
-  expect(line.rangeEndHz).toBe(circle.rangeEndHz);
-  expect(f.pipeline.forMode("waveform")).toBe(line);
-  f.settings.sensitivity = 0;
-  expect([...f.step("waveform").bands].every((value) => value === 0)).toBe(
-    true
-  );
-});
-
 test.each(["linear", "exponential", "logarithmic"])(
-  "Prism variants preserve %s controls, bass gain, smoothing and range",
+  "Prism layouts share %s audio controls, smoothing, adaptive range and cached buffers",
   (valueHandling) => {
     for (const bassSensitivityEnabled of [false, true]) {
-      const f = fixture({
-        waveformStyle: "prism",
+      const a = fixture({
+        prismLayout: "circular",
         valueHandling,
         sensitivity: 2.5,
         bassSensitivityEnabled,
         bassSensitivityAmount: 0.75,
         smoothingEnabled: true,
       });
+      const b = fixture({ ...a.settings, prismLayout: "straight" });
       for (let frame = 0; frame < 10; frame++) {
-        f.input.spectrumDb.fill(-80);
-        f.input.spectrumDb.fill(-30, 2, 80);
-        f.input.spectrumDb.fill(-45, 250, 270);
-        const line = f.step("waveform"),
-          circle = f.pipeline.forMode("prism");
+        for (const f of [a, b]) {
+          f.input.spectrumDb.fill(-80);
+          f.input.spectrumDb.fill(-30, 2, 80);
+          f.input.spectrumDb.fill(-45, 250, 270);
+        }
+        const circle = a.step("prism"),
+          line = b.step("prism");
         expect([...line.bands]).toEqual([...circle.bands]);
         expect([...line.motionBands]).toEqual([...circle.motionBands]);
         expect(line.rangeEndHz).toBe(circle.rangeEndHz);
         expect([...line.waveform]).toEqual([...circle.waveform]);
+        expect(b.pipeline.forMode("prism")).toBe(line);
       }
+      const output = b.pipeline.forMode("prism"),
+        storage = output.bands;
+      b.settings.prismLayout = "circular";
+      expect(b.step("prism")).toBe(output);
+      expect(b.pipeline.forMode("prism").bands).toBe(storage);
+      b.settings.smoothingEnabled = false;
+      b.settings.sensitivity = 0;
+      expect([...b.step("prism").bands].every((v) => v === 0)).toBe(true);
     }
   }
 );
+function variantFixture(overrides = {}) {
+  const registry = Registry.createRegistry([
+    ...Registry.entries,
+    {
+      ...Registry.get("waveform"),
+      id: "variant-test",
+      audio: {
+        ...Registry.audioProfiles.waveform,
+        variants: {
+          setting: "waveformStyle",
+          profiles: { filled: Registry.audioProfiles.prism },
+        },
+      },
+    },
+  ]);
+  return fixture(overrides, registry);
+}
 
 test("style switching retains one mode history, cached outputs and buffers until reset", () => {
-  const f = fixture({ waveformStyle: "prism", smoothingEnabled: true });
-  const output = f.step("waveform"),
+  const f = variantFixture({ waveformStyle: "filled", smoothingEnabled: true });
+  const output = f.step("variant-test"),
     bands = output.bands;
   const before = [...bands];
   f.settings.waveformStyle = "line";
-  expect(f.pipeline.forMode("waveform")).toBe(output);
+  expect(f.pipeline.forMode("variant-test")).toBe(output);
   f.input.spectrumDb.fill(-Infinity);
   f.input.frequencyBytes.fill(0);
-  for (let frame = 0; frame < 10; frame++) f.step("waveform");
+  for (let frame = 0; frame < 10; frame++) f.step("variant-test");
   expect([...bands]).toEqual(before);
-  f.settings.waveformStyle = "prism";
+  f.settings.waveformStyle = "filled";
   for (let frame = 0; frame < 10; frame++) f.step("bars");
   expect([...bands]).toEqual(before);
-  const resumed = f.step("waveform");
+  const resumed = f.step("variant-test");
   expect(resumed).toBe(output);
   expect(resumed.bands).toBe(bands);
   expect([...bands].some((value) => value > 0)).toBe(true);
   expect([...bands].some((value, i) => value < before[i])).toBe(true);
   f.pipeline.reset();
-  const reset = f.step("waveform");
+  const reset = f.step("variant-test");
   expect(reset.bands).toBe(bands);
   expect([...reset.bands].every((value) => value === 0)).toBe(true);
 });
 
 test("declared style selectors are captured at update, before the first profile request", () => {
-  const f = fixture({ waveformStyle: "line" });
+  const f = variantFixture({ waveformStyle: "line" });
   f.pipeline.update(f.input, f.settings, { dtSec: 0.1 });
-  f.settings.waveformStyle = "prism";
+  f.settings.waveformStyle = "filled";
   expect(
-    [...f.pipeline.forMode("waveform").bands].every((value) => value === 0)
+    [...f.pipeline.forMode("variant-test").bands].every((value) => value === 0)
   ).toBe(true);
-  expect([...f.step("waveform").bands].some((value) => value > 0)).toBe(true);
+  expect([...f.step("variant-test").bands].some((value) => value > 0)).toBe(
+    true
+  );
 });
 
 test("synthetic variants use complete profiles and reuse capacity-sized storage across different counts", () => {
@@ -118,7 +135,7 @@ test("synthetic variants use complete profiles and reuse capacity-sized storage 
       variants: {
         setting: "waveformStyle",
         profiles: {
-          prism: {
+          filled: {
             sampler: "prism",
             count: 96,
             release: 10,
@@ -130,7 +147,7 @@ test("synthetic variants use complete profiles and reuse capacity-sized storage 
     },
   };
   const registry = Registry.createRegistry([definition]);
-  const f = fixture({ waveformStyle: "prism" }),
+  const f = variantFixture({ waveformStyle: "filled" }),
     pipeline = Pipeline.create({ registry });
   pipeline.update(f.input, f.settings, { dtSec: 0.1 });
   const large = pipeline.forMode("variant-test"),
@@ -140,7 +157,7 @@ test("synthetic variants use complete profiles and reuse capacity-sized storage 
     {
       ...definition,
       id: "expected",
-      audio: definition.audio.variants.profiles.prism,
+      audio: definition.audio.variants.profiles.filled,
     },
   ]);
   const expected = Pipeline.create({ registry: expectedRegistry });
@@ -151,7 +168,7 @@ test("synthetic variants use complete profiles and reuse capacity-sized storage 
   const small = pipeline.forMode("variant-test").bands;
   expect(small.length).toBe(4);
   expect(small.buffer).toBe(storage.buffer);
-  f.settings.waveformStyle = "prism";
+  f.settings.waveformStyle = "filled";
   pipeline.update(f.input, f.settings, { dtSec: 0.1 });
   expect(pipeline.forMode("variant-test").bands).toBe(storage);
   f.settings.waveformStyle = "line";
@@ -160,17 +177,17 @@ test("synthetic variants use complete profiles and reuse capacity-sized storage 
 });
 
 test("FFT resizing resets adaptive range for a Prism variant even while its base style is selected", () => {
-  const f = fixture({ waveformStyle: "prism" });
+  const f = variantFixture({ waveformStyle: "filled" });
   f.input.spectrumDb.fill(-30);
-  const bands = f.step("waveform").bands;
-  expect(f.pipeline.forMode("waveform").rangeEndHz).toBeGreaterThan(10000);
+  const bands = f.step("variant-test").bands;
+  expect(f.pipeline.forMode("variant-test").rangeEndHz).toBeGreaterThan(10000);
   f.settings.waveformStyle = "line";
   f.input.spectrumDb = new Float32Array(128).fill(-Infinity);
   f.input.spectrumDb.fill(-30, 2, 12);
   f.input.frequencyBytes = new Uint8Array(128).fill(100);
-  f.step("waveform");
-  f.settings.waveformStyle = "prism";
-  const line = f.step("waveform"),
+  f.step("variant-test");
+  f.settings.waveformStyle = "filled";
+  const line = f.step("variant-test"),
     circle = f.pipeline.forMode("prism");
   expect(line.bands).toBe(bands);
   expect(line.rangeEndHz).toBe(circle.rangeEndHz);

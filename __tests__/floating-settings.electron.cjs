@@ -96,6 +96,7 @@ runCheck(
       ),
       "no-drag"
     );
+    console.log("Floating settings: owner and client initialized");
     await installWaiters(first);
     const client = (code) => first.webContents.executeJavaScript(code);
     const inspect = () =>
@@ -302,9 +303,50 @@ runCheck(
       { window: owner }
     );
     assert.equal(locked, true);
+    console.log(
+      "Floating settings: controls, managers, image and lock checks complete"
+    );
     await waitForPaint(first, ["#settingsPanel"]);
     fs.writeFileSync(
       path.join(artifactDir, "floating-settings.png"),
+      (await first.webContents.capturePage()).toPNG()
+    );
+    console.log("Floating settings: paint ready");
+    const normalModeBeforeLayout = await run("state.mode");
+    await run("settingsActions.selectOverlayMode('prism')");
+    await waitFor(
+      "floating effective Prism controls",
+      () => client("document.getElementById('prismLayoutRow').style.display"),
+      (v) => v === "",
+      { window: first }
+    );
+    await client(
+      "document.getElementById('prismLayoutSelect').closest('.settingsSection').querySelector('.settingsSectionTitle').click()"
+    );
+    await waitForPaint(first, ["#settingsPanel"]);
+    assert.equal(
+      await client(
+        "document.getElementById('prismLayoutSelect').getBoundingClientRect().height>0"
+      ),
+      true
+    );
+    await change("prismLayoutSelect", "straight");
+    await waitFor(
+      "floating Prism layout saved",
+      () => run("state.prismLayout"),
+      (v) => v === "straight",
+      { window: owner }
+    );
+    assert.equal(await run("state.mode"), normalModeBeforeLayout);
+    await run("settingsActions.set('prismLayout','circular')");
+    await waitFor(
+      "external Prism layout synchronized",
+      () => client("document.getElementById('prismLayoutSelect').value"),
+      (v) => v === "circular",
+      { window: first }
+    );
+    fs.writeFileSync(
+      path.join(artifactDir, "floating-prism-layout.png"),
       (await first.webContents.capturePage()).toPNG()
     );
     assert.equal((await inspect()).error, "");

@@ -63,15 +63,14 @@ test("definitions and derived profile views are immutable; settings get fresh de
   expect(Pipeline.PROFILES).toBe(Registry.audioProfiles);
 });
 
-test("style profiles resolve to immutable registry objects with safe base fallbacks", () => {
+test("base profiles and synthetic variants resolve to immutable objects with safe fallbacks", () => {
   const base = Registry.audioProfiles.waveform;
-  const prism = base.variants.profiles.prism;
-  expect(
-    Registry.resolveAudioProfile("waveform", { waveformStyle: "prism" })
-  ).toBe(prism);
+  expect(base).toMatchObject({ sampler: "waveform", count: 96, release: 10 });
+  expect(base.variants).toBeUndefined();
   for (const waveformStyle of [
     "line",
     "filled",
+    "prism",
     undefined,
     "unknown",
     "toString",
@@ -80,29 +79,34 @@ test("style profiles resolve to immutable registry objects with safe base fallba
     expect(Registry.resolveAudioProfile("waveform", { waveformStyle })).toBe(
       base
     );
-  expect(Registry.resolveAudioProfile("bars", { waveformStyle: "prism" })).toBe(
-    Registry.audioProfiles.bars
-  );
   expect(() => Registry.resolveAudioProfile("missing", {})).toThrow(
     "Unknown audio profile"
   );
-  for (const value of [base.variants, base.variants.profiles, prism])
-    expect(Object.isFrozen(value)).toBe(true);
   const original = {
     setting: "waveformStyle",
-    profiles: { prism: { sampler: "prism", count: 96, release: 10 } },
+    profiles: { filled: { sampler: "prism", count: 96, release: 10 } },
   };
   const custom = Registry.createRegistry([
     { ...synthetic, audio: { ...synthetic.audio, variants: original } },
   ]);
-  original.profiles.prism.count = 1;
+  const definition = custom.get("test-mode").audio,
+    prism = definition.variants.profiles.filled;
+  for (const object of [
+    definition.variants,
+    definition.variants.profiles,
+    prism,
+  ])
+    expect(Object.isFrozen(object)).toBe(true);
+  original.profiles.filled.count = 1;
   original.profiles.extra = { sampler: "bars", count: 1, release: 1 };
   expect(
-    custom.resolveAudioProfile("test-mode", { waveformStyle: "prism" }).count
-  ).toBe(96);
-  expect(Object.keys(custom.get("test-mode").audio.variants.profiles)).toEqual([
-    "prism",
-  ]);
+    custom.resolveAudioProfile("test-mode", { waveformStyle: "filled" })
+  ).toBe(prism);
+  expect(prism.count).toBe(96);
+  expect(Object.keys(definition.variants.profiles)).toEqual(["filled"]);
+  expect(
+    custom.resolveAudioProfile("test-mode", { waveformStyle: "line" })
+  ).toBe(definition);
 });
 
 test.each([

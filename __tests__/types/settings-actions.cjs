@@ -51,3 +51,12 @@ function checkActions(dependencies) {
   actions.setModePreferences({ order: [1, 2], disabled: [] });
 }
 module.exports = { checkActions };
+
+/** @param {ReturnType<typeof import('../../src/settings-actions').create>} actions */
+function prismLayoutCommands(actions) {
+  actions.set("prismLayout", "straight");
+  // @ts-expect-error Prism layout uses named layouts, not waveform styles.
+  actions.set("prismLayout", "filled");
+  // @ts-expect-error Waveform no longer owns a spectral Prism style.
+  actions.set("waveformStyle", "prism");
+}

@@ -34,6 +34,7 @@
     "kaleidoClipEnabled",
     "barsAlignment",
     "waveformStyle",
+    "prismLayout",
     "cascadeFrequencyOrder",
     "cascadeFillStyle",
     "sensitivity",

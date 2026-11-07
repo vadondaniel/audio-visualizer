@@ -57,8 +57,10 @@ release rates, and sampling behavior; `AudioPipeline.PROFILES` is a derived view
 The explicit `sampler` selects the algorithm independently of a mode's ID.
 Optional `audio.variants` declares a setting selector and complete named profiles.
 `resolveAudioProfile(id, settings)` returns the selected immutable profile;
-the compatibility views above still expose base profiles. Waveform declares a
-`prism` variant selected by `waveformStyle`; other values use its base sampler.
+the compatibility views above still expose base profiles. Prism�s Circular and
+Straight layouts use the same base Prism profile and history; layout is a drawing
+choice. Waveform always uses its waveform sampler. Synthetic-profile tests cover
+the generic variant mechanism without a production style override.
 Variants share one mode history and preallocated storage sized for the largest
 declared count. Count-specific views are reused, and only the requested profile
 advances. Style changes take effect on the next pipeline update. FFT-size changes

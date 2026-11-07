@@ -42,12 +42,6 @@
         sampler: "waveform",
         count: 96,
         release: 10,
-        variants: {
-          setting: "waveformStyle",
-          profiles: {
-            prism: { sampler: "prism", count: 96, release: 10 },
-          },
-        },
       },
       media: {
         group: "free",

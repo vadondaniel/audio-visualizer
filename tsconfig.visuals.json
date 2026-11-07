@@ -19,6 +19,7 @@
     "src/mode-registry.js",
     "src/mode-runtime.js",
     "src/settings-actions.js",
+    "src/settings-migrations.js",
     "src/settings-ui.js",
     "src/settings-view.js",
     "src/settings-panel.js",

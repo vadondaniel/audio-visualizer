@@ -82,8 +82,10 @@ runCheck(
           for(const id of MODES){
             settingsActions.selectOverlayMode(id);
             for(const clip of id==='kaleidoscope'?[true,false]:[true]){
+            for(const layout of id==='prism'?['circular','straight']:['circular']){
+              if(id==='prism')settingsActions.set('prismLayout',layout);
               settingsActions.set('kaleidoClipEnabled',clip);
-              const fitted=['orbit','prism','radial','kaleidoscope'].includes(id);
+              const fitted=['orbit','prism','radial','kaleidoscope'].includes(id)&&!(id==='prism'&&layout==='straight');
               test.level=1;settingsActions.set('glowIntensity',0);tick();
               check(observed.id===id&&observed.width===innerWidth&&observed.height===innerHeight,'Effective mode and real frame dimensions '+JSON.stringify({observed,innerWidth,innerHeight,active:overlayUI.isActive(),effective:effectiveVisualMode()}));
               const bounds=visualModeController.getOverlayBounds(id,visualFrame);
@@ -105,7 +107,12 @@ runCheck(
                 check(getComputedStyle(canvas).transform==='matrix(1.5, 0, 0, 1.5, 0, 0)','Manual canvas zoom');
                 settingsActions.set('miniOverlayScale',1);
               }else check(observed.matrix.every((value,i)=>near(value,[1,0,0,1,0,0][i])),'Viewport composition unchanged '+id);
-              test.observations.push({id,width:innerWidth,height:innerHeight,clip,fitted});
+              if(id==='prism'&&layout==='straight'){
+                check(bounds===null&&visualModeController.getRenderBounds(id,visualFrame)===null,'Straight Prism has no element bounds');
+                const last=trailFrames.at(-1);check(last.x===0&&last.y===0&&last.canvas.width===innerWidth&&last.canvas.height===innerHeight,'Straight Prism full-canvas trails');
+              }
+              test.observations.push({id,width:innerWidth,height:innerHeight,clip,layout,fitted});
+            }
             }
             check(state.mode===normal,'Independent overlay selection changed normal mode');
           }

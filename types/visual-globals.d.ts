@@ -18,3 +18,5 @@ declare var SettingsProtocol: typeof import("../src/settings-protocol");
 declare var SettingsPanel: typeof import("../src/settings-panel");
 declare var SettingsView: typeof import("../src/settings-view");
 declare var SettingsClient: typeof import("../src/settings-client");
+
+declare var SettingsMigrations: typeof import("../src/settings-migrations");

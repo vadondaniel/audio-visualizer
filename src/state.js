@@ -28,7 +28,8 @@ const state = {
   radialMode: "mirrored", // "mirrored" | "full" — radial visual only
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
   barsAlignment: "bottom", // "bottom" | "center"
-  waveformStyle: "line", // "line" | "filled" | "prism"
+  waveformStyle: "line", // "line" | "filled"
+  prismLayout: "circular", // "circular" | "straight"
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   cascadeFillStyle: "dark", // "dark" | "light" | "theme"
   sensitivity: 1.0, // audio multiplier (0.5x - 2.5x)
@@ -77,6 +78,7 @@ const PERSISTED_KEYS = [
   "kaleidoClipEnabled",
   "barsAlignment",
   "waveformStyle",
+  "prismLayout",
   "cascadeFrequencyOrder",
   "cascadeFillStyle",
   "sensitivity",
@@ -125,6 +127,7 @@ function restoreSettings() {
   } catch (e) {
     saved = null;
   }
+  saved = SettingsMigrations.migratePrismLayout(saved, ModeRegistry);
   // Keep the earlier media-position key readable so existing settings do not reset.
   if (saved) {
     if (saved.mediaTextPositions == null) {

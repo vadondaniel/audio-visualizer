@@ -48,6 +48,14 @@ settings changes do not reset modes. Capture teardown/recovery resets all modes.
 Drawing is enclosed in canvas save/restore by the controller; modes must balance
 their own save/restore calls too. Draw requires an update after creation or reset.
 
+Prism has a shared `prismLayout` setting: Circular (default) or Straight. Both use
+the same audio history; Straight preserves its full-width geometry and returns
+null trail/overlay bounds, while Circular retains cropping and automatic fitting.
+Waveform keeps only Single line and Filled ribbon. Restore-time migration moves
+legacy Waveform Prism selections to Prism, enabling it when needed. A valid saved
+layout wins; otherwise normal-window appearance takes priority over an independent
+mini-player selection. Migration does not save or move media-position preferences.
+
 ## Host presentation work
 
 Procedural backgrounds have a separate update/draw lifecycle. Updates run on
