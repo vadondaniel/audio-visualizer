@@ -35,6 +35,7 @@
     "barsAlignment",
     "waveformStyle",
     "prismLayout",
+    "ropeLayout",
     "cascadeFrequencyOrder",
     "cascadeFillStyle",
     "sensitivity",

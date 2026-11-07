@@ -240,6 +240,13 @@
               <option value="straight">Straight</option>
             </select>
           </div>
+          <div id="ropeLayoutRow" class="field">
+            <label for="ropeLayoutSelect">Rope layout</label>
+            <select id="ropeLayoutSelect">
+              <option value="circular">Circular</option>
+              <option value="straight">Straight</option>
+            </select>
+          </div>
           <div id="cascadeFrequencyRow" class="toggleRow">
             <label for="cascadeFrequencyCheckbox"
               >Reverse frequency order</label

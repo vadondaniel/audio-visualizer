@@ -146,6 +146,18 @@
         overlayCover: true,
       },
     },
+    {
+      id: "rope",
+      label: "Rope",
+      modulePath: "visuals/rope.js",
+      audio: { sampler: "prism", count: 96, release: 10 },
+      media: {
+        group: "free",
+        defaultPosition: "bottom-left",
+        autoPlacement: "default",
+        overlayCover: true,
+      },
+    },
   ];
   /** @param {ReadonlyArray<import('./visual-contracts').ModeDefinition>} definitions
    * @returns {import('./visual-contracts').Registry} */

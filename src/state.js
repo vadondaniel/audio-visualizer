@@ -29,6 +29,7 @@ const state = {
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
   barsAlignment: "bottom", // "bottom" | "center"
   waveformStyle: "line", // "line" | "filled"
+  ropeLayout: "circular", // "circular" | "straight"
   prismLayout: "circular", // "circular" | "straight"
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   cascadeFillStyle: "dark", // "dark" | "light" | "theme"
@@ -79,6 +80,7 @@ const PERSISTED_KEYS = [
   "barsAlignment",
   "waveformStyle",
   "prismLayout",
+  "ropeLayout",
   "cascadeFrequencyOrder",
   "cascadeFillStyle",
   "sensitivity",

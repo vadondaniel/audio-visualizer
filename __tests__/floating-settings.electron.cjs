@@ -349,6 +349,32 @@ runCheck(
       path.join(artifactDir, "floating-prism-layout.png"),
       (await first.webContents.capturePage()).toPNG()
     );
+    await run("settingsActions.selectOverlayMode('rope')");
+    await waitFor(
+      "floating Rope context",
+      () => client("document.getElementById('ropeLayoutRow').style.display"),
+      (v) => v === "",
+      { window: first }
+    );
+    assert.equal(
+      await client("document.getElementById('prismLayoutRow').style.display"),
+      "none"
+    );
+    await change("ropeLayoutSelect", "straight");
+    await waitFor(
+      "floating Rope layout saved",
+      () => run("state.ropeLayout"),
+      (v) => v === "straight",
+      { window: owner }
+    );
+    assert.equal(await run("state.mode"), normalModeBeforeLayout);
+    await run("settingsActions.set('ropeLayout','circular')");
+    await waitFor(
+      "external Rope layout synchronized",
+      () => client("document.getElementById('ropeLayoutSelect').value"),
+      (v) => v === "circular",
+      { window: first }
+    );
     assert.equal((await inspect()).error, "");
     await client(
       "window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))"

@@ -62,7 +62,7 @@ runCheck(
     check(state.mode===normalIndex&&state.miniOverlayMode==='follow'&&effectiveVisualMode()==='bars','Follow normal shortcut');
     settingsActions.selectOverlayMode('orbit');
     settingsActions.setModePreferences({order:[...MODES].reverse(),disabled:['orbit']});
-    check(state.miniOverlayMode==='prism'&&!Array.from(document.getElementById('miniOverlayModeSelect').options).some(o=>o.value==='orbit'),'Disabled overlay fallback and selector');
+    check(state.miniOverlayMode===MODES.at(-1)&&!Array.from(document.getElementById('miniOverlayModeSelect').options).some(o=>o.value==='orbit'),'Disabled overlay fallback and selector');
     settingsActions.setModePreferences({order:[...MODES],disabled:[]});
     analyser={getFloatFrequencyData:data=>data.fill(-40),getByteFrequencyData:data=>data.fill(140),getByteTimeDomainData:data=>{for(let i=0;i<data.length;i++)data[i]=128+Math.round(30*Math.sin(i/13));}};
     bassAnalyser=analyser;audioCtx={sampleRate:48000,state:'running'};freqData=new Uint8Array(1024);timeData=new Uint8Array(2048);

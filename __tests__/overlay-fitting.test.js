@@ -52,7 +52,7 @@ test.each([
   }
 );
 
-const fitted = ["orbit", "prism", "radial", "kaleidoscope"];
+const fitted = ["orbit", "prism", "radial", "kaleidoscope", "rope"];
 test.each(fitted)("%s fitting leaves native glow blur unchanged", (id) => {
   const app = setup(id);
   app.settings.glowIntensity = 2.5;
@@ -182,6 +182,9 @@ function geometryContext() {
         }
         if (key === "beginPath") points = [];
         if (key === "moveTo" || key === "lineTo") points.push(point(...args));
+        if (key === "quadraticCurveTo")
+          for (let i = 0; i < 4; i += 2)
+            points.push(point(args[i], args[i + 1]));
         if (key === "bezierCurveTo")
           for (let i = 0; i < 6; i += 2)
             points.push(point(args[i], args[i + 1]));

@@ -1,6 +1,7 @@
 const { runCheck } = require("./helpers/electron-harness.cjs");
 // Run with: npm run test:electron -- mode-registry
 const { net } = require("electron");
+const registry = require("../src/mode-registry");
 const fs = require("node:fs"),
   path = require("node:path"),
   assert = require("node:assert/strict");
@@ -61,7 +62,7 @@ runCheck(async ({ createWindow, loadRenderer, expectRendererErrors }) => {
     const check=(value,message)=>{if(!value)throw Error(message);};
     check(!startBtn.disabled,'Start becomes enabled after readiness');
     check(MODES[state.mode]==='orbit','Old numeric selection still means Orbit');
-    check(state.modeOrder[0]==='prism'&&state.modeOrder.at(-1)==='test-mode','Saved order preserved and new mode appended');
+    check(state.modeOrder[0]===MODES.at(-2)&&state.modeOrder.at(-1)==='test-mode','Saved order preserved and new mode appended');
     check(state.disabledModes.includes('bars')&&!state.disabledModes.includes('test-mode'),'New mode enabled without changing disabled modes');
     check(state.mediaTextPositions.radial==='above'&&state.mediaTextPositions.orbit==='bottom-right'&&state.mediaTextPositions['test-mode']==='bottom','Saved and new media defaults');
     check([...modeSelect.options].some(option=>option.textContent==='Test Mode'),'Selector discovers registry label');
@@ -72,8 +73,8 @@ runCheck(async ({ createWindow, loadRenderer, expectRendererErrors }) => {
     check(pipe.forMode('test-mode').bands.length===ModeRegistry.resolveAudioProfile('test-mode',state).count,'Synthetic mode uses declared sampler');
     return {count:MODES.length,factories:Object.keys(ModeRegistry.getFactories()).length};
   })()`);
-    assert.equal(result.count, 12);
-    assert.equal(result.factories, 12);
+    assert.equal(result.count, registry.ids.length + 1);
+    assert.equal(result.factories, registry.ids.length + 1);
     // The benchmark must discover the new mode through the same metadata.
     await window.webContents.executeJavaScript(
       `window.__audioVisualizerBenchmark={requestedModes:['test-mode'],scenarios:['silence'],repeats:1,warmupMs:1,durationMs:80,operationCounts:false,renderTracing:false};\n` +

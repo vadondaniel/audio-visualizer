@@ -59,7 +59,9 @@ Optional `audio.variants` declares a setting selector and complete named profile
 `resolveAudioProfile(id, settings)` returns the selected immutable profile;
 the compatibility views above still expose base profiles. Prism�s Circular and
 Straight layouts use the same base Prism profile and history; layout is a drawing
-choice. Waveform always uses its waveform sampler. Synthetic-profile tests cover
+choice. Rope also uses the Prism sampler, with its own profile history shared by
+its two layouts. Its springs and onset kicks are visual physics driven by finished
+bands, not additional audio processing. Waveform always uses its waveform sampler. Synthetic-profile tests cover
 the generic variant mechanism without a production style override.
 Variants share one mode history and preallocated storage sized for the largest
 declared count. Count-specific views are reused, and only the requested profile

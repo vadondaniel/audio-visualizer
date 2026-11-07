@@ -22,6 +22,7 @@
  * @property {number} glowIntensity
  * @property {'bottom'|'center'} barsAlignment
  * @property {'mirrored'|'full'} radialMode
+ * @property {'circular'|'straight'} ropeLayout
  * @property {'circular'|'straight'} prismLayout
  * @property {'line'|'filled'} waveformStyle
  * @property {boolean} kaleidoClipEnabled
@@ -90,6 +91,7 @@
  * @property {Readonly<{baseRFrac:number,lengthScale:number}>} radial
  * @property {Readonly<{radiusFrac:number,spinPerSec:number}>} orbit
  * @property {Readonly<{radiusFrac:number,minLineWidth:number,lineWidthScale:number,contourAlpha:number,spokeAlpha:number,spokeAlphaGain:number,glowBlur:number,glowBlurGain:number}>} prism
+ * @property {Readonly<{restoring:number,coupling:number,circularCoupling:number,circularRestoring:number,circularDamping:number,damping:number,targetScale:number,onsetKick:number,stepSec:number,maxFrameSec:number,limit:number,radiusFrac:number,radialScale:number,straightScale:number,minLineWidth:number,lineWidthScale:number,glowBlur:number}>} rope
  * @property {Readonly<{maxRFrac:number,coreRFrac:number,spinPerSec:number,spinTreblePerSec:number,spinBeatPerSec:number,flashDecayPerSec:number}>} kaleidoscope
  * @property {Readonly<{cap:number}>} particles
  */

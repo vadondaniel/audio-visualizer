@@ -151,3 +151,10 @@ Escape/return behavior, and retention of the visualizer's live resources. Unit
 checks cover request ownership, readiness/failure, revision ordering, disposal,
 and late replies. Native Windows stacking and focus still require an explicit
 interactive check; hidden results do not establish those foreground behaviors.
+
+`rope` checks both layouts with deterministic rest/pull/rebound/settled image
+sheets, palette/glow/size cases, conservative bounds, repeated-draw pixel equality,
+controls, persistence, and simulation between capped draws. The unit solver checks
+propagation, signed recoil, anchors, seam coupling, timing, settling and buffer
+reuse. Existing geometry fixtures continue covering their original modes; Rope
+has dedicated behavioral coverage instead of a regenerated historical baseline.

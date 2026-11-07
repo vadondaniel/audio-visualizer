@@ -158,6 +158,8 @@
     const trailsCheckbox = input("trailsCheckbox");
     const valueHandlingSelect = select("valueHandlingSelect");
     const wakeLockCheckbox = input("wakeLockCheckbox");
+    const ropeLayoutSelect = select("ropeLayoutSelect"),
+      ropeLayoutRow = element("ropeLayoutRow");
     const prismLayoutSelect = select("prismLayoutSelect");
     const prismLayoutRow = element("prismLayoutRow");
     const waveformStyleSelect = select("waveformStyleSelect");
@@ -242,6 +244,7 @@
       SettingsUI.valueBinding("barsAlignment", barsAlignmentSelect, (value) =>
         String(value)
       ),
+      SettingsUI.valueBinding("ropeLayout", ropeLayoutSelect, (value) => value),
       SettingsUI.valueBinding(
         "prismLayout",
         prismLayoutSelect,
@@ -367,6 +370,7 @@
       const mode = currentMode();
       barsAlignmentRow.style.display = mode === "bars" ? "" : "none";
       radialModeRow.style.display = mode === "radial" ? "" : "none";
+      ropeLayoutRow.style.display = mode === "rope" ? "" : "none";
       prismLayoutRow.style.display = mode === "prism" ? "" : "none";
       waveformStyleRow.style.display = mode === "waveform" ? "" : "none";
       kaleidoClipRow.style.display = mode === "kaleidoscope" ? "" : "none";
@@ -466,6 +470,14 @@
         barsAlignmentSelect,
         (v) =>
           /** @type {import('./settings-actions').SettingsState['barsAlignment']} */ (
+            v
+          )
+      );
+      bindValue(
+        "ropeLayout",
+        ropeLayoutSelect,
+        (v) =>
+          /** @type {import('./settings-actions').SettingsState['ropeLayout']} */ (
             v
           )
       );

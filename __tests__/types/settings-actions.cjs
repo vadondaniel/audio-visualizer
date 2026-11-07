@@ -60,3 +60,10 @@ function prismLayoutCommands(actions) {
   // @ts-expect-error Waveform no longer owns a spectral Prism style.
   actions.set("waveformStyle", "prism");
 }
+
+/** @param {ReturnType<typeof import('../../src/settings-actions').create>} actions */
+function ropeLayoutCommands(actions) {
+  actions.set("ropeLayout", "straight");
+  // @ts-expect-error Rope layouts use the fixed circular/straight vocabulary.
+  actions.set("ropeLayout", "mirrored");
+}

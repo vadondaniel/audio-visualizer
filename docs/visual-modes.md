@@ -56,6 +56,20 @@ legacy Waveform Prism selections to Prism, enabling it when needed. A valid save
 layout wins; otherwise normal-window appearance takes priority over an independent
 mini-player selection. Migration does not save or move media-position preferences.
 
+Rope appends a new mode without changing older numeric indices. Its shared
+`ropeLayout` selector chooses a closed, clockwise frequency sweep or a straight
+rope with fixed ends. Each layout owns signed spring positions, velocities and
+copied target values; only the selected layout advances. Finished Prism-profile
+bands supply local pull targets and onset kicks. Coupled springs propagate them,
+with lighter circular coupling and greater radial travel to keep local dents visible,
+and faster circular restoring/damping to separate attacks from lingering motion,
+with fixed 1/240-second integration and a 100 ms pause cap. No audio controls are
+reapplied. Reset reuses both histories; resize changes geometry, not simulation.
+Quadratic spline controls stay inside the node hull. Circular bounds reserve
+maximum rebound geometry for fitting and include conservative glow for trails;
+Straight retains viewport framing and full-canvas history. Rainbow glow paints
+the rope's actual gradient, and the circular palette closes without a color seam.
+
 ## Host presentation work
 
 Procedural backgrounds have a separate update/draw lifecycle. Updates run on

@@ -150,7 +150,7 @@ test("overlay preferences fall back atomically when disabled; unknown IDs restor
     order: [...registry.ids].reverse(),
     disabled: ["orbit"],
   });
-  expect(a.state.miniOverlayMode).toBe("prism");
+  expect(a.state.miniOverlayMode).toBe(registry.ids.at(-1));
   expect(a.save).toHaveBeenCalledTimes(1);
   const saves = a.save.mock.calls.length;
   a.actions.selectOverlayMode("orbit");
@@ -278,7 +278,7 @@ test("mode preferences preserve order, keep selection, and fall back when disabl
   a.order.length = 0;
   a.save.mockClear();
   a.actions.setModePreferences({ order, disabled: ["orbit"] });
-  expect(a.state.mode).toBe(10);
+  expect(a.state.mode).toBe(registry.indexOf(order[0]));
   expect(a.order).toEqual([
     "modeOptions",
     "syncControls",
@@ -290,7 +290,7 @@ test("mode preferences preserve order, keep selection, and fall back when disabl
   expect(a.save).toHaveBeenCalledTimes(1);
   a.actions.setModePreferences({ order, disabled: order });
   expect(modeList.enabled(a.state.modeOrder, a.state.disabledModes)).toEqual([
-    "prism",
+    order[0],
   ]);
   expect(order).toEqual([...registry.ids].reverse());
 });
@@ -392,4 +392,16 @@ test("Prism layout is one saved scalar action without resetting rendering or aud
   expect(f.effects.resetTrails).not.toHaveBeenCalled();
   expect(f.effects.modeOptions).not.toHaveBeenCalled();
   expect(f.effects.mediaWatching).not.toHaveBeenCalled();
+});
+
+test("Rope layout saves and synchronizes once without resetting history or changing mode", () => {
+  const f = setup(),
+    before = f.state.mode;
+  f.actions.set("ropeLayout", "straight");
+  expect(f.state.ropeLayout).toBe("straight");
+  expect(f.state.mode).toBe(before);
+  expect(f.effects.syncControls).toHaveBeenCalledWith(["ropeLayout"]);
+  expect(f.save).toHaveBeenCalledTimes(1);
+  expect(f.effects.resetTrails).not.toHaveBeenCalled();
+  expect(f.effects.modeOptions).not.toHaveBeenCalled();
 });

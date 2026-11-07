@@ -36,7 +36,7 @@ test.each([
   }
 );
 
-test.each(["orbit", "prism", "radial"])(
+test.each(["orbit", "prism", "radial", "rope"])(
   "%s bounds are stable across signals, reusable, and independent per instance",
   (id) => {
     const app = setup(id),
@@ -101,7 +101,7 @@ test("controller forwards optional bounds without lifecycle calls, and unsupport
     "Unknown visual mode"
   );
   for (const id of names.filter(
-    (id) => !["orbit", "prism", "radial"].includes(id)
+    (id) => !["orbit", "prism", "radial", "rope"].includes(id)
   ))
     expect(setup(id).mode.getRenderBounds).toBeUndefined();
 });

@@ -38,67 +38,6 @@ describe.each(names)("%s lifecycle", (name) => {
     expect(left.events.length).toBeGreaterThan(0);
     expect(left.depth).toBe(0);
   });
-  test.each(["landscape", "portrait"])(
-    "preserves geometry with explicit finished signals in %s",
-    (scene) => {
-      const a = setup(name);
-      if (scene === "portrait") {
-        a.frame.width = 420;
-        a.frame.height = 720;
-        a.settings.valueHandling = "logarithmic";
-        a.settings.sensitivity = 2.5;
-        a.setTheme("Rainbow Cycle");
-        a.settings.waveformStyle = "filled";
-        a.settings.radialMode = "full";
-        a.settings.particleStyle = "vortex";
-        a.settings.cascadeFillStyle = "theme";
-        a.settings.cascadeFrequencyOrder = "treble-to-bass";
-        a.settings.hueShift = 87;
-      }
-      const source = geometry[name][scene];
-      // Preserve the historical fingerprint with its original style preset.
-      // Shipped Prism styling and unchanged geometry are compared separately.
-      if (name === "prism")
-        Object.assign(a.constants.VISUAL_TUNING.prism, {
-          minLineWidth: 1,
-          lineWidthScale: 0.0018,
-          contourAlpha: 0.4,
-          spokeAlpha: 0.25,
-          spokeAlphaGain: 0.45,
-          glowBlur: 8,
-          glowBlurGain: 7,
-        });
-      a.frame.timestampMs = 1000;
-      a.frame.audioClockMs = 1000;
-      a.frame.beat.pulse = 0.8;
-      a.frame.signals = {
-        ...source,
-        bands: Float64Array.from(source.bands),
-        motionBands: Float64Array.from(source.bands),
-        motionEnvelopes: { ...source.envelopes },
-        waveform: Float32Array.from(
-          a.frame.audio.timeBytes,
-          (v) => (v - 128) / 128
-        ),
-      };
-      a.mode.update(a.frame);
-      a.mode.draw(a.canvas.ctx, a.frame);
-      const serialized = JSON.stringify(a.canvas.events, (_, v) =>
-        typeof v === "number"
-          ? Math.round(v * 1e7) / 1e7
-          : typeof v === "string" && /^(hsla?|rgba?)\(/.test(v)
-            ? v.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g, (n) =>
-                String(Math.round(Number(n) * 1e7) / 1e7)
-              )
-            : v
-      );
-      expect(crypto.createHash("sha256").update(serialized).digest("hex")).toBe(
-        source.hash
-      );
-      expect(a.canvas.depth).toBe(0);
-    }
-  );
-
   test("owns its state, does not simulate during draw, and resets to a fresh instance", () => {
     const a = setup(name),
       fresh = setup(name);
@@ -278,5 +217,68 @@ test("controller update and draw are independent and drawing never consumes anot
   );
   expect(() => controller.draw("missing", a.canvas.ctx, a.frame)).toThrow(
     "Unknown visual mode"
+  );
+});
+
+describe.each(Object.keys(geometry))("%s historical geometry", (name) => {
+  test.each(["landscape", "portrait"])(
+    "preserves geometry with explicit finished signals in %s",
+    (scene) => {
+      const a = setup(name);
+      if (scene === "portrait") {
+        a.frame.width = 420;
+        a.frame.height = 720;
+        a.settings.valueHandling = "logarithmic";
+        a.settings.sensitivity = 2.5;
+        a.setTheme("Rainbow Cycle");
+        a.settings.waveformStyle = "filled";
+        a.settings.radialMode = "full";
+        a.settings.particleStyle = "vortex";
+        a.settings.cascadeFillStyle = "theme";
+        a.settings.cascadeFrequencyOrder = "treble-to-bass";
+        a.settings.hueShift = 87;
+      }
+      const source = geometry[name][scene];
+      // Preserve the historical fingerprint with its original style preset.
+      // Shipped Prism styling and unchanged geometry are compared separately.
+      if (name === "prism")
+        Object.assign(a.constants.VISUAL_TUNING.prism, {
+          minLineWidth: 1,
+          lineWidthScale: 0.0018,
+          contourAlpha: 0.4,
+          spokeAlpha: 0.25,
+          spokeAlphaGain: 0.45,
+          glowBlur: 8,
+          glowBlurGain: 7,
+        });
+      a.frame.timestampMs = 1000;
+      a.frame.audioClockMs = 1000;
+      a.frame.beat.pulse = 0.8;
+      a.frame.signals = {
+        ...source,
+        bands: Float64Array.from(source.bands),
+        motionBands: Float64Array.from(source.bands),
+        motionEnvelopes: { ...source.envelopes },
+        waveform: Float32Array.from(
+          a.frame.audio.timeBytes,
+          (v) => (v - 128) / 128
+        ),
+      };
+      a.mode.update(a.frame);
+      a.mode.draw(a.canvas.ctx, a.frame);
+      const serialized = JSON.stringify(a.canvas.events, (_, v) =>
+        typeof v === "number"
+          ? Math.round(v * 1e7) / 1e7
+          : typeof v === "string" && /^(hsla?|rgba?)\(/.test(v)
+            ? v.replace(/-?\d+(?:\.\d+)?(?:e[+-]?\d+)?/g, (n) =>
+                String(Math.round(Number(n) * 1e7) / 1e7)
+              )
+            : v
+      );
+      expect(crypto.createHash("sha256").update(serialized).digest("hex")).toBe(
+        source.hash
+      );
+      expect(a.canvas.depth).toBe(0);
+    }
   );
 });
