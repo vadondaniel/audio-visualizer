@@ -58,7 +58,10 @@ mini-player selection. Migration does not save or move media-position preference
 
 Rope appends a new mode without changing older numeric indices. Its shared
 `ropeLayout` selector chooses a closed, clockwise frequency sweep or a straight
-rope with fixed ends. Each layout owns signed spring positions, velocities and
+rope with fixed ends. Circular×2/×4 alternate frequency direction across mirrored
+halves/quarters; Straight×2 mirrors about the center (bass at the ends). These are
+spatial mappings of finished bands, not additional audio processing.
+Each layout owns signed spring positions, velocities and
 copied target values; only the selected layout advances. Finished Prism-profile
 bands supply local pull targets and onset kicks. Coupled springs propagate them,
 with lighter circular coupling and greater radial travel to keep local dents visible,

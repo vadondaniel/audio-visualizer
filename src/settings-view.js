@@ -244,7 +244,10 @@
             <label for="ropeLayoutSelect">Rope layout</label>
             <select id="ropeLayoutSelect">
               <option value="circular">Circular</option>
+              <option value="circular-2">Circular×2</option>
+              <option value="circular-4">Circular×4</option>
               <option value="straight">Straight</option>
+              <option value="straight-2">Straight×2</option>
             </select>
           </div>
           <div id="cascadeFrequencyRow" class="toggleRow">

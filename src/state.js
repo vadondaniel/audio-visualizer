@@ -29,7 +29,7 @@ const state = {
   kaleidoClipEnabled: true, // kaleidoscope visual only — see drawKaleidoscope
   barsAlignment: "bottom", // "bottom" | "center"
   waveformStyle: "line", // "line" | "filled"
-  ropeLayout: "circular", // "circular" | "straight"
+  ropeLayout: "circular", // circular[-2|-4] | straight[-2]
   prismLayout: "circular", // "circular" | "straight"
   cascadeFrequencyOrder: "bass-to-treble", // "bass-to-treble" | "treble-to-bass"
   cascadeFillStyle: "dark", // "dark" | "light" | "theme"

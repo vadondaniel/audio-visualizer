@@ -40,9 +40,9 @@ runCheck(async ({ createWindow, loadRenderer, waitForPaint, artifactDir }) => {
   const sheets=[];let scenarios=0;
   for(const theme of ['Neon','White','Rainbow Cycle']){
    settingsActions.set('theme',themeIds.indexOf(theme));
-   const sheet=document.createElement('canvas');sheet.width=1280;sheet.height=700;
+   const sheet=document.createElement('canvas');sheet.width=1280;sheet.height=1750;
    const sheetCtx=sheet.getContext('2d');sheetCtx.fillStyle='#08080d';sheetCtx.fillRect(0,0,sheet.width,sheet.height);
-   for(const [row,layout]of ['circular','straight'].entries()){
+   for(const [row,layout]of ['circular','circular-2','circular-4','straight','straight-2'].entries()){
     const mode=ModeRegistry.getFactories().rope(services),target=document.createElement('canvas');target.width=target.height=320;const ctx=target.getContext('2d',{willReadFrequently:true});
     const bands=new Float64Array(96),frame={width:320,height:320,settings:{...state,ropeLayout:layout,glowIntensity:1},signals:{...signals,bands},beat:{pulse:0,justHit:false},timestampMs:0,elapsedMs:1000/240,dtSec:1/240,audioClockMs:0,mediaArt:null};
     const baseline=mode.getOverlayBounds(frame);mode.update({...frame,dtSec:0});
@@ -62,7 +62,7 @@ runCheck(async ({ createWindow, loadRenderer, waitForPaint, artifactDir }) => {
      target.width=width;target.height=height;frame.width=width;frame.height=height;frame.settings.glowIntensity=glow;
      bands.fill(1);for(let i=0;i<12;i++)mode.update(frame);mode.draw(ctx,frame);
      const bounds=mode.getRenderBounds(frame),fit=mode.getOverlayBounds(frame);
-     if(layout==='straight'){check(bounds===null&&fit===null,'Straight viewport bounds');}
+     if(layout.startsWith('straight')){check(bounds===null&&fit===null,'Straight viewport bounds');}
      else{
       check(bounds&&fit&&bounds.width>=fit.width,'Circular reusable bounds');
       const pixels=ctx.getImageData(0,0,width,height).data;let outside=0;
@@ -71,7 +71,7 @@ runCheck(async ({ createWindow, loadRenderer, waitForPaint, artifactDir }) => {
      }
      scenarios++;
     }
-    check((layout==='straight')===(baseline===null),'Layout bounds match framing');
+    check((layout.startsWith('straight'))===(baseline===null),'Layout bounds match framing');
    }
    sheets.push({theme,png:sheet.toDataURL('image/png').split(',')[1]});
   }
@@ -97,10 +97,10 @@ runCheck(async ({ createWindow, loadRenderer, waitForPaint, artifactDir }) => {
     path.join(artifactDir, "rope-controls.png"),
     (await window.webContents.capturePage()).toPNG()
   );
-  assert.equal(result.scenarios, 72);
+  assert.equal(result.scenarios, 180);
   ipcMain.removeHandler("overlay-enter");
   ipcMain.removeHandler("overlay-restore");
   console.log(
-    "PASS: Rope controls, persistence, 72 palette/glow/size bounds scenarios, deterministic pulse/rebound sheets, repeatable pixels, capped simulation, switching and trails"
+    "PASS: Rope controls, persistence, 180 palette/glow/size bounds scenarios, deterministic pulse/rebound sheets, repeatable pixels, capped simulation, switching and trails"
   );
 });

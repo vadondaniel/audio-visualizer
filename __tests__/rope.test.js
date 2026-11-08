@@ -2,6 +2,7 @@ const {
   createRopeState,
   advanceRope,
   resetRope,
+  mirrorBands,
 } = require("../src/visuals/rope");
 const { setup, canonical } = require("./helpers/mode-fixture.cjs");
 const Registry = require("../src/mode-registry"),
@@ -11,6 +12,65 @@ const Registry = require("../src/mode-registry"),
 const tuning = setup("rope").constants.VISUAL_TUNING.rope;
 const blank = () => new Float64Array(96);
 const peak = (values) => Math.max(...values.map(Math.abs));
+
+test.each([2, 4])(
+  "circular x%i alternates mirrored frequency sweeps without changing input",
+  (sections) => {
+    const bands = Float64Array.from({ length: 96 }, (_, i) => i / 95),
+      output = blank();
+    mirrorBands(bands, sections, output);
+    expect(output[0]).toBe(0);
+    expect(output[96 / sections]).toBe(1);
+    for (let i = 1; i < 96; i++)
+      expect(output[i]).toBeCloseTo(output[96 - i], 12);
+    if (sections === 4) expect(output[48]).toBe(0);
+    expect([...bands]).toEqual(Array.from({ length: 96 }, (_, i) => i / 95));
+  }
+);
+
+test("straight x2 has matching ends and a mirrored center", () => {
+  const output = blank();
+  mirrorBands(
+    Float64Array.from({ length: 96 }, (_, i) => i / 95),
+    2,
+    output,
+    false
+  );
+  expect(output[0]).toBe(0);
+  expect(output[95]).toBe(0);
+  for (let i = 0; i < 96; i++)
+    expect(output[i]).toBeCloseTo(output[95 - i], 12);
+  expect(output[47]).toBeGreaterThan(0.98);
+});
+
+test.each(["circular-2", "circular-4", "straight-2"])(
+  "%s retains its own pose, bounds and reset lifecycle",
+  (layout) => {
+    const f = setup("rope");
+    f.settings.ropeLayout = layout;
+    f.process();
+    f.frame.signals.bands = Float64Array.from({ length: 96 }, (_, i) => i / 95);
+    for (let i = 0; i < 20; i++) f.mode.update(f.frame);
+    f.mode.draw(f.canvas.ctx, f.frame);
+    const pose = canonical(f.canvas.events);
+    f.settings.ropeLayout = "circular";
+    f.mode.update(f.frame);
+    f.settings.ropeLayout = layout;
+    f.canvas.clear();
+    f.mode.draw(f.canvas.ctx, f.frame);
+    expect(canonical(f.canvas.events)).toEqual(pose);
+    expect(f.mode.getOverlayBounds(f.frame) === null).toBe(
+      layout === "straight-2"
+    );
+    f.mode.reset();
+    f.canvas.clear();
+    f.mode.draw(f.canvas.ctx, f.frame);
+    const fresh = setup("rope");
+    fresh.settings.ropeLayout = layout;
+    fresh.mode.draw(fresh.canvas.ctx, fresh.frame);
+    expect(canonical(f.canvas.events)).toEqual(canonical(fresh.canvas.events));
+  }
+);
 
 test("circular hits pull promptly and distinguish successive attacks from lingering wobble", () => {
   const run = (constants) => {
@@ -348,7 +408,13 @@ test("Rope metadata and settings extend old preferences without changing earlier
   );
   expect(Registry.get("rope").audio).toEqual(Registry.get("prism").audio);
   expect(Registry.mediaDefaults().rope).toBe("bottom-left");
-  for (const ropeLayout of ["circular", "straight"]) {
+  for (const ropeLayout of [
+    "circular",
+    "circular-2",
+    "circular-4",
+    "straight",
+    "straight-2",
+  ]) {
     expect(
       AudioMath.mergeSettings(
         { ropeLayout: "circular" },

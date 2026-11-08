@@ -8,6 +8,19 @@
   else root.ModeRegistry.registerFactory("rope", api.createMode);
 })(globalThis, function () {
   const BANDS = 96;
+  /** Alternate complete frequency sweeps around mirrored halves/quarters.
+   * @param {import('../visual-contracts').Samples} bands @param {number} sections @param {Float64Array} output @param {boolean} [closed] */
+  function mirrorBands(bands, sections, output, closed = true) {
+    for (let i = 0; i < BANDS; i++) {
+      const phase = (i * sections) / (closed ? BANDS : BANDS - 1);
+      const section = Math.floor(phase),
+        fraction = phase - section;
+      const source = (section % 2 ? 1 - fraction : fraction) * (BANDS - 1);
+      const low = Math.floor(source),
+        high = Math.min(BANDS - 1, low + 1);
+      output[i] = bands[low] + (bands[high] - bands[low]) * (source - low);
+    }
+  }
   /** @param {boolean} circular @returns {RopeState} */
   function createRopeState(circular) {
     const length = circular ? BANDS : BANDS + 2;
@@ -84,22 +97,53 @@
   function createMode(services) {
     const tuning = services.constants.VISUAL_TUNING.rope;
     const circular = createRopeState(true),
-      straight = createRopeState(false);
+      circular2 = createRopeState(true),
+      circular4 = createRopeState(true),
+      straight = createRopeState(false),
+      straight2 = createRopeState(false);
+    const mirroredBands = new Float64Array(BANDS);
+    /** @param {import('../visual-contracts').Frame} frame */
+    function selectedState(frame) {
+      switch (frame.settings.ropeLayout) {
+        case "straight":
+          return straight;
+        case "straight-2":
+          return straight2;
+        case "circular-2":
+          return circular2;
+        case "circular-4":
+          return circular4;
+        default:
+          return circular;
+      }
+    }
     const points = new Float64Array((BANDS + 2) * 2);
     const renderBounds = { x: 0, y: 0, width: 0, height: 0 },
       overlayBounds = { x: 0, y: 0, width: 0, height: 0 };
     /** @param {import('../visual-contracts').Frame} frame */
     function update(frame) {
+      const layout = frame.settings.ropeLayout;
+      const mirrored =
+        layout === "circular-2" ||
+        layout === "circular-4" ||
+        layout === "straight-2";
+      if (mirrored)
+        mirrorBands(
+          frame.signals.bands,
+          layout === "circular-4" ? 4 : 2,
+          mirroredBands,
+          layout !== "straight-2"
+        );
       advanceRope(
-        frame.settings.ropeLayout === "straight" ? straight : circular,
-        frame.signals.bands,
+        selectedState(frame),
+        mirrored ? mirroredBands : frame.signals.bands,
         frame.dtSec,
         tuning
       );
     }
     /** @param {import('../visual-contracts').Frame} frame @param {boolean} loop */
     function preparePoints(frame, loop) {
-      const values = loop ? circular.displacement : straight.displacement,
+      const values = selectedState(frame).displacement,
         size = Math.min(frame.width, frame.height);
       for (let i = 0; i < values.length; i++) {
         if (loop) {
@@ -154,7 +198,7 @@
     }
     /** @param {CanvasRenderingContext2D} ctx @param {import('../visual-contracts').Frame} frame */
     function draw(ctx, frame) {
-      const loop = frame.settings.ropeLayout !== "straight",
+      const loop = selectedState(frame).circular,
         count = preparePoints(frame, loop),
         size = Math.min(frame.width, frame.height);
       const theme = services.constants.THEMES[frame.settings.theme],
@@ -214,7 +258,7 @@
     }
     /** @param {import('../visual-contracts').Frame} frame @param {boolean} glow */
     function bounds(frame, glow) {
-      if (frame.settings.ropeLayout === "straight") return null;
+      if (!selectedState(frame).circular) return null;
       const result = glow ? renderBounds : overlayBounds,
         size = Math.min(frame.width, frame.height);
       const extent =
@@ -232,12 +276,16 @@
       draw,
       reset() {
         resetRope(circular);
+        resetRope(circular2);
+        resetRope(circular4);
         resetRope(straight);
+        resetRope(straight2);
+        mirroredBands.fill(0);
         points.fill(0);
       },
       getOverlayBounds: (frame) => bounds(frame, false),
       getRenderBounds: (frame) => bounds(frame, true),
     };
   }
-  return { createMode, createRopeState, advanceRope, resetRope };
+  return { createMode, createRopeState, advanceRope, resetRope, mirrorBands };
 });

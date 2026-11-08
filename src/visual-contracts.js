@@ -22,7 +22,7 @@
  * @property {number} glowIntensity
  * @property {'bottom'|'center'} barsAlignment
  * @property {'mirrored'|'full'} radialMode
- * @property {'circular'|'straight'} ropeLayout
+ * @property {'circular'|'circular-2'|'circular-4'|'straight'|'straight-2'} ropeLayout
  * @property {'circular'|'straight'} prismLayout
  * @property {'line'|'filled'} waveformStyle
  * @property {boolean} kaleidoClipEnabled

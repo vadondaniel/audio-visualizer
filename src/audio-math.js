@@ -215,7 +215,15 @@
       state.waveformStyle = saved.waveformStyle;
     if (["circular", "straight"].includes(saved.prismLayout))
       state.prismLayout = saved.prismLayout;
-    if (["circular", "straight"].includes(saved.ropeLayout))
+    if (
+      [
+        "circular",
+        "circular-2",
+        "circular-4",
+        "straight",
+        "straight-2",
+      ].includes(saved.ropeLayout)
+    )
       state.ropeLayout = saved.ropeLayout;
     if (
       saved.cascadeFrequencyOrder === "bass-to-treble" ||
